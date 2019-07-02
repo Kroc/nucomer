@@ -1,0 +1,7 @@
+
+!source "c64/c64.acme"
+
+!source "boot_basic.acme"
+!source "interrupts.acme"
+!source "init.acme"
+!source "logo.acme"

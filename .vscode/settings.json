@@ -1,0 +1,26 @@
+{
+    "editor.wordWrap": "off",
+    "editor.wordWrapColumn": 80,
+    "editor.rulers": [
+        80
+    ],
+    "[markdown]": {
+        "editor.wordWrap": "wordWrapColumn",
+        "editor.wordWrapColumn": 60,
+        "editor.rulers": [
+            40,
+            60
+        ]
+    },
+    "search.exclude": {
+        "bin": true,
+        "build": true,
+    },
+    // the TODO-tree extension is recommended for finding the TODOs scattered in the code
+    "todo-tree.excludeGlobs": [
+        // exclude any source that might be in our 3rd-party binaries folder
+        "bin",
+        // these folders contain generated content
+        "build",
+    ],
+}

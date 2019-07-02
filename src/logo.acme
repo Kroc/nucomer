@@ -1,0 +1,184 @@
+logo_title:
+        !scr "camen design", 0
+
+logo_screen:
+        ;=======================================================================
+        ; clear screen:
+        ;-----------------------------------------------------------------------
+        ; turn the screen off whilst we clear it
+        lda # %00001000
+        sta VIC_SCREEN_CTL1
+
+        ; set screen colour
+        lda # ORANGE
+        sta VIC_BORDER
+        sta VIC_BACKGROUND
+
+        ; set screen at $0400,
+        ; character set at +$1800 (lower-case)
+        lda # %00010111
+        sta VIC_LAYOUT
+
+        ; erase the text-screen
+        lda # ' '               ; clear with space char
+        ldx # $00               ; beginning offset
+
+        ; write four 256-byte strips simultaneously
+        ; so that we don't have to deal with nested loops
+-       sta $0400 + $000, x
+        sta $0400 + $100, x
+        sta $0400 + $200, x
+        sta $0400 + $300, x
+        dex
+        bne -
+
+        ; configure sprites:
+        ;-----------------------------------------------------------------------
+        ; set colours
+        lda # WHITE
+        sta VIC_SPRITE0_COLOR
+        sta VIC_SPRITE1_COLOR
+
+        ; select which sprite images to show
+        lda # (eye_left / 64)
+        sta $0400 + VIC_SPRITE0_PTR
+        lda # (eye_right / 64)
+        sta $0400 + VIC_SPRITE1_PTR
+
+        ; set Y-position
+        ; (slight split between the two)
+        lda # (256 - 24) / 2
+        tay
+        dey
+        sta VIC_SPRITE0_Y
+        sty VIC_SPRITE1_Y
+        
+        ; no X-positions > 256
+        lda # %00000000
+        sta VIC_SPRITES_X
+        
+        ; set X-positions
+        lda # 8 + (320 / 2) - (21 / 2) - 4
+        sta VIC_SPRITE0_X
+        lda # 8 + (320 / 2) + (21 / 2) + 2
+        sta VIC_SPRITE1_X
+
+        ; sprites configured, turn on
+        lda # %00000011
+        sta VIC_SPRITE_ENABLE
+
+        ; print message
+        ldx # $00               ; string index
+-       lda logo_title, x       ; read a character
+        beq +                   ; if null terminator, exit
+        ; write the screen code
+        sta $0400 + (12 * 40) + 14, x
+        ; set the character colour in colour RAM
+        lda # WHITE
+        sta $D800 + (12 * 40) + 14, x
+        inx
+        bne -                   ; (always branches)
++
+        ; turn screen on
+        lda # %00011011
+        sta VIC_SCREEN_CTL1
+
+        ;-----------------------------------------------------------------------
+        ; wait for a couple of seconds
+        ldx # 100
+        jsr wait_frames
+
+        ; fade out
+        ;-----------------------------------------------------------------------
+        ldy # 5
+
+@fadeout:
+        lda fadeout_colours, y
+
+        ; colour the sprites and text
+        sta VIC_SPRITE0_COLOR
+        sta VIC_SPRITE1_COLOR
+        ldx # 12
+-       dex
+        sta $D800 + (12 * 40) + 14, x
+        bpl -
+
+        ldx # 4
+        jsr wait_frames
+
+        dey
+        bpl @fadeout
+
+        ; logo screen complete
+        rts
+
+fadeout_colours:
+        !byte   ORANGE, YELLOW, LTRED, CYAN, LTGREY, LTGREEN
+
+sprites:
+;===============================================================================
+!align  63, 0
+
+!macro  spriteBits .v {
+        !byte .v >> 16, (.v >> 8) & 255, .v & 255
+}
+
+; TODO: these to be compressed
+;
+; the camen design logo
+; copyright (c) Kroc Camen
+;
+eye_left:
+;-------------------------------------------------------------------------------
+        ;            765432107654321076543210
+        +spriteBits %...................##...
+        +spriteBits %................####....
+        +spriteBits %..............#####.....
+        +spriteBits %............#######.....
+        +spriteBits %..........########......
+        +spriteBits %.........#########......
+        +spriteBits %........##########......
+        +spriteBits %.......##########.......
+        +spriteBits %......###########.......
+        +spriteBits %.....############.......
+        +spriteBits %....#############.......
+        +spriteBits %...##############.......
+        +spriteBits %...###############......
+        +spriteBits %..################......
+        +spriteBits %..################......
+        +spriteBits %.##################.....
+        +spriteBits %..#################.....
+        +spriteBits %...#################....
+        +spriteBits %.....################...
+        +spriteBits %........##############..
+        +spriteBits %............############
+        !byte 0                 ; pad to 64-byte block
+
+eye_right:
+;-------------------------------------------------------------------------------
+        ; TODO: this is a mirrored and flipped copy of above
+        ;       we could do this at runtime
+        ;
+        ;            765432107654321076543210
+        +spriteBits %############............
+        +spriteBits %..##############........
+        +spriteBits %...################.....
+        +spriteBits %....#################...
+        +spriteBits %.....#################..
+        +spriteBits %.....##################.
+        +spriteBits %......################..
+        +spriteBits %......################..
+        +spriteBits %......###############...
+        +spriteBits %.......##############...
+        +spriteBits %.......#############....
+        +spriteBits %.......############.....
+        +spriteBits %.......###########......
+        +spriteBits %.......##########.......
+        +spriteBits %......##########........
+        +spriteBits %......#########.........
+        +spriteBits %......########..........
+        +spriteBits %.....#######............
+        +spriteBits %.....#####..............
+        +spriteBits %....####................
+        +spriteBits %...##...................
+        !byte 0                 ; pad to 64-byte block
