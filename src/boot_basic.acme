@@ -1,4 +1,8 @@
 
+; this is a BASIC bootstrap for auto-starting a machine-language program
+; from disk or tape. it's a simple 1-line BASIC program that automatically
+; jumps to the machine language code at the label `init`
+
 * = $0801
 
 basic:

@@ -2,3 +2,6 @@
 # (used to hide stuff from the repository)
 __*
 **/__*
+
+# don't include the generated files in "build"
+build/**

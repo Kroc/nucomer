@@ -1,5 +1,13 @@
-logo_title:
-        !scr "camen design", 0
+; screen row where the logo text should appear
+.LOGO_TEXT_ROW  = 12
+
+; 'final' X-positions of the logo halves
+.EYE_LEFT_XPOS  = 8 + (320 / 2) - (21 / 2) - 4
+.EYE_RIGHT_XPOS = 8 + (320 / 2) + (21 / 2) + 2
+
+; 'final' Y-positions of the logo halves
+.EYE_LEFT_YPOS  = (256 - 24) / 2
+.EYE_RIGHT_YPOS = ((256 - 24) / 2) - 1
 
 logo_screen:
         ;=======================================================================
@@ -45,45 +53,39 @@ logo_screen:
         lda # (eye_right / 64)
         sta $0400 + VIC_SPRITE1_PTR
 
-        ; set Y-position
-        ; (slight split between the two)
-        lda # (256 - 24) / 2
-        tay
-        dey
-        sta VIC_SPRITE0_Y
-        sty VIC_SPRITE1_Y
-        
-        ; no X-positions > 256
-        lda # %00000000
-        sta VIC_SPRITES_X
-        
-        ; set X-positions
-        lda # 8 + (320 / 2) - (21 / 2) - 4
-        sta VIC_SPRITE0_X
-        lda # 8 + (320 / 2) + (21 / 2) + 2
-        sta VIC_SPRITE1_X
+        ; set sprites to appear behind text
+        lda # %11111111
+        sta VIC_SPRITE_PRIORITY
 
-        ; sprites configured, turn on
+        ; draw the initial layout of logo text and sprites
+        ; (this will set sprite X/Y positions and colours)
+        ldx # 12
+        lda # ORANGE
+        jsr draw_logo
+
+        ; sprites configured, turn them on
         lda # %00000011
         sta VIC_SPRITE_ENABLE
 
-        ; print message
-        ldx # $00               ; string index
--       lda logo_title, x       ; read a character
-        beq +                   ; if null terminator, exit
-        ; write the screen code
-        sta $0400 + (12 * 40) + 14, x
-        ; set the character colour in colour RAM
-        lda # WHITE
-        sta $D800 + (12 * 40) + 14, x
-        inx
-        bne -                   ; (always branches)
-+
         ; turn screen on
         lda # %00011011
         sta VIC_SCREEN_CTL1
 
         ;-----------------------------------------------------------------------
+        ldx # 12
+        lda # YELLOW
+        jsr animate_logo
+        ldx # 6
+        jsr animate_logo
+        ldx # 3
+        lda # LTGREEN
+        jsr animate_logo
+        ldx # 1
+        jsr animate_logo
+        ldx # 0
+        lda # WHITE
+        jsr animate_logo
+
         ; wait for a couple of seconds
         ldx # 100
         jsr wait_frames
@@ -100,7 +102,7 @@ logo_screen:
         sta VIC_SPRITE1_COLOR
         ldx # 12
 -       dex
-        sta $D800 + (12 * 40) + 14, x
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 14, x
         bpl -
 
         ldx # 4
@@ -110,10 +112,144 @@ logo_screen:
         bpl @fadeout
 
         ; logo screen complete
+        jmp logo_screen
         rts
 
 fadeout_colours:
-        !byte   ORANGE, YELLOW, LTRED, CYAN, LTGREY, LTGREEN
+        !byte   ORANGE, LTRED, YELLOW, LTGREEN, LTGREEN, LTGREY
+
+animate_logo:
+        ;-----------------------------------------------------------------------
+        pha
+        jsr draw_logo
+        
+        ldx # 3
+        jsr wait_frames
+        
+        pla
+        rts
+        
+draw_logo:
+        ;-----------------------------------------------------------------------
+        ; the "camen design" text is centred on the logo at column 20.
+        ; it's animated into place as two separate words
+        ;
+        ;       A = colour of text / sprites
+        ;       X = offset that pushes the logo apart in the middle
+        ;           (for the animation) must be between 0 - 12
+        ;
+        ; set the sprite colours first as this is very cheap to do
+        sta VIC_SPRITE0_COLOR
+        sta VIC_SPRITE1_COLOR
+
+        ; set the colour for the text which has to be written to colour RAM.
+        ; because the logo text "design" shifts to the right, we can address
+        ; these colour cells directly. ("camen" shifts left, so does not map
+        ; to the original incomming X value)
+        ;
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 20, x       ; "d"
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 21, x       ; "e"
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 22, x       ; "s"
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 23, x       ; "i"
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 24, x       ; "g"
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 25, x       ; "n"
+        
+        pha                     ; put aside colour value
+
+        ; clear the whole text row. this is so that you don't
+        ; get left-behind characters from previous frames
+        ldy # 39
+-       lda # ' '
+        sta $0400 + (.LOGO_TEXT_ROW * 40), y
+        dey
+        bpl -
+
+        ; the right-hand side is written first
+        ; as the given offset pushes rightward
+        ; (note: use screen codes for these values)
+!ct scr {
+        lda # 'd'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 20, x
+        lda # 'e'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 21, x
+        lda # 's'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 22, x
+        lda # 'i'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 23, x
+        lda # 'g'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 24, x
+        lda # 'n'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 25, x
+}
+        ; for the logo halves, there is a lesser amount of separation on the
+        ; Y-axis than the X-axis so we set the left-eye's Y-position here based
+        ; upon the canonical separation distance -- the X-spread is scaled up
+        txa
+        tay                     ; (put aside the original separation distance)
+        clc
+        adc # .EYE_LEFT_YPOS
+        sta VIC_SPRITE0_Y
+
+        ; the right-hand eye moves the opposite direction so we have to
+        ; subtract the separation distance from the 'final' Y-position,
+        ; we write this distance into the subtract instruction below
+        stx @ypos+1
+        lda # .EYE_RIGHT_YPOS
+        sec
+@ypos   sbc # $88
+        sta VIC_SPRITE1_Y
+
+        ; now handle the left-hand logo text
+        stx @left+1
+        lda # 12
+        sec
+@left   sbc # $88
+        tax
+
+        ; (note: use screen codes for these values)
+!ct scr {
+        lda # 'c'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 2, x
+        lda # 'a'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 3, x
+        lda # 'm'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 4, x
+        lda # 'e'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 5, x
+        lda # 'n'
+        sta $0400 + (.LOGO_TEXT_ROW * 40) + 6, x
+}
+        ; and apply the colour:
+        pla                     ; retrieve colour value
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 2, x        ; "c"
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 3, x        ; "a"
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 4, x        ; "m"
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 5, x        ; "e"
+        sta $D800 + (.LOGO_TEXT_ROW * 40) + 6, x        ; "n"
+
+        ; multiply up the separation distance to
+        ; better work for sprite pixel X co-ordinates
+        ;
+        tya                     ; retrieve original distance from earlier
+        asl                     ; x2
+        asl                     ; x4
+        tax
+
+        ; position the halves of the logo according to the distance given.
+        ; first the left eye must have the given distance subtracted so we
+        ; write this into the subtract instruction below
+        sta @xpos+1
+        clc
+        lda # .EYE_LEFT_XPOS    ; the intended final position
+@xpos   sbc # $88               ; subtract the offset
+        sta VIC_SPRITE0_X       ; position the left-eye
+
+        txa
+        clc
+        adc #.EYE_RIGHT_XPOS    ; only need to add the indent for the right eye
+        sta VIC_SPRITE1_X       ; position the right-eye
+
+        rts
 
 sprites:
 ;===============================================================================
