@@ -5,3 +5,4 @@
 !source "interrupts.acme"
 !source "init.acme"
 !source "logo.acme"
+!source "menu.acme"

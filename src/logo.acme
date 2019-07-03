@@ -2,12 +2,19 @@
 .LOGO_TEXT_ROW  = 12
 
 ; 'final' X-positions of the logo halves
-.EYE_LEFT_XPOS  = 8 + (320 / 2) - (21 / 2) - 4
+.EYE_LEFT_XPOS  = 8 + (320 / 2) - (21 / 2) - 3
 .EYE_RIGHT_XPOS = 8 + (320 / 2) + (21 / 2) + 2
 
 ; 'final' Y-positions of the logo halves
 .EYE_LEFT_YPOS  = (256 - 24) / 2
 .EYE_RIGHT_YPOS = ((256 - 24) / 2) - 1
+
+; starting position of the eye-lid.
+; note that it's a double-wide sprite
+.EYE_LID1_XPOS  = .EYE_LEFT_XPOS
+.EYE_LID1_YPOS  = .EYE_LEFT_YPOS - 24
+.EYE_LID2_XPOS  = .EYE_LEFT_XPOS
+.EYE_LID2_YPOS  = .EYE_LEFT_YPOS - 24 - 21
 
 logo_screen:
         ;=======================================================================
@@ -43,19 +50,34 @@ logo_screen:
         ; configure sprites:
         ;-----------------------------------------------------------------------
         ; set colours
+        lda # ORANGE            ; the eye-lid masks the eye,
+        sta VIC_SPRITE0_COLOR   ; so has to match the background colour
+        STA VIC_SPRITE1_COLOR
         lda # WHITE
-        sta VIC_SPRITE0_COLOR
-        sta VIC_SPRITE1_COLOR
+        sta VIC_SPRITE2_COLOR
+        sta VIC_SPRITE3_COLOR
 
         ; select which sprite images to show
-        lda # (eye_left / 64)
+        lda # (eye_lid1 / 64)
         sta $0400 + VIC_SPRITE0_PTR
-        lda # (eye_right / 64)
+        lda # (eye_lid2 / 64)
         sta $0400 + VIC_SPRITE1_PTR
-
+        lda # (eye_left / 64)
+        sta $0400 + VIC_SPRITE2_PTR
+        lda # (eye_right / 64)
+        sta $0400 + VIC_SPRITE3_PTR
+        
         ; set sprites to appear behind text
         lda # %11111111
         sta VIC_SPRITE_PRIORITY
+        
+        ; set sprite stretching;
+        ; the eye-lid sprites are double-width
+        lda # %00000011
+        sta VIC_SPRITE_DBLWIDTH
+
+        ; position the eye-lid sprites
+        jsr draw_eyelid
 
         ; draw the initial layout of logo text and sprites
         ; (this will set sprite X/Y positions and colours)
@@ -64,7 +86,7 @@ logo_screen:
         jsr draw_logo
 
         ; sprites configured, turn them on
-        lda # %00000011
+        lda # %00001111
         sta VIC_SPRITE_ENABLE
 
         ; turn screen on
@@ -86,37 +108,57 @@ logo_screen:
         lda # WHITE
         jsr animate_logo
 
-        ; wait for a couple of seconds
-        ldx # 100
+        ; wait a moment
+        ldx # 30
+        jsr wait_frames
+
+        ; blink the eye:
+        ; (note X is 0 due to above count-down)
+-       jsr draw_eyelid         ; position the eye-lid (begins with frame 0)
+        jsr wait_frame
+        inx
+        cpx # 9                 ; reached max. number of frames?
+        bcc -                   ; no, keep going
+
+        ; now open the eye-lid
+-       jsr draw_eyelid
+        jsr wait_frame
+        jsr wait_frame
+        dex
+        bpl -
+        jsr draw_eyelid         ; update for frame 0 at the drop-out
+
+        ; wait a moment
+        ldx # 25
         jsr wait_frames
 
         ; fade out
         ;-----------------------------------------------------------------------
         ldy # 5
 
-@fadeout:
-        lda fadeout_colours, y
+@fade   lda fadeout_colours, y
 
         ; colour the sprites and text
-        sta VIC_SPRITE0_COLOR
-        sta VIC_SPRITE1_COLOR
+        sta VIC_SPRITE2_COLOR
+        sta VIC_SPRITE3_COLOR
         ldx # 12
 -       dex
         sta $D800 + (.LOGO_TEXT_ROW * 40) + 14, x
         bpl -
 
-        ldx # 4
+        ldx # 3
         jsr wait_frames
 
         dey
-        bpl @fadeout
+        bpl @fade
 
         ; logo screen complete
+        ;-----------------------------------------------------------------------
         jmp logo_screen
         rts
 
 fadeout_colours:
-        !byte   ORANGE, LTRED, YELLOW, LTGREEN, LTGREEN, LTGREY
+        !byte   ORANGE, PURPLE, GREY, YELLOW, YELLOW, LTGREEN
 
 animate_logo:
         ;-----------------------------------------------------------------------
@@ -139,8 +181,8 @@ draw_logo:
         ;           (for the animation) must be between 0 - 12
         ;
         ; set the sprite colours first as this is very cheap to do
-        sta VIC_SPRITE0_COLOR
-        sta VIC_SPRITE1_COLOR
+        sta VIC_SPRITE2_COLOR
+        sta VIC_SPRITE3_COLOR
 
         ; set the colour for the text which has to be written to colour RAM.
         ; because the logo text "design" shifts to the right, we can address
@@ -188,7 +230,7 @@ draw_logo:
         tay                     ; (put aside the original separation distance)
         clc
         adc # .EYE_LEFT_YPOS
-        sta VIC_SPRITE0_Y
+        sta VIC_SPRITE2_Y
 
         ; the right-hand eye moves the opposite direction so we have to
         ; subtract the separation distance from the 'final' Y-position,
@@ -197,7 +239,7 @@ draw_logo:
         lda # .EYE_RIGHT_YPOS
         sec
 @ypos   sbc # $88
-        sta VIC_SPRITE1_Y
+        sta VIC_SPRITE3_Y
 
         ; now handle the left-hand logo text
         stx @left+1
@@ -242,14 +284,43 @@ draw_logo:
         clc
         lda # .EYE_LEFT_XPOS    ; the intended final position
 @xpos   sbc # $88               ; subtract the offset
-        sta VIC_SPRITE0_X       ; position the left-eye
+        sta VIC_SPRITE2_X       ; position the left-eye
 
         txa
         clc
         adc #.EYE_RIGHT_XPOS    ; only need to add the indent for the right eye
-        sta VIC_SPRITE1_X       ; position the right-eye
+        sta VIC_SPRITE3_X       ; position the right-eye
 
         rts
+
+draw_eyelid:
+        ;-----------------------------------------------------------------------
+        ; position the eye-lid over the eye:
+        ;
+        ;       X = frame index for blinking:
+        ;           0 = open, 9 = closed
+        ;
+        lda .frames, x
+        tay
+        clc
+        adc # .EYE_LID1_YPOS
+        sta VIC_SPRITE0_Y
+        tya
+        clc
+        adc # .EYE_LID2_YPOS
+        sta VIC_SPRITE1_Y
+
+        ; set X-positions
+        ; (needed during initialisation)
+        lda # .EYE_LID1_XPOS
+        sta VIC_SPRITE0_X
+        lda # .EYE_LID2_XPOS
+        sta VIC_SPRITE1_X
+        
+        rts
+
+.frames:
+        !byte   0, 1, 2, 4, 7, 11, 16, 22, 29, 32
 
 sprites:
 ;===============================================================================
@@ -317,4 +388,56 @@ eye_right:
         +spriteBits %.....#####..............
         +spriteBits %....####................
         +spriteBits %...##...................
+        !byte 0                 ; pad to 64-byte block
+
+eye_lid1:
+;-------------------------------------------------------------------------------
+        ;            765432107654321076543210
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %#######################.
+        +spriteBits %######################..
+        +spriteBits %#####################...
+        +spriteBits %####################....
+        +spriteBits %##################......
+        +spriteBits %################........
+        +spriteBits %##############..........
+        +spriteBits %############............
+        +spriteBits %#########...............
+        +spriteBits %#####...................
+        !byte 0                 ; pad to 64-byte block
+
+eye_lid2:
+;-------------------------------------------------------------------------------
+        ;            765432107654321076543210
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
+        +spriteBits %########################
         !byte 0                 ; pad to 64-byte block

@@ -1,7 +1,7 @@
 @ECHO OFF
 CLS & TITLE Building Nucomer...
 ::==============================================================================
-PUSHD %~dp0
+CD %~dp0
 
 SET ACME="bin\acme\acme.exe" ^
     --format cbm ^
@@ -11,6 +11,6 @@ SET ACME="bin\acme\acme.exe" ^
 
 %ACME% ^
     --outfile   "build\nucomer.prg" ^
-                "src\main.acme"
+                "src\nucomer.acme"
 
-POPD
+IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
