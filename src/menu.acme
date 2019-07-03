@@ -2,6 +2,68 @@
 
 menu_screen:
 ;===============================================================================
+        ; turn the screen off whilst we clear it
+        lda # %00001000
+        sta VIC_SCREEN_CTL1
+        
+        ; set screen colour
+        lda # BLACK
+        sta VIC_BORDER
+        lda # LTGREY
+        sta VIC_BACKGROUND
 
+        ; erase the text-screen
+        lda # BLACK
+        jsr clear_screen
 
-rts
+        ; write the logo
+        ldx # (40 * 3) - 1
+-       lda petscii_logo, x
+        ;;sta $0400 + (25 * 40) - (3 * 40), x
+        sta $0400, x
+        dex
+        bpl -
+
+        ldx # 39
+        lda # $63
+-       sta $0400 + (3 * 40), x
+        dex
+        bpl -
+
+        ; turn screen on
+        lda # %00011011
+        sta VIC_SCREEN_CTL1
+
+PAGE_X  = 1
+PAGE_Y  = 4
+
+       +print_str_at    PAGE_Y + 1, PAGE_X,   thorne
+       +print_str_pos   item01
+
+        lda # DKGREY
+        sta ZP_COLOR
+       +print_str_pos   item02
+       +print_str_pos   item03
+       
+        jmp *
+        rts
+
+petscii_logo:
+;===============================================================================
+!ct "build/petscii_font.ct" {
+        !text " ---- =  = ---- ---- ----- ---- ----    "
+        !text " #  # #  # #    #  # # # # #___ #       "
+        !text " #  # #__# #___ #__# # # # #___ #       "
+}
+
+thorne:
+        !scr    $db, 0
+item01:
+        !byte   PAGE_Y + 1, PAGE_X + 2
+        !scr    "Editorial", 0
+item02:
+        !byte   PAGE_Y + 3, PAGE_X + 2
+        !scr    "Why 8-bit?", 0
+item03:
+        !byte   PAGE_Y + 5, PAGE_X + 2
+        !scr    "The outfit", 0

@@ -1,0 +1,208 @@
+
+;===============================================================================
+; clear the text screen
+;
+clear_screen:
+
+        sta @colour+1           ; set colour to use
+        ldx # $00               ; beginning offset
+
+        ; write four 256-byte strips simultaneously
+        ; so that we don't have to deal with nested loops
+-       lda # ' '               ; clear with space char
+        sta $0400 + $000, x
+        sta $0400 + $100, x
+        sta $0400 + $200, x
+        sta $0400 + $300, x
+@colour lda # $88
+        sta $D800 + $000, x
+        sta $D800 + $100, x
+        sta $D800 + $200, x
+        sta $D800 + $300, x
+        dex
+        bne -
+
+        rts
+
+ZP_COLOR        = $02
+
+;===============================================================================
+; print a null-terminated string, where the first two
+; bytes are the row & col at which to begin printing:
+;
+;       A = string address, lo-byte
+;       X = string address, hi-byte
+;
+print_str_pos:
+
+        ; read the row & col:
+        ;-----------------------------------------------------------------------
+        sta $d1                 ; store address lo-byte for string reading
+        clc
+        adc # 2                 ; move string start point over the row+col
+        sta @from+1
+
+        stx $d2
+        txa
+        adc # 0
+        sta @from+2
+
+        ldy # 0
+        lda ($d1), y            ; read the row
+        tax                     ; X = row
+        iny
+        lda ($d1), y            ; A = col
+
+@screen
+        clc                     ; add the col to the row lo-addr
+        adc screen_rows_lo, x   ; carry set if row-addr+col > $FF
+        sta @to+1               ; write addr lo-byte into the print routine!
+        tay                     ; we need to reuse this lo-addr for colour RAM
+
+        lda screen_rows_hi, x   ; read the row-addr hi-byte
+        adc # 0                 ; add the carry if the col caused overflow
+        sta @to+2               ; write addr hi-byte into the print routine!
+
+        adc # $d8 - >$0400      ; offset from screen RAM to colour RAM
+        sta @color+2            ; write the hi-byte into the print routine!
+        tya                     ; retrieve our addr lo-byte
+        sta @color+1            ; write the lo-byte into the print routine!
+
+        ; print the string:
+        ;-----------------------------------------------------------------------
+        ldy # 0
+@from   lda .invalid, y
+        beq +                   ; terminator? exit!
+@to     sta $0400, y
+        iny
+        ; if the string reaches 256 length (the increment rolls
+        ; over from $FF to $00), then it will stop printing
+        bne @from
+
+        ; only if the string length went over 255 will code flow drop to here
+        ; (the null-terminator jumps over this bit). an overflowed Y index of 0
+        ; will cause the pre-decrement loop described below to fail, unless we
+        ; can skip the pre-decrement! the following byte is an opcode for `bit`
+        ; with an 8-bit parameter which causes the next instruction to become a
+        ; meaningless `bit $??` instruction. this then skips the pre-decrement,
+        ; fixing the colour loop specifically for the overflow case
+        !byte   $24
+
+        ; a 'branch on not zero' will cause the first character to be skipped,
+        ; so we use a pre-decrement loop where the colour is applied *after*
+        ; having decremented Y, so that the 0 index gets included
+        ; -- we have to add 1 to Y to begin this
++       iny
+
+        lda ZP_COLOR            ; get the colour for the text
+
+        ; the Y register contains the number of characters written,
+        ; we can now rewind this to quickly apply the colour
+-       dey
+@color  sta $d800, y
+        bne -
+
+        rts
+
+.invalid
+        !scr "invalid string!", 0
+
+;===============================================================================
+; print a null-terminated string:
+;
+;       A = string address, lo-byte
+;       X = string address, hi-byte
+;
+; `set_crsr` must be called beforehand to set the screen address
+; to print at which is encoded directly into this routine
+;
+print_str:
+        sta print_str__from+1
+        stx print_str__from+2
+
+        ldy # 0
+print_str__from:
+        lda $8888, y
+        beq +
+print_str__to:
+        sta $0400, y
+        iny
+        bne print_str__from
+
++       rts
+
+;===============================================================================
+; given a row+col, returns the corresponding screen address
+;
+;       Y = row
+;       X = col
+;
+; returns:
+;       X = screen address lo-byte
+;       Y = screen address hi-byte
+;
+get_crsr:
+        txa                     ; begin by taking the column (0-40)
+        clc
+        adc screen_rows_lo, y   ; add the screen low-address for that row
+        tax                     ; store that in X. note that carry might be set
+        lda screen_rows_hi, y   ; get the high-address for that row
+        adc # 0                 ; if row+col overflow, increase the page number
+        tay                     ; put the addr hi-byte in Y
+
+        rts
+
+;===============================================================================
+; sets the screen address before printing:
+;
+;       Y = row
+;       X = col
+;
+set_crsr:
+
+        txa
+        clc
+        adc screen_rows_lo, y
+        sta print_str__to+1
+        lda screen_rows_hi, y
+        adc # 0
+        sta print_str__to+2
+
+        rts
+
+!macro  ldaddr          .addr {
+        ldx #> .addr
+        lda #< .addr
+}
+
+!macro  print_str       .str_addr {
+       +ldaddr .str_addr
+        jsr print_str
+}
+
+!macro  print_str_pos   .str_addr {
+       +ldaddr .str_addr
+        jsr print_str_pos
+}
+
+!macro  print_str_at    .row, .col, .str_addr {
+        
+        ldy # .row
+        ldx # .col
+        jsr set_crsr
+
+       +print_str .str_addr
+}
+
+screen_rows:
+;===============================================================================
+screen_rows_lo:
+;-------------------------------------------------------------------------------
+!for    row, 0, 24 {
+        !byte   <($0400 + (row * 40))
+}
+screen_rows_hi:
+;-------------------------------------------------------------------------------
+!for    row, 0, 24 {
+        !byte   >($0400 + (row * 40))
+}

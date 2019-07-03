@@ -1,10 +1,11 @@
 
 init:
-    ;===========================================================================
-    jsr setup_interrupts
-    jsr logo_screen
+;===============================================================================
+        jsr setup_interrupts
+        jsr logo_screen
 
-    jsr menu_screen
-    
-    ; halt and catch fire
-    jmp *
+        jsr menu_screen
+
+        ; halt and catch fire
+        jmp *
+
