@@ -1,20 +1,30 @@
 ; no load address
 !to "build/petscii_font.ct", plain
 
-        ; pc = table index
-        * = 0
-        ; first create "as-is" table
-        !for i, 0, 255 {
-                !byte i
-        }
+; pc = table index
+* = 0
+
+; first create "as-is" table
+!for i, 0, 255 {
+        !byte   i
+}
+
+* = 32, overlay         ; ' '
+
+        !byte $64               ; inverted = $e4
+
+* = 35, overlay         ; '#'
+
+        !byte $f7               ; inverted = $77
+
+* = 45, overlay         ; '-'
+
+        !byte $79               ; inverted = $f9
+
+* = 61, overlay         ; '='
+
+        !byte $c0               ; inverted = $40
+
+* = 95, overlay         ; '_'
         
-        * = 32, overlay         ; ' '
-        !byte $e4; $64
-        * = 35, overlay         ; '#'
-        !byte $77; $f7
-        * = 45, overlay         ; '-'
-        !byte $f9; $79
-        * = 61, overlay         ; '='
-        !byte $40; $c0
-        * = 95, overlay         ; '_'
-        !byte $ef; $6f
+        !byte $6f               ; inverted = $ef

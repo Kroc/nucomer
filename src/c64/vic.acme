@@ -65,7 +65,7 @@ VIC_SCREEN_CTL2                 = $d016
 VIC_SCREEN_VERT                 = $d011 ; vertical scroll offset (bits 0-2)
 VIC_SCREEN_HORZ                 = $d016 ; horizontal scroll offset (bits 0-2)
 
-VIC_RASTER                      = $d012
+VIC_SCANLINE                    = $d012
 
 VIC_LIGHT_X                     = $d013
 VIC_LIGHT_Y                     = $d014

@@ -24,7 +24,7 @@ clear_screen:
 
         rts
 
-ZP_COLOR        = $02
+ZP_COLOR        = $ff
 
 ;===============================================================================
 ; print a null-terminated string, where the first two
@@ -79,25 +79,15 @@ print_str_pos:
         ; over from $FF to $00), then it will stop printing
         bne @from
 
-        ; only if the string length went over 255 will code flow drop to here
-        ; (the null-terminator jumps over this bit). an overflowed Y index of 0
-        ; will cause the pre-decrement loop described below to fail, unless we
-        ; can skip the pre-decrement! the following byte is an opcode for `bit`
-        ; with an 8-bit parameter which causes the next instruction to become a
-        ; meaningless `bit $??` instruction. this then skips the pre-decrement,
-        ; fixing the colour loop specifically for the overflow case
-        !byte   $24
-
-        ; a 'branch on not zero' will cause the first character to be skipped,
-        ; so we use a pre-decrement loop where the colour is applied *after*
-        ; having decremented Y, so that the 0 index gets included
-        ; -- we have to add 1 to Y to begin this
-+       iny
-
-        lda ZP_COLOR            ; get the colour for the text
++       lda ZP_COLOR            ; get the colour for the text
 
         ; the Y register contains the number of characters written,
         ; we can now rewind this to quickly apply the colour
+        ;
+        ; a 'branch on not zero' will cause the first character to be skipped,
+        ; so we use a pre-decrement loop where the colour is applied *after*
+        ; having decremented Y, so that the 0 index gets included
+        ;
 -       dey
 @color  sta $d800, y
         bne -
@@ -105,7 +95,7 @@ print_str_pos:
         rts
 
 .invalid
-        !scr "invalid string!", 0
+        !scr    "invalid string!", 0
 
 ;===============================================================================
 ; print a null-terminated string:

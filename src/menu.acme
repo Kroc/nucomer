@@ -1,39 +1,73 @@
 ; the main menu page, i.e. the front-page / directory of the magazine
 
-menu_screen:
+; theme colours
+MENU_BORDER     = BLACK
+MENU_FORE       = BLACK
+MENU_BACK       = LTGREY
+
+; table of interrupts to use for the menu screen:
+;
+menu_irqs:
+       +irqs_table_item menu_irq_bottom,        SCANLINE_VBLANK_BEGIN + 1
+       +irqs_table_item menu_irq_top,           SCANLINE_VBLANK_END + (3 * 8)
+
+menu_irq_top:
+        lda # MENU_BACK
+        sta VIC_BACKGROUND
+        rts
+
+menu_irq_bottom:
+        lda # MENU_BORDER
+        sta VIC_BACKGROUND
+        rts
+
 ;===============================================================================
+menu_screen:
+        ; setup the screen:
+        ;-----------------------------------------------------------------------
         ; turn the screen off whilst we clear it
         lda # %00001000
         sta VIC_SCREEN_CTL1
         
+        ; set our own interrupt handlers
+        ; A = address of IRQ table, lo-byte
+        ; X = address of IRQ table, hi-byte
+        ; Y = number of entries in the table (1-based)
+        ;
+        lda #< menu_irqs
+        ldx #> menu_irqs
+        ldy # 2
+        jsr irqs_load
+
         ; set screen colour
-        lda # BLACK
+        lda # MENU_BORDER
         sta VIC_BORDER
-        lda # LTGREY
+        lda # MENU_BACK
         sta VIC_BACKGROUND
 
         ; erase the text-screen
-        lda # BLACK
+        lda # MENU_FORE
         jsr clear_screen
 
         ; write the logo
-        ldx # (40 * 3) - 1
--       lda petscii_logo, x
-        ;;sta $0400 + (25 * 40) - (3 * 40), x
-        sta $0400, x
-        dex
-        bpl -
-
-        ldx # 39
+        lda # BLUE
+        sta ZP_COLOR
+       +print_str_pos   petscii_logo
+        
+        lda # BLACK
+        sta ZP_COLOR
+        
+        ldx # 40
         lda # $63
--       sta $0400 + (3 * 40), x
-        dex
-        bpl -
+-       dex
+        sta $0400 + (3 * 40), x
+        bne -
 
         ; turn screen on
         lda # %00011011
         sta VIC_SCREEN_CTL1
 
+        ;-----------------------------------------------------------------------
 PAGE_X  = 1
 PAGE_Y  = 4
 
@@ -50,10 +84,11 @@ PAGE_Y  = 4
 
 petscii_logo:
 ;===============================================================================
+        !byte   0, 0
 !ct "build/petscii_font.ct" {
-        !text " ---- =  = ---- ---- ----- ---- ----    "
-        !text " #  # #  # #    #  # # # # #___ #       "
-        !text " #  # #__# #___ #__# # # # #___ #       "
+        !text   " ---- =  = ---- ---- ----- ---- ----    "
+        !text   " #  # #  # #    #  # # # # #___ #       "
+        !text   " #  # #__# #___ #__# # # # #___ #       ", 0
 }
 
 thorne:
