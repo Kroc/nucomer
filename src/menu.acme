@@ -5,6 +5,7 @@ MENU_BORDER     = BLACK
 MENU_FORE       = BLACK
 MENU_BACK       = LTGREY
 
+;===============================================================================
 ; table of interrupts to use for the menu screen:
 ;
 menu_irqs:
@@ -12,11 +13,13 @@ menu_irqs:
        +irqs_table_item menu_irq_top,           SCANLINE_VBLANK_END + (3 * 8)
 
 menu_irq_top:
+        ;-----------------------------------------------------------------------
         lda # MENU_BACK
         sta VIC_BACKGROUND
         rts
 
 menu_irq_bottom:
+        ;-----------------------------------------------------------------------
         lda # MENU_BORDER
         sta VIC_BACKGROUND
         rts
@@ -49,12 +52,30 @@ menu_screen:
         lda # MENU_FORE
         jsr clear_screen
 
-        ; write the logo
-        lda # BLUE
+        ; print logo:
+        ;-----------------------------------------------------------------------
+        ; print the logo with the base colour;
+        ; we're going to recolour just the letters
+        lda # DKGREY
         sta ZP_COLOR
-       +print_str_pos   petscii_logo
-        
-        lda # BLACK
+       +print_str_pos       petscii_logo
+
+        ; begin at the end of the logo and work backwards
+        ; (easier for loop management to count toward 0)
+        ldy # (3 * 40)
+        ldx # BLUE      ; colour of letters
+
+-       dey
+        bmi +           ; finished?
+
+        lda $0400, y    ; read a character from the logo
+        cmp # $64       ; is the character a background-line?
+        beq -           ; yes, skip it and don't change the colour
+        txa
+        sta $d800, y
+        bpl -           ; (always branches)
+
++       lda # BLACK
         sta ZP_COLOR
         
         ldx # 40
@@ -63,15 +84,17 @@ menu_screen:
         sta $0400 + (3 * 40), x
         bne -
 
+        ;-----------------------------------------------------------------------
         ; turn screen on
         lda # %00011011
         sta VIC_SCREEN_CTL1
 
-        ;-----------------------------------------------------------------------
 PAGE_X  = 1
 PAGE_Y  = 4
 
-       +print_str_at    PAGE_Y + 1, PAGE_X,   thorne
+       +print_str_pos   subline
+
+       +print_str_at    PAGE_Y + 2, PAGE_X,   thorne
        +print_str_pos   item01
 
         lda # DKGREY
@@ -90,15 +113,18 @@ petscii_logo:
         !text   " #  # #  # #    #  # # # # #___ #       "
         !text   " #  # #__# #___ #__# # # # #___ #       ", 0
 }
+subline:
+        !byte   PAGE_Y, PAGE_X + 30
+        !scr    "issue #1", 0
 
 thorne:
         !scr    $db, 0
 item01:
-        !byte   PAGE_Y + 1, PAGE_X + 2
+        !byte   PAGE_Y + 2, PAGE_X + 2
         !scr    "Editorial", 0
 item02:
-        !byte   PAGE_Y + 3, PAGE_X + 2
+        !byte   PAGE_Y + 4, PAGE_X + 2
         !scr    "Why 8-bit?", 0
 item03:
-        !byte   PAGE_Y + 5, PAGE_X + 2
+        !byte   PAGE_Y + 6, PAGE_X + 2
         !scr    "The outfit", 0
