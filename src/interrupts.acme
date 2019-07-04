@@ -14,8 +14,9 @@ SCANLINE_VBLANK_BEGIN   = 250
 
 frameReady:
 ;-------------------------------------------------------------------------------
-        ; flag to indicate if the raster is within the VBlank
-        ; (out of addressable screen area). $00 = no, $FF = yes
+        ; flag to indicate if the interrupt loop has completed.
+        ; used to indicate that the frame is complete and the
+        ; next one can be started. $00 = no, $FF = yes
         !byte $00
 
 ;===============================================================================
@@ -147,39 +148,6 @@ irqs_load:
         sta ZP_IRQS_LEN         ; number of entries in the table
         sta ZP_IRQ              ; also set as current index -- we work backward
 
-        ; read the 'first' raster interrupt:
-        ; each table entry is 4 bytes so we have to scale up the index
-        asl                     ; x2
-        asl                     ; x4
-        tay
-
-        ; read the address of the interrupt handler from the table.
-        ; for speed, write the address directly into the central
-        ; interrupt handler, i.e. `jsr $????`
-        ;
-        lda (ZP_IRQS), y
-        sta irq_addr+1
-        iny
-        lda (ZP_IRQS), y
-        sta irq_addr+2
-        
-        ; configure hardware:
-        ;-----------------------------------------------------------------------
-        ; set the scanline for the interrupt by reading from the table
-        iny
-        lda (ZP_IRQS), y        ; read scanline lo-byte
-        sta VIC_SCANLINE        ; set the scanline lo-byte
-
-        ; because the height of the screen + borders will be more than 256,
-        ; an extra high-bit is included from `VIC_SCREEN_CTL1`. the byte in
-        ; the table is pre-processed to move this bit from bit 0 to bit 7,
-        ; to match the location required for the register
-        ;
-        iny                     ; move to scanline hi-byte
-        lda VIC_SCREEN_CTL1     ; get current register value
-        eor (ZP_IRQS), y        ; merge the scanline hi-bit (in bit 7)
-        sta VIC_SCREEN_CTL1     ; update the register
-
         ; turn off all interrupts on CIA1. note that bit 7 is used to fill all
         ; other bits that are given as 1! therefore, the value `%011111111` is
         ; instructing the port to set bits 0-6 to 0, therfore turning off all
@@ -202,18 +170,27 @@ irqs_load:
         lda # %00000001
         sta VIC_INTERRUPT_CONTROL
 
-        lda # $00
-        sta frameReady
-
-        ; enable the central interrupt handling routine,
+        ; set the central interrupt handling routine,
         ; this will read the table to chain interrupts
         lda #< irq
         sta HW_VECTOR_IRQ+0
         lda #> irq
         sta HW_VECTOR_IRQ+1
-        
-        cli                     ; enable interrupts
-        rts
+
+        lda # $00
+        sta frameReady
+
+        ; push a fake "processor status" on to the stack so that the `rti`
+        ; instruction will have something to pull -- we can't use the actual
+        ; processor status (`php`) because interrupts are currently disabled
+        ; and the `rti` would pull this status and disable interrupts!
+        pha
+
+        ; setup the 'next' (first in our case) interrupt by borrowing the
+        ; code of the central interrupt handler. when the `rti` instruction
+        ; is encountered the return address already on the stack will be used,
+        ; effectively reproducing the `rts` for us!
+        jmp irq_next
 
 ;===============================================================================
 ; the main interrupt handler that manages the interrupt list:
@@ -230,6 +207,10 @@ irq_busy:
         sta HW_VECTOR_IRQ+1
 irq:
         ;=======================================================================
+        ; acknowledge the interrupt to prevent it double-firing.
+        ; we only need to write to it to do this
+        inc VIC_INTERRUPT_STATUS
+
         ; backup the A register by writing it to an LDA at end of routine --
         ; https://codebase64.org/doku.php?id=base:introduction_to_raster_irqs
         sta @a+1
@@ -244,7 +225,7 @@ irq:
         ; set up next interrupt in the chain:
         ;-----------------------------------------------------------------------
         dec ZP_IRQ              ; move down an index in the table
-        bpl @read               ; if last one, we need to loop the table
+        bpl @next               ; if last one, we need to loop the table
 
         lda ZP_IRQS_LEN
         sta ZP_IRQ
@@ -261,7 +242,10 @@ irq:
         sta HW_VECTOR_IRQ+1
         
         ; (each table entry is 4 bytes so we have to scale up the index)
-@read   lda ZP_IRQ
+@next
+!addr   irq_next = @next
+        
+        lda ZP_IRQ
         asl                     ; x2
         asl                     ; x4
         
@@ -295,10 +279,6 @@ irq:
 
         ; finish interrupt:
         ;-----------------------------------------------------------------------
-        ; acknowledge the interrupt to prevent it double-firing.
-        ; we only need to write to it to do this
-        inc VIC_INTERRUPT_STATUS
-
 @y      ldy # $88               ; restore Y register
 @a      lda # $88               ; restore A register
         rti
