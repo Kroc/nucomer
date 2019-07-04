@@ -7,7 +7,7 @@
             "label": "Build & Run",
             "type": "shell",
             "windows": {
-                "command": "build.bat && START bin\\vice\\x64.exe build\\nucomer.prg"
+                "command": "build.bat && START bin\\vice\\x64sc.exe build\\nucomer.prg"
             },
             "group": {
                 "kind": "build",

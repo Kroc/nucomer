@@ -211,9 +211,11 @@ irq:
         ; we only need to write to it to do this
         inc VIC_INTERRUPT_STATUS
 
-        ; backup the A register by writing it to an LDA at end of routine --
+        ; backup the registers by writing them to an LDA at end of routine --
         ; https://codebase64.org/doku.php?id=base:introduction_to_raster_irqs
         sta @a+1
+        stx @x+1
+        sty @y+1
 
         ; process the custom interrupt handler
         ;-----------------------------------------------------------------------
@@ -248,10 +250,6 @@ irq:
         lda ZP_IRQ
         asl                     ; x2
         asl                     ; x4
-        
-        ; now that we need to use Y,
-        ; we have to back it up
-        sty @y+1
         tay
         
         ; read the address of the interrupt handler from the table
@@ -280,5 +278,6 @@ irq:
         ; finish interrupt:
         ;-----------------------------------------------------------------------
 @y      ldy # $88               ; restore Y register
+@x      ldx # $88               ; restore X register
 @a      lda # $88               ; restore A register
         rti

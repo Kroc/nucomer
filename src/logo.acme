@@ -33,11 +33,6 @@ logo_screen:
         ; i.e. ensure text is invsible by default
         jsr clear_screen
 
-        ; set screen at $0400,
-        ; character set at +$1800 (lower-case)
-        lda # %00010111
-        sta VIC_LAYOUT
-
         ; configure sprites:
         ;-----------------------------------------------------------------------
         ; set colours

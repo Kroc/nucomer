@@ -1,6 +1,11 @@
 
 init:
 ;===============================================================================
+        ; set screen at $0400,
+        ; character set at +$1800 (lower-case)
+        lda # %00010111
+        sta VIC_LAYOUT
+        
         jsr setup_interrupts
 
         jsr logo_screen
