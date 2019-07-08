@@ -184,13 +184,44 @@ irqs_load:
         ; instruction will have something to pull -- we can't use the actual
         ; processor status (`php`) because interrupts are currently disabled
         ; and the `rti` would pull this status and disable interrupts!
-        pha
+;;        pha
 
         ; setup the 'next' (first in our case) interrupt by borrowing the
         ; code of the central interrupt handler. when the `rti` instruction
         ; is encountered the return address already on the stack will be used,
         ; effectively reproducing the `rts` for us!
-        jmp irq_next
+        ;;jmp irq_next
+
+        lda ZP_IRQ
+        asl                     ; x2
+        asl                     ; x4
+        tay
+        
+        ; read the address of the interrupt handler from the table
+        ; (for speed, we write the address directly into the code above)
+        lda (ZP_IRQS), y
+        sta irq_addr+1
+        iny
+        lda (ZP_IRQS), y
+        sta irq_addr+2
+
+        ; set the scanline for the interrupt by reading from the table
+        iny
+        lda (ZP_IRQS), y        ; read scanline lo-byte
+        sta VIC_SCANLINE        ; set the scanline lo-byte
+
+        ; because the height of the screen + borders will be more than 256,
+        ; an extra high-bit is included from `VIC_SCREEN_CTL1`. the byte in
+        ; the table is pre-processed to move this bit from bit 0 to bit 7,
+        ; to match the location required for the register
+        ;
+        iny                     ; move to scanline hi-byte
+        lda VIC_SCREEN_CTL1     ; get current register value
+        eor (ZP_IRQS), y        ; merge the scanline hi-bit (in bit 7)
+        sta VIC_SCREEN_CTL1     ; update the register
+
+        cli
+        rts
 
 ;===============================================================================
 ; the main interrupt handler that manages the interrupt list:
@@ -198,15 +229,7 @@ irqs_load:
 ; this routine is always called for every interrupt and then
 ; hands off to the individual handlers provided by the IRQ list
 ;
-irq_busy:
-        inc frameReady
-
-        lda #< irq
-        sta HW_VECTOR_IRQ+0
-        lda #> irq
-        sta HW_VECTOR_IRQ+1
 irq:
-        ;=======================================================================
         ; acknowledge the interrupt to prevent it double-firing.
         ; we only need to write to it to do this
         inc VIC_INTERRUPT_STATUS
@@ -216,6 +239,9 @@ irq:
         sta @a+1
         stx @x+1
         sty @y+1
+
+        lda # $00
+        sta frameReady
 
         ; process the custom interrupt handler
         ;-----------------------------------------------------------------------
@@ -237,11 +263,6 @@ irq:
         ; for frame synchronisation, your 'last' interrupt (first in the table)
         ; should be where vblank begins -- line 250
         dec frameReady
-
-        lda #< irq_busy
-        sta HW_VECTOR_IRQ+0
-        lda #> irq_busy
-        sta HW_VECTOR_IRQ+1
         
         ; (each table entry is 4 bytes so we have to scale up the index)
 @next

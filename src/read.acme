@@ -1,0 +1,177 @@
+; the screen used when reading articles
+
+; theme colours
+READ_BORDER     = GREY
+READ_FORE       = DKGREY
+READ_BACK       = GREY
+
+read_filename:
+        !pet    "lorem-ipsum"
+
+;===============================================================================
+read_screen:
+        ; setup the screen:
+        ;-----------------------------------------------------------------------
+        ; turn the screen off whilst we clear it
+        lda # %00001000
+        sta VIC_SCREEN_CTL1
+
+        ; set screen colour
+        lda # READ_BORDER
+        sta VIC_BORDER
+        lda # READ_BACK
+        sta VIC_BACKGROUND
+
+        ; erase the text-screen
+        lda # READ_FORE
+        jsr clear_screen
+
+        ; load the article:
+        ;-----------------------------------------------------------------------
+        sei                     ; disable interrupts
+
+        lda # %00000000
+        sta VIC_INTERRUPT_CONTROL
+
+        ; turn on the KERNAL
+        inc CPU_CONTROL
+
+        ; get the last-used device number set by the KERNAL
+        lda $ba
+        bne +                   ; not 0? good
++       ldx # DEV_DRV8          ; default to drive 8
+        ldy # $01               ; use load-address in file
+        tya                     ; logical file number
+        jsr KERNAL_SETLFS
+
+        lda # 11                ; string-length
+        ldx #< read_filename
+        ldy #> read_filename
+        jsr KERNAL_SETNAM
+
+        lda # 0                 ; load, not verify
+        ldx #< $2000
+        ldy #> $2000
+        jsr KERNAL_LOAD
+
+        ; TODO: error handling, fastloader et al
+
+        ; turn KERNAL off
+        ; (interrupt handlers assume I/O on)
+        dec CPU_CONTROL
+
+        ; for now, do not use custom interrupt handlers,
+        ; this will enable the interrupts once it returns
+        lda #< irqs_default
+        ldx #> irqs_default
+        ldy # 2
+        jsr irqs_load
+
+        ; turn screen on
+        lda # %00011011
+        sta VIC_SCREEN_CTL1
+        
+        ;-----------------------------------------------------------------------
+        ;       A = screen row to begin printing line
+        ;       X = address of data to print, lo-byte
+        ;       Y = address of data to print, hi-byte
+        ;
+        lda # 0
+        ldx #< $2000
+        ldy #> $2000
+@line
+
+; addrss of the line that appears at the top
+; of the screen, i.e. the scroll position
+ZP_READ_LINE    = $fd
+ZP_READ_LINE_LO = $fd
+ZP_READ_LINE_HI = $fe
+
+        stx ZP_READ_LINE_LO
+        sty ZP_READ_LINE_HI
+
+; row/col on screen being printed
+ZP_READ_ROW     = $fb
+ZP_READ_COL     = $fc
+
+        sta ZP_READ_ROW
+        tay
+        lda # 0                 ; default column for each line
+        sta ZP_READ_COL
+
+        ; set the output address in the printing
+        ; code based on this row+col
+        clc
+        adc screen_rows_lo, y
+        sta @out+1
+        lda screen_rows_hi, y
+        adc # 0
+        sta @out+2
+
+        ; walk through the text:
+        ; Y will be our character index in the row --
+        ; no one row can be more than 253 characters
+        ldy # 0
+
+; number of bytes to prev / next line
+ZP_READ_PREV    = $f9
+ZP_READ_NEXT    = $fa
+
+        lda (ZP_READ_LINE), y
+        sta ZP_READ_PREV
+        iny
+        lda (ZP_READ_LINE), y
+        clc
+        adc # 2
+        sta ZP_READ_NEXT
+        tax                     ; X = number of characters in this line
+        iny
+
+        ; is this the terminating line?
+        lda (ZP_READ_LINE), y
+        cmp # $ff
+        beq @eof
+        iny
+        bne @out                ; (always branches)
+
+        ; read a character
+@char   lda (ZP_READ_LINE), y
+        ; note that the pre-processing of the text during the build process
+        ; will ensure that no one line of data will ever exceed 255 bytes
+        iny
+
+        ; print a character
+@out    sta $0400
+        inc @out+1              ; move to next screen address
+        bne +                   ; crossed page-boundary?
+        inc @out+2              ; move to next page
+
++       ; one character down, more to print?
+        dex
+        bne @char               ; print more characters for this line
+
+        ; line finished, more lines?
+        inc ZP_READ_ROW
+        lda ZP_READ_ROW
+        cmp # 25
+        beq @eof
+        
+        ;;bne @eof
+
+        clc
+        lda ZP_READ_LINE_LO
+        adc ZP_READ_NEXT
+        sta ZP_READ_LINE_LO
+        tax
+        lda ZP_READ_LINE_HI
+        adc # 0
+        sta ZP_READ_LINE_HI
+        tay
+
+        lda ZP_READ_ROW
+
+        jmp @line
+
+@eof
+        jmp *
+        rts

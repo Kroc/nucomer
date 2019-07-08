@@ -129,7 +129,7 @@ text = f_in:read("*all")
 f_in:close()
 
 -- walk through the string
-index       = 1
+index       = 0
 line_len    = 0
 prev_len    = 0     -- length in bytes of the previous line
 line_bin    = ""    -- current output line (binary)
@@ -179,11 +179,10 @@ scr64 = str2scr_low[ascii]
 -- add to the current line
 line_bin = line_bin .. string.char(scr64)
 
+line_len = line_len + 1
 if line_len == 40 then
     -- line complete, dispatch
     write_line()
-else
-    line_len = line_len + 1
 end
 
 -- process next character
@@ -193,6 +192,9 @@ goto next
 --------------------------------------------------------------------------------
 -- dispatch the final line
 write_line()
+
+-- the article is terminated with $FFFF
+f_out:write(string.pack("<I2", 0xffff))
 
 f_out:close()
 os.exit(true)

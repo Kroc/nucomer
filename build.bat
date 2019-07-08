@@ -8,7 +8,7 @@ SET LUA_TXT2C64=%LUA% "issues\txt2c64.lua"
 SET ACME="bin\acme\acme.exe" ^
     --format cbm ^
     --color ^
-     -v9 ^
+     -v1 ^
      -I "src"
 
 SET C1541="bin\vice\c1541.exe"

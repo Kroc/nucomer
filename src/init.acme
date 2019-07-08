@@ -10,7 +10,8 @@ init:
 
         jsr logo_screen
         jsr menu_screen
-
+        jsr read_screen
+        
         ; halt and catch fire
         jmp *
 

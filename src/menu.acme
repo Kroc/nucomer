@@ -10,31 +10,11 @@ MENU_BACK       = LTGREY
 ;
 menu_irqs:
        +irqs_table_item menu_irq_vblank,        SCANLINE_VBLANK_BEGIN
-       +irqs_table_item menu_irq_logo3,         SCANLINE_VBLANK_END + (3 * 8) -1
-       +irqs_table_item menu_irq_logo2,         SCANLINE_VBLANK_END + (2 * 8) - 1
-       +irqs_table_item menu_irq_logo1,         SCANLINE_VBLANK_END + (1 * 8) - 1
+       +irqs_table_item menu_irq_logo_end,      SCANLINE_VBLANK_END + (3 * 8)-1
+       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (2 * 8)-1
+       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (1 * 8)-1
 
-menu_irq_logo1:
-        ;-----------------------------------------------------------------------
-        ; manually, and very badly, stabilise the raster
-        ; by wasting enough time to get to the flyback
-        nop
-        nop
-
-        lda # DKGREY
-        sta VIC_BORDER
-
-        ; now kill enough time for a whole line
-        ldx # 12
--       dex
-        bne -
-
-        ; go back to black
-        stx VIC_BORDER
-
-        rts
-
-menu_irq_logo2:
+menu_irq_logo:
         ;-----------------------------------------------------------------------
         ; manually, and very badly, stabilise the raster
         ; by wasting enough time to get to the flyback
@@ -55,7 +35,7 @@ menu_irq_logo2:
 
         rts
 
-menu_irq_logo3:
+menu_irq_logo_end:
         ;-----------------------------------------------------------------------
         ; manually, and very badly, stabilise the raster
         ; by wasting enough time to get to the flyback
@@ -176,7 +156,7 @@ PAGE_Y  = 4
        +print_str_pos   item02
        +print_str_pos   item03
        
-        jmp *
+;;        jmp *
         rts
 
 petscii_logo:

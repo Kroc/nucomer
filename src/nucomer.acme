@@ -1,9 +1,12 @@
 
 !source "c64/c64.acme"
 
+; BASIC bootstrap, to the get the machine-code program running
 !source "boot_basic.acme"
+
 !source "init.acme"
 !source "interrupts.acme"
 !source "print.acme"
 !source "logo.acme"
 !source "menu.acme"
+!source "read.acme"
