@@ -5,7 +5,22 @@ READ_BORDER     = GREY
 READ_FORE       = DKGREY
 READ_BACK       = GREY
 
+; address of the line that appears at the top
+; of the screen, i.e. the scroll position
+ZP_READ_LINE    = $fd
+ZP_READ_LINE_LO = $fd
+ZP_READ_LINE_HI = $fe
+
+; row/col on screen being printed
+ZP_READ_ROW     = $fb
+ZP_READ_COL     = $fc
+
+; number of bytes to prev / next line
+ZP_READ_PREV    = $f9
+ZP_READ_NEXT    = $fa
+
 read_filename:
+;-------------------------------------------------------------------------------
         !pet    "lorem-ipsum"
 
 ;===============================================================================
@@ -29,9 +44,6 @@ read_screen:
         ; load the article:
         ;-----------------------------------------------------------------------
         sei                     ; disable interrupts
-
-        lda # %00000000
-        sta VIC_INTERRUPT_CONTROL
 
         ; turn on the KERNAL
         inc CPU_CONTROL
@@ -57,10 +69,9 @@ read_screen:
         ; TODO: error handling, fastloader et al
 
         ; turn KERNAL off
-        ; (interrupt handlers assume I/O on)
         dec CPU_CONTROL
 
-        ; for now, do not use custom interrupt handlers,
+        ; for now, do not use custom interrupt handlers.
         ; this will enable the interrupts once it returns
         lda #< irqs_default
         ldx #> irqs_default
@@ -79,20 +90,9 @@ read_screen:
         lda # 0
         ldx #< $2000
         ldy #> $2000
-@line
 
-; addrss of the line that appears at the top
-; of the screen, i.e. the scroll position
-ZP_READ_LINE    = $fd
-ZP_READ_LINE_LO = $fd
-ZP_READ_LINE_HI = $fe
-
-        stx ZP_READ_LINE_LO
+@line   stx ZP_READ_LINE_LO
         sty ZP_READ_LINE_HI
-
-; row/col on screen being printed
-ZP_READ_ROW     = $fb
-ZP_READ_COL     = $fc
 
         sta ZP_READ_ROW
         tay
@@ -112,10 +112,6 @@ ZP_READ_COL     = $fc
         ; Y will be our character index in the row --
         ; no one row can be more than 253 characters
         ldy # 0
-
-; number of bytes to prev / next line
-ZP_READ_PREV    = $f9
-ZP_READ_NEXT    = $fa
 
         lda (ZP_READ_LINE), y
         sta ZP_READ_PREV
@@ -155,8 +151,6 @@ ZP_READ_NEXT    = $fa
         lda ZP_READ_ROW
         cmp # 25
         beq @eof
-        
-        ;;bne @eof
 
         clc
         lda ZP_READ_LINE_LO
@@ -174,4 +168,7 @@ ZP_READ_NEXT    = $fa
 
 @eof
         jmp *
+
+        ; tear down the custom interrupt handlers
+        jsr disable_interrupts
         rts

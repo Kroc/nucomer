@@ -51,7 +51,31 @@ wait_frame:
         rts
 
 ;===============================================================================
-; exiting without acknowledging the interrupt (via write to $DD0D)
+; when the KERNAL ROM is switched on, it controls the interrupt vectors at
+; $FFFA-$FFFF. this means that there's some extra indirection that happens
+; whenever an IRQ occurs. first, the KERNAL pushes A, X & Y onto the stack
+; and then calls the vector at $0314; by default this is the routine that
+; handles the BASIC interrupt, e.g. blinking the cursor. if the KERNAL is
+; on but BASIC is off, the system will crash!
+;
+; unless you are writing a BASIC extension there is no reason to keep BASIC
+; switched on (you can use the RAM underneath instead), therefore we must
+; provide a routine to replace the BASIC interrupt. it doesn't have to do
+; any actual work, just merely exit in the correct way, that is, restore
+; the register from the stack and call `rti`. (alternatively one can jump
+; to $EA81, which is the KERNAL's code to do the same)
+;
+irq_kernal:
+
+        pla
+        tay
+        pla
+        tax
+        pla
+        rti
+
+;===============================================================================
+; exiting without acknowledging the NMI interrupt (via write to $DD0D)
 ; will effectively disable further NMIs from occuring. further details
 ; can be read here: https://codebase64.org/doku.php?id=base:nmi_lock
 ;
@@ -63,14 +87,19 @@ setup_interrupts:
         ; disable interrupts whilst we alter them
         sei
 
-        ; turn off BASIC & KERNAL ROM
-        dec CPU_CONTROL
-        dec CPU_CONTROL
-
-        ; non-maskable interrupt:
+        ; KERNAL controlled interrupts:
         ;-----------------------------------------------------------------------
-        ; set non-maskable interrupt location when the KERNAL is on.
-        ; pressing the RESTORE key will fire this routine
+        ; replace the BASIC interrupt with our own; see the comments on the
+        ; `irq_kernal` routine above
+        ;
+        lda #< irq_kernal
+        sta KERNAL_VECTOR_INTERRUPT+0
+        lda #> irq_kernal
+        sta KERNAL_VECTOR_INTERRUPT+1
+
+        ; set the non-maskable interrupt location when the KERNAL is on.
+        ; pressing the RESTORE key will fire this routine (unless disabled
+        ; -- see comments on `irq_null` routine)
         ;
         ; note that when the KERNAL is switched off, the RAM underneath will
         ; define the NMI interrupt address -- this gets rectified below
@@ -80,20 +109,41 @@ setup_interrupts:
         lda #> nmi
         sta KERNAL_VECTOR_NMI+1
 
+        ; turn off BASIC & KERNAL ROM
+        dec CPU_CONTROL
+        dec CPU_CONTROL
+
+        ; no-KERNAL interrupts:
+        ;-----------------------------------------------------------------------
         ; non-maskable interrupt:
         lda #< nmi
         sta HW_VECTOR_NMI+0
         lda #> nmi
         sta HW_VECTOR_NMI+1
 
-        ; raster interrupts:
-        ;-----------------------------------------------------------------------
-        ; configure raster interrupts using the default interrupt table
+        ; configure raster interrupts
+        ; using the default interrupt table
         lda #< irqs_default
         ldx #> irqs_default
         ldy # 2
         ; (note this automatically re-enables interrupts)
         jmp irqs_load
+
+;===============================================================================
+; switch off the VIC-II raster interrupts:
+; (doesn't disable the other interrupts on the CIAs)
+;
+disable_interrupts:
+
+        sei                     ; disable interrupts whilst we alter them
+
+        ; disable all forms of VIC-II interrupts
+        ; (raster, light-pen, sprite collisions)
+        lda # %00000000
+        sta VIC_INTERRUPT_CONTROL
+
+        cli                     ; enable interrupts
+        rts
 
 ;===============================================================================
 ; the default table of interrupts, consisting of addresses & scanline-numbers:
@@ -118,9 +168,9 @@ irqs_default:
 
 irq_nop:
         ;=======================================================================
-        ; an interrupt that does nothing -- used by the default table so that
-        ; the frame ready flag toggles at the right places, but nothing needs
-        ; to be altered on the screen at the splits
+        ; an interrupt shim that does nothing -- used by the default table so
+        ; that the frame ready flag toggles at the right places, but nothing
+        ; needs to be altered on the screen at the splits
         ;
         rts
 
@@ -180,17 +230,19 @@ irqs_load:
         lda # $00
         sta frameReady
 
-        ; push a fake "processor status" on to the stack so that the `rti`
-        ; instruction will have something to pull -- we can't use the actual
-        ; processor status (`php`) because interrupts are currently disabled
-        ; and the `rti` would pull this status and disable interrupts!
+;; TODO: why is this broken?
+;;
+;;        ; push a fake "processor status" on to the stack so that the `rti`
+;;        ; instruction will have something to pull -- we can't use the actual
+;;        ; processor status (`php`) because interrupts are currently disabled
+;;        ; and the `rti` would pull this status and disable interrupts!
 ;;        pha
-
-        ; setup the 'next' (first in our case) interrupt by borrowing the
-        ; code of the central interrupt handler. when the `rti` instruction
-        ; is encountered the return address already on the stack will be used,
-        ; effectively reproducing the `rts` for us!
-        ;;jmp irq_next
+;;
+;;        ; setup the 'next' (first in our case) interrupt by borrowing the
+;;        ; code of the central interrupt handler. when the `rti` instruction
+;;        ; is encountered the return address already on the stack will be used,
+;;        ; effectively reproducing the `rts` for us!
+;;        jmp irq_next
 
         lda ZP_IRQ
         asl                     ; x2

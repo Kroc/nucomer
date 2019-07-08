@@ -157,6 +157,9 @@ PAGE_Y  = 4
        +print_str_pos   item03
        
 ;;        jmp *
+
+        ; tear down the custom interrupt handlers
+        jsr disable_interrupts
         rts
 
 petscii_logo:

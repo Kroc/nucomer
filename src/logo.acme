@@ -144,7 +144,8 @@ logo_screen:
         lda # %00000000
         sta VIC_SPRITE_ENABLE
 
-;;        jmp logo_screen
+        ; tear down the custom interrupt handlers
+        jsr disable_interrupts
         rts
 
 fadeout_colours:
