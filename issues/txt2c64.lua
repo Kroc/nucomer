@@ -137,11 +137,39 @@ line_len    = 0
 prev_len    = 0     -- length in bytes of the previous line
 line_bin    = ""    -- current output line (binary)
 
+word_bin    = ""    -- current word (for word-wrapping)
+word_len    = 0     -- character length of current word
+
 lines_len   = {}    -- table of each line length
 lines_bin   = {}    -- table of all lines generated (before output)
 
---------------------------------------------------------------------------------
+function add_char()
+    ----------------------------------------------------------------------------
+    -- add the character to the word
+    word_bin = word_bin .. string.char(scr64)
+    word_len = word_len + 1
+
+    -- if the word no longer fits on the line, word-wrap
+    if line_len + word_len > 40 then
+        -- dispatch the current line as-is
+        add_line()
+        -- start the new line with the remaining word
+        add_word()
+    end
+end
+
+function add_word ()
+    ----------------------------------------------------------------------------
+    -- add the word to the line
+    line_bin = line_bin .. word_bin
+    line_len = line_len + word_len
+    -- reset the current word
+    word_bin = ""
+    word_len = 0
+end
+
 function add_line ()
+    ----------------------------------------------------------------------------
     -- add the line-length to the array of line-lengths
     table.insert(lines_len, line_len)
     -- add the line to the binary:
@@ -175,31 +203,44 @@ ascii = string.char(text:byte(index))
 if ascii == "\r" then goto next; end
 -- if return, line has ended early
 if ascii == "\n" then
+    -- add the current word to the line
+    add_word()
     -- dispatch the current line;
     -- when two new-lines are in a row,
     -- a zero-length line will exist
     add_line()
+
+    goto next
+end
+-- word-break
+if ascii == " " then
+    -- the current word is complete, add it to the line
+    -- before we handle the space
+    add_word()
+    -- if an exact word-wrap occured, the space is not needed!
+    if line_len > 0 then
+        -- append the space to the line directly
+        line_bin = line_bin .. string.char(str2scr_low[" "])
+        line_len = line_len + 1
+    end
     goto next
 end
 
 -- convert to screen code
 scr64 = str2scr_low[ascii]
 
--- add to the current line
-line_bin = line_bin .. string.char(scr64)
-
-line_len = line_len + 1
-if line_len == 40 then
-    -- line complete, dispatch
-    add_line()
-end
+-- add to the current word
+-- (and handle word-wrap)
+add_char()
 
 -- process next character
 goto next
 
 ::eof::
 --------------------------------------------------------------------------------
--- add the final line
+-- add the final word
+add_word()
+-- and the final line
 add_line()
 
 -- how long the line-lengths list is (2-bytes)
