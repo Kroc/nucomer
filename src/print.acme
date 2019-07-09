@@ -17,8 +17,8 @@ clear_screen:
         dex
         bne -
 
--       lda # ' '               ; clear with space char
-        sta $0400 + $000, x
+        lda # ' '               ; clear with space char
+-       sta $0400 + $000, x
         sta $0400 + $100, x
         sta $0400 + $200, x
         sta $0400 + $300, x

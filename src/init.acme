@@ -6,7 +6,11 @@ init:
         lda # %00010111
         sta VIC_LAYOUT
         
-        jsr setup_interrupts
+        jsr init_interrupts
+
+        ; turn off BASIC & KERNAL ROM
+        dec CPU_CONTROL
+        dec CPU_CONTROL
 
         jsr logo_screen
         jsr menu_screen

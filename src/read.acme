@@ -11,13 +11,19 @@ ZP_READ_LINE    = $fd
 ZP_READ_LINE_LO = $fd
 ZP_READ_LINE_HI = $fe
 
-; row/col on screen being printed
-ZP_READ_ROW     = $fb
-ZP_READ_COL     = $fc
+; current row on screen being printed
+ZP_READ_ROW     = $fc
+; number of rows to print
+ZP_READ_ROWS    = $fb
 
-; number of bytes to prev / next line
-ZP_READ_PREV    = $f9
-ZP_READ_NEXT    = $fa
+; current line length
+ZP_READ_LEN     = $fa
+
+; address within the line-length array
+; for the current line
+ZP_READ_LENS    = $f8
+ZP_READ_LENS_LO = $f8
+ZP_READ_LENS_HI = $f9
 
 read_filename:
 ;-------------------------------------------------------------------------------
@@ -39,6 +45,7 @@ read_screen:
 
         ; erase the text-screen
         lda # READ_FORE
+        sta ZP_COLOR
         jsr clear_screen
 
         ; load the article:
@@ -71,36 +78,43 @@ read_screen:
         ; turn KERNAL off
         dec CPU_CONTROL
 
-        ; for now, do not use custom interrupt handlers.
-        ; this will enable the interrupts once it returns
-        lda #< irqs_default
-        ldx #> irqs_default
-        ldy # 2
-        jsr irqs_load
-
         ; turn screen on
         lda # %00011011
         sta VIC_SCREEN_CTL1
-        
+
+        ; prepare for printing
         ;-----------------------------------------------------------------------
-        ;       A = screen row to begin printing line
-        ;       X = address of data to print, lo-byte
-        ;       Y = address of data to print, hi-byte
-        ;
-        lda # 0
-        ldx #< $2000
-        ldy #> $2000
+        ; the first two bytes are the size of the line-length array;
+        ; in other words, how far forward to skip to find the text data
+        clc
+        lda $2000
+        adc #< $2000
+        sta @char+1
+        lda $2001
+        adc #> $2000
+        sta @char+2
 
-@line   stx ZP_READ_LINE_LO
-        sty ZP_READ_LINE_HI
+        ; number of rows to print (1-based)
+        lda # 25
+        sta ZP_READ_ROWS
 
-        sta ZP_READ_ROW
-        tay
-        lda # 0                 ; default column for each line
-        sta ZP_READ_COL
+        ; ergo, the line-length array begins two bytes in
+        ; and this is our intial index into the array
+        lda #< $2002
+        sta @lens+1
+        lda #> $2002
+        sta @lens+2
 
         ; set the output address in the printing
         ; code based on this row+col
+        lda # 0
+        sta ZP_READ_ROW
+        tay
+        ; screen memory offset for the line
+        ; (increases as each character is printed)
+        tax
+
+        ; set the initial screen address
         clc
         adc screen_rows_lo, y
         sta @out+1
@@ -108,63 +122,56 @@ read_screen:
         adc # 0
         sta @out+2
 
-        ; walk through the text:
-        ; Y will be our character index in the row --
-        ; no one row can be more than 253 characters
-        ldy # 0
+        ; print line!
+        ;-----------------------------------------------------------------------
+        ; get the number of bytes for this line
+@lens   ldy $8888
+        sty ZP_READ_LEN
 
-        lda (ZP_READ_LINE), y
-        sta ZP_READ_PREV
-        iny
-        lda (ZP_READ_LINE), y
-        clc
-        adc # 2
-        sta ZP_READ_NEXT
-        tax                     ; X = number of characters in this line
-        iny
+        ; 0-length line is skipped,
+        ; nothing to print
+        beq @eol
 
-        ; is this the terminating line?
-        lda (ZP_READ_LINE), y
-        cmp # $ff
-        beq @eof
-        iny
-        bne @out                ; (always branches)
+        ; read a byte from the binary string
+@char   lda $8888, y
+        
+        ; print the character
+@out    sta $0400, x
+        inx
+        
+        dey
+        bne @char
 
-        ; read a character
-@char   lda (ZP_READ_LINE), y
-        ; note that the pre-processing of the text during the build process
-        ; will ensure that no one line of data will ever exceed 255 bytes
-        iny
-
-        ; print a character
-@out    sta $0400
-        inc @out+1              ; move to next screen address
-        bne +                   ; crossed page-boundary?
-        inc @out+2              ; move to next page
-
-+       ; one character down, more to print?
-        dex
-        bne @char               ; print more characters for this line
-
-        ; line finished, more lines?
+        ; end-of-line:
+@eol    ; (note that Y is now zero due to line-bytes counting toward zero)
+        tya             ; reset screen column for the next line
+        tax             ; reset screen address offset for the next line
+        
+        ; this to be optimized
         inc ZP_READ_ROW
-        lda ZP_READ_ROW
-        cmp # 25
+        ldy ZP_READ_ROW
+        dec ZP_READ_ROWS
         beq @eof
 
-        clc
-        lda ZP_READ_LINE_LO
-        adc ZP_READ_NEXT
-        sta ZP_READ_LINE_LO
-        tax
-        lda ZP_READ_LINE_HI
-        adc # 0
-        sta ZP_READ_LINE_HI
-        tay
+        ; look up the screen-address of the next row.
+        ; faster than adding 40 to the existing address,
+        ; since we don't need to read back the current value
+        lda screen_rows_lo, y
+        sta @out+1
+        lda screen_rows_hi, y
+        sta @out+2
 
-        lda ZP_READ_ROW
+        ;(clc) -- `cpy` above has cleared the carry
+        lda @char+1
+        adc ZP_READ_LEN
+        sta @char+1
+        bcc +
+        inc @char+2 
 
-        jmp @line
++       inc @lens+1
+        bne @lens
+        inc @lens+2
+        bne @lens
 
 @eof
         jmp *
@@ -172,3 +179,16 @@ read_screen:
         ; tear down the custom interrupt handlers
         jsr disable_interrupts
         rts
+
+;===============================================================================
+; load the article:
+;
+; TODO: obviously this would happen at some other stage and use an IRQ-driven
+;       fast-loader such as Krill's
+;
+read_load:
+
+;===============================================================================
+; print a number of lines from the article to the screen:
+;
+read_lines:

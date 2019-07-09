@@ -134,15 +134,21 @@ line_len    = 0
 prev_len    = 0     -- length in bytes of the previous line
 line_bin    = ""    -- current output line (binary)
 
+lines_len   = {}    -- table of each line length
+lines_bin   = {}    -- table of all lines generated (before output)
+
 --------------------------------------------------------------------------------
-function write_line ()
-    -- all output lines begin with two bytes:
-    -- the first is the number of bytes backwards to the previous line
-    f_out:write(string.pack("B", prev_len))
-    -- the second is the number of bytes forwards to the next line
-    f_out:write(string.pack("B", line_len))
-    -- write the screen codes
-    f_out:write(line_bin)
+function add_line ()
+    -- add the line-length to the array of line-lengths
+    table.insert(lines_len, line_len)
+    -- add the line to the binary:
+    -- when a line is zero-length, there's no text to add
+    if line_len ~= 0 then
+        -- note that lines are written into the binary backwards!
+        -- this is so that the line length can be used as a count-down
+        -- index which is faster for 6502s to process
+        table.insert(lines_bin, line_bin:reverse())
+    end
     -- erase the line
     line_bin = ""
     -- set the new "previous line" length
@@ -169,7 +175,7 @@ if ascii == "\n" then
     -- dispatch the current line;
     -- when two new-lines are in a row,
     -- a zero-length line will exist
-    write_line()
+    add_line()
     goto next
 end
 
@@ -182,7 +188,7 @@ line_bin = line_bin .. string.char(scr64)
 line_len = line_len + 1
 if line_len == 40 then
     -- line complete, dispatch
-    write_line()
+    add_line()
 end
 
 -- process next character
@@ -190,11 +196,21 @@ goto next
 
 ::eof::
 --------------------------------------------------------------------------------
--- dispatch the final line
-write_line()
+-- add the final line
+add_line()
 
--- the article is terminated with $FFFF
-f_out:write(string.pack("<I2", 0xffff))
+-- how long the line-lengths list is (2-bytes)
+f_out:write(string.pack("<I2", #lines_len+1))
+
+-- the list of line-lengths
+for _, v in ipairs(lines_len) do
+    f_out:write(string.pack("B", v))
+end
+
+-- and then the combined text binary
+for _, v in ipairs(lines_bin) do
+    f_out:write(v)
+end
 
 f_out:close()
 os.exit(true)

@@ -62,16 +62,30 @@ wait_frame:
 ; switched on (you can use the RAM underneath instead), therefore we must
 ; provide a routine to replace the BASIC interrupt. it doesn't have to do
 ; any actual work, just merely exit in the correct way, that is, restore
-; the register from the stack and call `rti`. (alternatively one can jump
-; to $EA81, which is the KERNAL's code to do the same)
+; the register from the stack and call `rti`. alternatively, one can jump
+; to $EA81 which is the KERNAL's code to do the same, but I recommend
+; against this because that assumes that the machine is a C64 with
+; stock ROMs and this might not be the case!
 ;
-irq_kernal:
-
+irq_kernal_on:
+        ;-----------------------------------------------------------------------
         pla
         tay
         pla
         tax
         pla
+        rti
+
+; when the KERNAL is off, but no raster interrupts are in use, this simple
+; IRQ handler does the minimum amount necessary to service the interrupt
+;
+irq_kernal_off:
+        ;-----------------------------------------------------------------------
+        ; acknowledge the interrupt to prevent it double-firing.
+        ; we only need to write to the status register to do this
+        inc VIC_INTERRUPT_STATUS
+        ; return from interrupt
+        ; (restore processor flags, enable interrupts)
         rti
 
 ;===============================================================================
@@ -83,23 +97,38 @@ nmi:
         rti
 
 ;===============================================================================
-setup_interrupts:
+init_interrupts:
+
         ; disable interrupts whilst we alter them
         sei
 
-        ; KERNAL controlled interrupts:
-        ;-----------------------------------------------------------------------
-        ; replace the BASIC interrupt with our own; see the comments on the
-        ; `irq_kernal` routine above
+        ; turn off all interrupts on CIA1. note that bit 7 is used to fill all
+        ; other bits that are given as 1! therefore, the value `%011111111` is
+        ; instructing the port to set bits 0-6 to 0, therefore turning off all
+        ; timers on the port
         ;
-        lda #< irq_kernal
+        lda # %01111111
+        sta CIA1_INTERRUPT
+        ; repeat this also for CIA2 which uses the Non-Maskable-Interrupt
+        ; ("NMI") for its timers
+        sta CIA2_INTERRUPT
+
+        ; we must 'acknowledge' any currently queued interrupts
+        ; or they will fire the instant we re-enable interrupts.
+        ; this is done by simply reading the port(s)
+        lda CIA1_INTERRUPT
+        lda CIA2_INTERRUPT
+
+        ; replace the BASIC interrupt with our own --
+        ; see the comments on the `irq_kernal_on` routine above
+        lda #< irq_kernal_on
         sta KERNAL_VECTOR_INTERRUPT+0
-        lda #> irq_kernal
+        lda #> irq_kernal_on
         sta KERNAL_VECTOR_INTERRUPT+1
 
         ; set the non-maskable interrupt location when the KERNAL is on.
         ; pressing the RESTORE key will fire this routine (unless disabled
-        ; -- see comments on `irq_null` routine)
+        ; -- see comments on `nmi` routine)
         ;
         ; note that when the KERNAL is switched off, the RAM underneath will
         ; define the NMI interrupt address -- this gets rectified below
@@ -109,28 +138,18 @@ setup_interrupts:
         lda #> nmi
         sta KERNAL_VECTOR_NMI+1
 
-        ; turn off BASIC & KERNAL ROM
-        dec CPU_CONTROL
-        dec CPU_CONTROL
-
-        ; no-KERNAL interrupts:
-        ;-----------------------------------------------------------------------
-        ; non-maskable interrupt:
+        ; likewise, when the KERNAL is off, an NMI handler
+        ; must be specified or the machine will crash
         lda #< nmi
         sta HW_VECTOR_NMI+0
         lda #> nmi
         sta HW_VECTOR_NMI+1
 
-        ; configure raster interrupts
-        ; using the default interrupt table
-        lda #< irqs_default
-        ldx #> irqs_default
-        ldy # 2
-        ; (note this automatically re-enables interrupts)
-        jmp irqs_load
+        ; put the KERNAL-off interrupt-handler on stand-by
+        jmp disable_interrupts
 
 ;===============================================================================
-; switch off the VIC-II raster interrupts:
+; switch off the custom VIC-II raster interrupts:
 ; (doesn't disable the other interrupts on the CIAs)
 ;
 disable_interrupts:
@@ -141,6 +160,13 @@ disable_interrupts:
         ; (raster, light-pen, sprite collisions)
         lda # %00000000
         sta VIC_INTERRUPT_CONTROL
+
+        ; switch to the minimal 'do nothing' interrupt
+        ; handler for when the KERNAL is off
+        lda #< irq_kernal_off
+        sta HW_VECTOR_IRQ+0
+        lda #> irq_kernal_off
+        sta HW_VECTOR_IRQ+1
 
         cli                     ; enable interrupts
         rts
@@ -198,34 +224,17 @@ irqs_load:
         sta ZP_IRQS_LEN         ; number of entries in the table
         sta ZP_IRQ              ; also set as current index -- we work backward
 
-        ; turn off all interrupts on CIA1. note that bit 7 is used to fill all
-        ; other bits that are given as 1! therefore, the value `%011111111` is
-        ; instructing the port to set bits 0-6 to 0, therfore turning off all
-        ; timers on the port
-        ;
-        lda # %01111111
-        sta CIA1_INTERRUPT
-        ; repeat this also for CIA2 which uses the Non-Maskable-Interrupt
-        ; ("NMI") for its timers
-        sta CIA2_INTERRUPT
-
-        ; we must 'acknowledge' any currently queued interrupts
-        ; or they will fire the instant we re-enable interrupts.
-        ; this is done by simply reading the port
-        lda CIA1_INTERRUPT
-        lda CIA2_INTERRUPT
-
-        ; this enables just the raster-interrupt on the VIC-II
-        ; (sprite-sprite, sprite-background & lightpen interrupts are disabled)
-        lda # %00000001
-        sta VIC_INTERRUPT_CONTROL
-
         ; set the central interrupt handling routine,
         ; this will read the table to chain interrupts
         lda #< irq
         sta HW_VECTOR_IRQ+0
         lda #> irq
         sta HW_VECTOR_IRQ+1
+
+        ; this enables just the raster-interrupt on the VIC-II
+        ; (sprite-sprite, sprite-background & lightpen interrupts are disabled)
+        lda # %00000001
+        sta VIC_INTERRUPT_CONTROL
 
         lda # $00
         sta frameReady
@@ -278,12 +287,13 @@ irqs_load:
 ;===============================================================================
 ; the main interrupt handler that manages the interrupt list:
 ;
-; this routine is always called for every interrupt and then
-; hands off to the individual handlers provided by the IRQ list
+; when raster interrupts are enabled, this routine is always called for
+; every interrupt and then hands off to the individual handlers provided
+; by the IRQ table
 ;
 irq:
         ; acknowledge the interrupt to prevent it double-firing.
-        ; we only need to write to it to do this
+        ; we only need to write to the status register to do this
         inc VIC_INTERRUPT_STATUS
 
         ; backup the registers by writing them to an LDA at end of routine --
