@@ -21,16 +21,6 @@ REM ============================================================================
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
-REM # wrap the raw binary data in a meta-data frame
-REM ----------------------------------------------------------------------------
-REM # this will give us a C64 PRG file we can then add to a disk-image 
-
-%ACME% ^
-     --outfile "build\lorem-ipsum.prg" ^
-     -- "issues\article.acme"
-
-IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
-
 REM # assemble the outfit
 REM ============================================================================
 
@@ -54,6 +44,6 @@ DEL "build\nucomer.d64"
 %C1541% ^
      -format "nucomer,nu" d64 "build\nucomer.d64" ^
      -write "build\nucomer.prg" "nucomer" ^
-     -write "build\lorem-ipsum.prg" "lorem-ipsum"
+     -write "build\article.nu" "lorem-ipsum"
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%

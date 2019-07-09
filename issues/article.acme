@@ -1,7 +1,0 @@
-; this is an article frame for taking the C64-formatted text-data version of
-; the articles produced by the lua script and framing it with extra meta-data
-; so as to get it from a PC into a C64 disk-image
-
-* = $2000
-
-!binary "build\article.nu"
