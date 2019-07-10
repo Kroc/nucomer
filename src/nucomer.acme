@@ -7,6 +7,8 @@
 !source "init.acme"
 !source "interrupts.acme"
 !source "print.acme"
+!source "keyboard.acme"
+
 !source "logo.acme"
 !source "menu.acme"
 !source "read.acme"

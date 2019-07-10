@@ -41,6 +41,15 @@ logo_screen:
 
         ; configure sprites:
         ;-----------------------------------------------------------------------
+        ; copy the 4 sprites to $2000-$20FF. since the logo screen is only used
+        ; once, this space will be overwritten by the article data later
+        ;
+        ldx # $00
+-       lda sprites, x
+        sta $2000, x
+        dex
+        bne - 
+
         ; set colours
         lda # ORANGE            ; the eye-lid masks the eye,
         sta VIC_SPRITE0_COLOR   ; so has to match the background colour
@@ -50,13 +59,13 @@ logo_screen:
         sta VIC_SPRITE3_COLOR
 
         ; select which sprite images to show
-        lda # (eye_lid1 / 64)
+        lda # ($2000 / 64) + 2
         sta $0400 + VIC_SPRITE0_PTR
-        lda # (eye_lid2 / 64)
+        lda # ($2000 / 64) + 3
         sta $0400 + VIC_SPRITE1_PTR
-        lda # (eye_left / 64)
+        lda # ($2000 / 64) + 0
         sta $0400 + VIC_SPRITE2_PTR
-        lda # (eye_right / 64)
+        lda # ($2000 / 64) + 1
         sta $0400 + VIC_SPRITE3_PTR
         
         ; set sprites to appear behind text
@@ -323,14 +332,10 @@ draw_eyelid:
 
 sprites:
 ;===============================================================================
-!align  63, 0
-
 !macro  spriteBits .v {
         !byte .v >> 16, (.v >> 8) & 255, .v & 255
 }
 
-; TODO: these to be compressed
-;
 ; the camen design logo
 ; copyright (c) Kroc Camen
 ;

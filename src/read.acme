@@ -5,25 +5,30 @@ READ_BORDER     = GREY
 READ_FORE       = DKGREY
 READ_BACK       = GREY
 
-; address of the line that appears at the top
-; of the screen, i.e. the scroll position
-ZP_READ_LINE    = $fd
-ZP_READ_LINE_LO = $fd
-ZP_READ_LINE_HI = $fe
+; address of the line that appears
+; at the top of the screen
+ZP_READ_TOP     = $fd
+ZP_READ_TOP_LO  = $fd
+ZP_READ_TOP_HI  = $fe
+; address of the line that appears
+; at the bottom of the screen
+ZP_READ_BOT     = $fb
+ZP_READ_BOT_LO  = $fb
+ZP_READ_BOT_HI  = $fc
 
 ; current row on screen being printed
-ZP_READ_ROW     = $fc
+ZP_READ_ROW     = $fa
 ; number of rows to print
-ZP_READ_ROWS    = $fb
+ZP_READ_ROWS    = $f9
 
 ; current line length
-ZP_READ_LEN     = $fa
+ZP_READ_LEN     = $f8
 
-; address within the line-length array
-; for the current line
-ZP_READ_LENS    = $f8
-ZP_READ_LENS_LO = $f8
-ZP_READ_LENS_HI = $f9
+; address within the line-length array for the current line at the top of the
+; screen. we can get the length of the bottom line on the screen by adding 25
+ZP_READ_LENS    = $f6
+ZP_READ_LENS_LO = $f6
+ZP_READ_LENS_HI = $f7
 
 ;===============================================================================
 read_screen:
@@ -44,111 +49,130 @@ read_screen:
         sta ZP_COLOR
         jsr clear_screen
 
-        ; load the article:
+        ; for vertical scrolling, we place 40 spaces before and after the
+        ; screen RAM so that a blind copy of rows up/down one position
+        ; automatically fills the top/bottom screen row with spaces
+        ldx # 39
+        lda # ' '
+-       sta $0400 - 40, x
+        sta $07e8, x
+        dex
+        bpl -
+
+        ; load the article and populate
+        ; the first screen-full of text
         jsr read_load
 
         ; turn screen on
         lda # %00011011
         sta VIC_SCREEN_CTL1
 
-        ; prepare for printing
         ;-----------------------------------------------------------------------
-        ; the first two bytes are the size of the line-length array;
-        ; in other words, how far forward to skip to find the text data
-        clc
-        lda $2000
-        adc #< $2000
-        sta @char+1
-        lda $2001
-        adc #> $2000
-        sta @char+2
+        ; read keyboard
+        ;
+        ; wait for no-key (debounce)
+@key    jsr Keyboard
+        bcc @key
+        ; wait for key
+-       jsr Keyboard
+        bcs -
 
-        ; number of rows to print (1-based)
-        lda # 25
-        sta ZP_READ_ROWS
+        cmp # $20
+        bne +
+        jmp read_screen
 
-        ; ergo, the line-length array begins two bytes in
-        ; and this is our intial index into the array
-        lda #< $2002
-        sta @lens+1
-        lda #> $2002
-        sta @lens+2
+        cpy # %10000000
+        bne +
+        jmp read_screen
 
-        ; set the output address in the printing
-        ; code based on this row+col
-        lda # 0
-        sta ZP_READ_ROW
-        tay
-        ; screen memory offset for the line
-        ; (increases as each character is printed)
-        tax
++       jsr read_scroll_down
+        beq @key
 
-        ; set the initial screen address
-        clc
-        adc screen_rows_lo, y
-        sta @out+1
-        lda screen_rows_hi, y
-        adc # 0
-        sta @out+2
-
-        ; print line!
-        ;-----------------------------------------------------------------------
-        ; get the number of bytes for this line
-@lens   ldy $8888
-        sty ZP_READ_LEN
-
-        ; 0-length line is skipped,
-        ; nothing to print
-        beq @eol
-
-        ; read a byte from the binary string
-@char   lda $8888, y
-        
-        ; print the character
-@out    sta $0400, x
-        inx
-        
-        dey
-        bne @char
-
-        ; end-of-line:
-@eol    ; (note that Y is now zero due to line-bytes counting toward zero)
-        tya
-        tax             ; reset screen address offset for the next line
-        
-        ; this to be optimized
-        inc ZP_READ_ROW
-        ldy ZP_READ_ROW
-        dec ZP_READ_ROWS
-        beq @eof
-
-        ; look up the screen-address of the next row.
-        ; faster than adding 40 to the existing address,
-        ; since we don't need to read back the current value
-        lda screen_rows_lo, y
-        sta @out+1
-        lda screen_rows_hi, y
-        sta @out+2
-
-        clc
-        lda @char+1
-        adc ZP_READ_LEN
-        sta @char+1
-        bcc +
-        inc @char+2
-
-+       inc @lens+1
-        bne @lens
-        inc @lens+2
-        bne @lens
-
-@eof
         jmp *
 
         ; tear down the custom interrupt handlers
         jsr disable_interrupts
         rts
 
+;===============================================================================
+; scroll the article down a line:
+;
+read_scroll_down:
+
+        ; copy the screen up a row -- the bytes after the screen characters
+        ; are filled with spaces so as to automatically blank the last row!
+        ; 
+        ldy # 0
+-       lda $0428, y            ; row below...
+        sta $0400, y            ; to row above
+        iny
+        bne -
+
+-       lda $0528, y
+        sta $0500, y
+        iny
+        bne -
+
+-       lda $0628, y
+        sta $0600, y
+        iny
+        bne -
+
+-       lda $0728, y
+        sta $0700, y
+        iny
+        bne -
+
+        ; begin printing the new row
+        ;-----------------------------------------------------------------------
+        ; read the length of the current line at the top of the screen,
+        ; and move the line-pointer for the top screen line to the next line
+        ; (note that Y is now zero due to loop above)
+        ;
+        clc
+        lda (ZP_READ_LENS), y   ; length of line at top of screen
+        adc ZP_READ_TOP_LO      ; add line-length to the line address
+        sta ZP_READ_TOP_LO      ; (move to next line)
+        bcc +
+        inc ZP_READ_TOP_HI
+        clc
++
+        ; set the screen address to print at
+        ; (last row)
+        ldy # 24                ; (bottom of screen)
+        lda screen_rows_lo, y   ; address of last row of screen, lo-byte
+        sta READ_OUT_LO
+        lda screen_rows_hi, y   ; address of last row of screen, hi-byte
+        sta READ_OUT_HI
+
+        ; do the same but with the line-pointer for the bottom row of the
+        ; screen, but also write the address into the print routine
+        ;
+        lda (ZP_READ_LENS), y   ; length of line at bottom of screen
+        adc ZP_READ_BOT_LO      ; add line-length to the line address
+        sta ZP_READ_BOT_LO      ; (move to next line)
+        sta READ_CHAR_LO        ; set printing routine line-address (lo)
+        lda ZP_READ_BOT_HI
+        adc # 0                 ; ripple the add
+        sta ZP_READ_BOT_HI
+        sta READ_CHAR_HI        ; set printing routine line-address (hi)
+
+        ; number of rows to print (1-based)
+        lda # 1
+        sta ZP_READ_ROWS
+
+        ; move to the next entry in the line-lengths array
+        inc ZP_READ_LENS_LO
+        bcc +
+        inc ZP_READ_LENS_HI
+
++       lda (ZP_READ_LENS), y
+        tay
+
+        ; print just one line
+        ; -- we do not need to set READ_LENS for this reason
+        jmp read_line
+        
 ;===============================================================================
 ; load the article:
 ;
@@ -167,10 +191,10 @@ read_load:
         inc CPU_CONTROL
 
         ; get the last-used device number set by the KERNAL
-        lda $ba
+        ldx $ba
         bne +                   ; not 0? good
-+       ldx # DEV_DRV8          ; default to drive 8
-        ldy # $00               ; use custom load address
+        ldx # DEV_DRV8          ; default to drive 8
++       ldy # $00               ; use custom load address
         tya                     ; logical file number
         jsr KERNAL_SETLFS
 
@@ -187,9 +211,135 @@ read_load:
         ; TODO: error handling, fastloader et al
 
         dec CPU_CONTROL         ; turn KERNAL off
+
+        ; file-read, initialise printing:
+        ;-----------------------------------------------------------------------
+        ; the first two bytes are the size of the line-length array;
+        ; in other words, how far forward to skip to find the text data.
+        ; we set the address of the first line to print
+        clc
+        lda $2000
+        adc #< $2000
+        sta READ_CHAR_LO
+        sta ZP_READ_TOP_LO
+        lda $2001
+        adc #> $2000
+        sta READ_CHAR_HI
+        sta ZP_READ_TOP_HI
+
+        ; ergo, the line-length array begins two bytes in
+        ; and this is our intial index into the array
+        lda #< $2002
+        sta READ_LENS_LO
+        sta ZP_READ_LENS_LO
+        lda #> $2002
+        sta READ_LENS_HI
+        sta ZP_READ_LENS_HI
+
+        ; set the initial screen address
+        ; (row 0, col 0)
+        lda # 0
+        sta ZP_READ_ROW
+        ; set the output address in the printing
+        ; routine based on this row+col
+        lda screen_rows_lo
+        sta READ_OUT_LO
+        lda screen_rows_hi
+        sta READ_OUT_HI
+
+        ; print the article's first screen full of text
+        ;-----------------------------------------------------------------------
+        ; number of rows to print (1-based)
+        lda # 25
+        sta ZP_READ_ROWS
+
+        jsr read_lines
+
+        ; now that 25 rows have been printed, the routine will have left
+        ; the details of the last row behind which we can make use of
+        lda READ_CHAR_LO
+        sta ZP_READ_BOT_LO
+        lda READ_CHAR_HI
+        sta ZP_READ_BOT_HI
+
         rts
 
 ;===============================================================================
 ; print a number of lines from the article to the screen:
 ;
 read_lines:
+
+!addr   READ_LENS       = @lens+1
+!addr   READ_LENS_LO    = @lens+1
+!addr   READ_LENS_HI    = @lens+2
+
+        ; prepare for printing
+        ;-----------------------------------------------------------------------
+        ; screen memory offset for the line
+        ; (increases as each character is printed)
+        ldx # 0
+
+        ; get the number of bytes for this line
+@lens   ldy $8888
+        sty ZP_READ_LEN
+
+        ; 0-length line is skipped,
+        ; nothing to print
+        beq @eol
+
+.read_line:
+!addr   read_line       = .read_line
+        ;-----------------------------------------------------------------------
+!addr   READ_CHAR       = @char+1
+!addr   READ_CHAR_LO    = @char+1
+!addr   READ_CHAR_HI    = @char+2
+
+!addr   READ_OUT        = @out+1
+!addr   READ_OUT_LO     = @out+1
+!addr   READ_OUT_HI     = @out+2
+
+        ; read a byte from the binary string
+@char   lda $8888, y
+        
+        ; print the character
+@out    sta $0400, x
+        inx
+        dey
+        bne @char
+
+        ; end-of-line:
+@eol    ; (note that Y is now zero due to line-bytes counting toward zero)
+        tya
+        ; reset screen address offset for the next line
+        tax
+        
+        ; this to be optimized
+        inc ZP_READ_ROW
+        ldy ZP_READ_ROW
+
+        dec ZP_READ_ROWS
+        beq @eof
+
+        ; look up the screen-address of the next row.
+        ; faster than adding 40 to the existing address,
+        ; since we don't need to read back the current value
+        lda screen_rows_lo, y
+        sta READ_OUT_LO
+        lda screen_rows_hi, y
+        sta READ_OUT_HI
+
+        ; move the data-pointer forward to the beginning of the next line,
+        ; that is, add the length of the line (in bytes) to the pointer
+        clc
+        lda READ_CHAR_LO
+        adc ZP_READ_LEN
+        sta READ_CHAR_LO
+        bcc +
+        inc READ_CHAR_HI
+
++       inc READ_LENS_LO
+        bne @lens
+        inc READ_LENS_HI
+        bne @lens
+
+@eof    rts
