@@ -148,18 +148,16 @@ function add_char()
     -- add the character to the word
     word_bin = word_bin .. string.char(scr64)
     word_len = word_len + 1
-
-    -- if the word no longer fits on the line, word-wrap
-    if line_len + word_len > 40 then
-        -- dispatch the current line as-is
-        add_line()
-        -- start the new line with the remaining word
-        add_word()
-    end
 end
 
 function add_word ()
     ----------------------------------------------------------------------------
+    -- if the word will not fit on the line, word-wrap
+    if line_len + word_len >= 40 then
+        -- dispatch the current line as-is
+        add_line()
+    end
+
     -- add the word to the line
     line_bin = line_bin .. word_bin
     line_len = line_len + word_len
@@ -203,7 +201,8 @@ ascii = string.char(text:byte(index))
 if ascii == "\r" then goto next; end
 -- if return, line has ended early
 if ascii == "\n" then
-    -- add the current word to the line
+    -- add the current word to the end of the line.
+    -- this might cause an additional line-break!
     add_word()
     -- dispatch the current line;
     -- when two new-lines are in a row,
@@ -242,6 +241,10 @@ goto next
 add_word()
 -- and the final line
 add_line()
+
+-- the lines-length table is suffixed with $FF
+-- to indicate when to stop scrolling downards
+table.insert(lines_len, 255)
 
 -- how long the line-lengths list is (2-bytes)
 f_out:write(string.pack("<I2", #lines_len+1))

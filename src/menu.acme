@@ -155,7 +155,10 @@ PAGE_Y  = 4
         sta ZP_COLOR
        +print_str_pos   item02
        +print_str_pos   item03
-       +print_str_pos   item04
+       +print_str_pos   item04a
+       +print_str_pos   item04b
+       +print_str_pos   item05a
+       +print_str_pos   item05b
        
         jmp *
 
@@ -187,6 +190,16 @@ item03:
         !byte   PAGE_Y + 6, PAGE_X + 2
         !scr    "The outfit", 0
 
-item04:
+item04a:
         !byte   PAGE_Y + 8, PAGE_X + 2
-        !scr    "Help! My Interrupt Crashed!", 0
+        !scr    "Help! My Interrupt", 0
+item04b:
+        !byte   PAGE_Y + 9, PAGE_X + 2
+        !scr    "Crashed!", 0
+
+item05a:
+        !byte   PAGE_Y + 11, PAGE_X + 2
+        !scr    "BSOD64: The crash-screen", 0
+item05b:
+        !byte   PAGE_Y + 12, PAGE_X + 2
+        !scr    "for your Commodore!", 0

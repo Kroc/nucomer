@@ -31,5 +31,12 @@
     ],
     "Lua.diagnostics.disable": [
         "lowercase-global"
+    ],
+    "spellright.language": [
+        "en"
+    ],
+    "spellright.documentTypes": [
+        "markdown",
+        "latex"
     ]
 }
