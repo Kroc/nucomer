@@ -24,7 +24,7 @@ f_out,err = io.open(outfile, "wb")
 if err then print ("! error: " .. err); os.exit(false); end
 
 -- write the PRG header
-f_out:write(string.pack("<I2", 0x2000))
+f_out:write(string.pack("<I2", 0x1FFE))
 
 -- display the outfile now we have it open
 print("txt2c64 > " .. outfile)

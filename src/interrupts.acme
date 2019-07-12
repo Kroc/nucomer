@@ -6,11 +6,12 @@ SCANLINE_VBLANK_BEGIN   = 250
 
 ; a pointer in the zero-page to the table of interrupt handlers
 ;-------------------------------------------------------------------------------
-!addr   ZP_IRQS         = $02
-!addr   ZP_IRQS_LO      = $02
-!addr   ZP_IRQS_HI      = $03
-!addr   ZP_IRQS_LEN     = $04   ; number of enteries in the table
-!addr   ZP_IRQ          = $05   ; current index in the table
+!addr   ZP_IRQ          = $ff   ; current index in the table
+!addr   ZP_IRQS_LEN     = $fe   ; number of enteries in the table
+!addr   ZP_IRQS         = $fc
+!addr   ZP_IRQS_LO      = $fc
+!addr   ZP_IRQS_HI      = $fd
+
 
 frameReady:
 ;-------------------------------------------------------------------------------
@@ -51,52 +52,6 @@ wait_frame:
         rts
 
 ;===============================================================================
-; when the KERNAL ROM is switched on, it controls the interrupt vectors at
-; $FFFA-$FFFF. this means that there's some extra indirection that happens
-; whenever an IRQ occurs. first, the KERNAL pushes A, X & Y onto the stack
-; and then calls the vector at $0314; by default this is the routine that
-; handles the BASIC interrupt, e.g. blinking the cursor. if the KERNAL is
-; on but BASIC is off, the system will crash!
-;
-; unless you are writing a BASIC extension there is no reason to keep BASIC
-; switched on (you can use the RAM underneath instead), therefore we must
-; provide a routine to replace the BASIC interrupt. it doesn't have to do
-; any actual work, just merely exit in the correct way, that is, restore
-; the register from the stack and call `rti`. alternatively, one can jump
-; to $EA81 which is the KERNAL's code to do the same, but I recommend
-; against this because that assumes that the machine is a C64 with
-; stock ROMs and this might not be the case!
-;
-irq_kernal_on:
-        ;-----------------------------------------------------------------------
-        pla
-        tay
-        pla
-        tax
-        pla
-        rti
-
-; when the KERNAL is off, but no raster interrupts are in use, this simple
-; IRQ handler does the minimum amount necessary to service the interrupt
-;
-irq_kernal_off:
-        ;-----------------------------------------------------------------------
-        ; acknowledge the interrupt to prevent it double-firing.
-        ; we only need to write to the status register to do this
-        inc VIC_INTERRUPT_STATUS
-        ; return from interrupt
-        ; (restore processor flags, enable interrupts)
-        rti
-
-;===============================================================================
-; exiting without acknowledging the NMI interrupt (via write to $DD0D)
-; will effectively disable further NMIs from occuring. further details
-; can be read here: https://codebase64.org/doku.php?id=base:nmi_lock
-;
-nmi:
-        rti
-
-;===============================================================================
 init_interrupts:
 
         ; disable interrupts whilst we alter them
@@ -129,20 +84,16 @@ init_interrupts:
         ; set the non-maskable interrupt location when the KERNAL is on.
         ; pressing the RESTORE key will fire this routine (unless disabled
         ; -- see comments on `nmi` routine)
-        ;
-        ; note that when the KERNAL is switched off, the RAM underneath will
-        ; define the NMI interrupt address -- this gets rectified below
-        ;
-        lda #< nmi
+        lda #< nmi_debug
         sta KERNAL_VECTOR_NMI+0
-        lda #> nmi
+        lda #> nmi_debug
         sta KERNAL_VECTOR_NMI+1
 
         ; likewise, when the KERNAL is off, an NMI handler
         ; must be specified or the machine will crash
-        lda #< nmi
+        lda #< nmi_debug
         sta HW_VECTOR_NMI+0
-        lda #> nmi
+        lda #> nmi_debug
         sta HW_VECTOR_NMI+1
 
         ; put the KERNAL-off interrupt-handler on stand-by
@@ -285,6 +236,74 @@ irqs_load:
         rts
 
 ;===============================================================================
+; exiting without acknowledging the NMI interrupt (via write to $DD0D)
+; will effectively disable further NMIs from occuring. further details
+; can be read here: https://codebase64.org/doku.php?id=base:nmi_lock
+;
+nmi_debug:
+        lsr $dd0d
+        jmp $c003               ; invoke BSOD64!
+nmi:
+        rti
+
+;===============================================================================
+; when the KERNAL ROM is switched on, it controls the interrupt vectors at
+; $FFFA-$FFFF. this means that there's some extra indirection that happens
+; whenever an IRQ occurs. first, the KERNAL pushes A, X & Y onto the stack
+; and then calls the vector at $0314; by default this is the routine that
+; handles the BASIC interrupt, e.g. blinking the cursor. if the KERNAL is
+; on but BASIC is off, the system will crash!
+;
+; unless you are writing a BASIC extension there is no reason to keep BASIC
+; switched on (you can use the RAM underneath instead), therefore we must
+; provide a routine to replace the BASIC interrupt. it doesn't have to do
+; any actual work, just merely exit in the correct way, that is, restore
+; the register from the stack and call `rti`. alternatively, one can jump
+; to $EA81 which is the KERNAL's code to do the same, but I recommend
+; against this because that assumes that the machine is a C64 with
+; stock ROMs and this might not be the case!
+;
+irq_kernal_on:
+        ;-----------------------------------------------------------------------
+        ; check if BRK occurred:
+        pla                     ; retrieve the processor flags at interrupt
+        pha                     ; put them back to avoid crashing
+        and # %00010000         ; check the BRK bit
+        beq +
+        jmp $c003               ; invoke BSOD64!
+
++       pla
+        tay
+        pla
+        tax
+        pla
+
+        rti
+
+; when the KERNAL is off, but no raster interrupts are in use, this simple
+; IRQ handler does the minimum amount necessary to service the interrupt
+;
+irq_kernal_off:
+        ;-----------------------------------------------------------------------
+        ; acknowledge the interrupt to prevent it double-firing.
+        ; we only need to write to the status register to do this
+        inc VIC_INTERRUPT_STATUS
+
+        ; check if BRK occurred:
+        sta @a+1                ; backup A register
+        pla                     ; retrieve the processor flags at interrupt
+        pha                     ; put them back to avoid crashing
+        and # %00010000         ; check the BRK bit
+        beq @a
+        jmp $c003               ; invoke BSOD64!
+
+@a      lda # $88               ; restore A register
+        
+        ; return from interrupt
+        ; (restore processor flags, enable interrupts)
+        rti
+
+;===============================================================================
 ; the main interrupt handler that manages the interrupt list:
 ;
 ; when raster interrupts are enabled, this routine is always called for
@@ -305,6 +324,14 @@ irq:
         lda # $00
         sta frameReady
 
+        ; check if BRK occurred:
+        ;-----------------------------------------------------------------------
+        pla                     ; retrieve the processor flags at interrupt
+        pha                     ; put them back to avoid crashing
+        and # %00010000         ; check the BRK bit
+        beq +
+        jmp $c003               ; invoke BSOD64!
++
         ; process the custom interrupt handler
         ;-----------------------------------------------------------------------
         ; for speed, the address of the handler will already
@@ -364,3 +391,4 @@ irq:
 @x      ldx # $88               ; restore X register
 @a      lda # $88               ; restore A register
         rti
+

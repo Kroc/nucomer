@@ -18,7 +18,7 @@ menu_irq_logo:
         ;-----------------------------------------------------------------------
         ; manually, and very badly, stabilise the raster
         ; by wasting enough time to get to the flyback
-        ldx # 4
+        ldx # 2
 -       dex
         bne -
 
@@ -39,7 +39,7 @@ menu_irq_logo_end:
         ;-----------------------------------------------------------------------
         ; manually, and very badly, stabilise the raster
         ; by wasting enough time to get to the flyback
-        ldx # 4
+        ldx # 2
 -       dex
         bne -
         
@@ -49,7 +49,7 @@ menu_irq_logo_end:
         sta VIC_BACKGROUND
 
         ; now kill enough time for a whole line
-        ldx # 12
+        ldx # 11
 -       dex
         bne -
         ; go back to black
@@ -69,7 +69,7 @@ menu_irq_vblank:
         ;-----------------------------------------------------------------------
         ; manually, and very badly, stabilise the raster
         ; by wasting enough time to get to the flyback
-        ldx # 4
+        ldx # 2
 -       dex
         bne -
         

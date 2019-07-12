@@ -25,7 +25,7 @@ ECHO BSOD64
 ECHO ----------------------------------------
 PUSHD src\bsod64
 
-..\..\%ACME% -v3 ^
+..\..\%ACME% -v1 ^
      --format cbm ^
      -Wtype-mismatch ^
           "bsod64.acme"

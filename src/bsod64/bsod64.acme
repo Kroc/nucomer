@@ -464,17 +464,25 @@ CIA_TIMERB              = $0f   ;=$DC0F/$DD0F
 
 * = $c000
 ;===============================================================================
-; 
-bsod:                   ; SYS 49158
+; install BSOD64's launch hooks:
+;
+; this will alter the system interrupts to launch BSOD64 whenever the RESTORE
+; key is pressed, or the BRK instruction is encountered in running code
+;
+; if your own code needs to alter the interrupts then you can forego this
+; routine and just use `jsr $c003` to invoke BSOD64 at any time, including
+; from your own interrupt handlers -- you MUST use `jsr` instead of `jmp`
+; as the program counter is required to be on top of the stack
+;
+bsod:                   ; SYS 49152 / jmp $c000
+        jmp bsod_init
 
-        lda # $de
-        pha
-        lda # $c0
-        pha
-        php
-        lda # $12
-        ldx # $3a
-        ldy # $bc
+;===============================================================================
+; invoke BSOD64 from an interrupt (IRQ/NMI/BRK) --
+; the processor status must be top on the stack
+; followed by the program counter
+;
+bsod_irq                ; SYS 49155 / jmp $c003
 
         ; disable interrupts first!
         ; we must stop any more host code from running!
@@ -954,6 +962,11 @@ bsod_print_str_inline:
 ;
 bsod_page:
         !byte   $00
+
+;===============================================================================
+;
+bsod_init:
+        rts
 
 ;===============================================================================
 ; BSOD64's backup of some C64 state at the point of BRK / NMI.

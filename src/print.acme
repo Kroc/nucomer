@@ -27,7 +27,7 @@ clear_screen:
 
         rts
 
-ZP_COLOR        = $ff
+ZP_COLOR        = $02
 
 ;===============================================================================
 ; print a null-terminated string, where the first two
