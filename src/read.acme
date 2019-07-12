@@ -45,12 +45,12 @@ read_screen:
         sta ZP_COLOR
         jsr clear_screen
 
-        ; for vertical scrolling, we place 40 spaces before and after the
+        ; for vertical scrolling, we place spaces before and after the
         ; screen RAM so that a blind copy of rows up/down one position
         ; automatically fills the top/bottom screen row with spaces
-        ldx # 39
+        ldx # $3f
         lda # ' '
--       sta $0400 - 40, x
+-       sta $0400 - $40, x
         sta $07e8, x
         dex
         bpl -
@@ -259,13 +259,6 @@ read_scroll_down:
         bne +
         inc ZP_READ_LENS_HI
 +
-;;        ; read the length of the new line to print
-;;        ; (zero-length line will be handled during printing)
-;;        lda (ZP_READ_LENS), y
-;;        tay
-;;
-;;        ; print just one line
-;;        jmp read_line
 
 ;===============================================================================
 ; print a number of lines from the article to the screen:
