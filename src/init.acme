@@ -36,8 +36,8 @@ init:
         dec CPU_CONTROL
         dec CPU_CONTROL
 
-        jsr logo_screen
-        jsr menu_screen
+;;        jsr logo_screen
+;;        jsr menu_screen
         jsr read_screen
         
         ; halt and catch fire

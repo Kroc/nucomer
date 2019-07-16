@@ -82,6 +82,11 @@ read_screen:
         bne +
         brk
 
++       cpx # %10000000
+        bne +
+        jsr read_scroll_up
+        beq @key
+
 +       jsr read_scroll_down
         beq @key
 
@@ -185,6 +190,90 @@ read_load:
 ; scroll the article up a line:
 ;
 read_scroll_up:
+        ; are we at the top of the article?
+        ;-----------------------------------------------------------------------
+        ; check the address of the current line in the line array;
+        ; if this is $2000 then we are on the first line of the article
+        ;
+        lda ZP_READ_LENS_LO     ; the lo-byte of the address...
+        bne +                   ; must be $00
+        lda ZP_READ_LENS_HI     ; and the hi-byte
+        cmp #> $2000            ; must be $00
+        bne +
+        ; we are at the top of the article
+        sec                     ; set carry for error,
+        rts                     ; and make like a tree
++
+        ; copy the screen down a row -- the bytes before the screen characters
+        ; are filled with spaces so as to automatically blank the first row!
+        ; 
+        ldy # $ff
+-       lda $06d8, y
+        sta $0700, y
+        dey
+        cpy # $ff
+        bne -
+-       lda $05d8, y
+        sta $0600, y
+        dey
+        cpy # $ff
+        bne -
+-       lda $04d8, y
+        sta $0500, y
+        dey
+        cpy # $ff
+        bne -
+-       lda $03d8, y
+        sta $0400, y
+        dey
+        cpy # $ff
+        bne -
+        ; set Y to 0
+        iny
+
+        ; begin printing the new row
+        ;-----------------------------------------------------------------------
+        ; set the screen address to print at
+        sty ZP_READ_ROW
+        lda #< $0400
+        sta READ_OUT_LO
+        lda #> $0400
+        sta READ_OUT_HI
+
+        ; move the index in the line-lengths array back one line
+        sec
+        lda ZP_READ_LENS_LO
+        sbc # 1
+        sta ZP_READ_LENS_LO
+        bcs +
+        dec ZP_READ_LENS_HI
+        sec
++
+        ; move the address of the line at the top
+        ; of the screen backwards to the previous line
+        ;
+        lda ZP_READ_TOP_LO
+        sbc (ZP_READ_LENS), y
+        sta ZP_READ_TOP_LO
+        sta READ_CHAR_LO        ; also set in the printing routine
+        lda ZP_READ_TOP_HI
+        sbc # 0                 ; ripple the subtract
+        sta ZP_READ_TOP_HI
+        sta READ_CHAR_HI
+
+        ; number of rows to print
+        iny                     ; (1-based)
+        sty ZP_READ_ROWS
+
+        ; repeat this for the line at the bottom of the screen
+        ldy # 24
+        lda ZP_READ_BOT_LO
+        sbc (ZP_READ_LENS), y
+        sta ZP_READ_BOT_LO
+        bcs +
+        dec ZP_READ_BOT_HI
+
++       jmp read_lines
 
 ;===============================================================================
 ; scroll the article down a line:
@@ -233,7 +322,11 @@ read_scroll_down:
         bcc +
         inc ZP_READ_TOP_HI
         clc
-+
+
+        ; number of rows to print
++       iny                     ; (1-based)
+        sty ZP_READ_ROWS
+
         ; set the screen address to print at
         ; (last row)
         ldy # 24                ; (bottom of screen)
@@ -255,10 +348,6 @@ read_scroll_down:
         adc # 0                 ; ripple the add
         sta ZP_READ_BOT_HI
         sta READ_CHAR_HI        ; set printing routine line-address (hi)
-
-        ; number of rows to print (1-based)
-        lda # 1
-        sta ZP_READ_ROWS
 
         ; move to the next entry in the line-lengths array
         inc ZP_READ_LENS_LO

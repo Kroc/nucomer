@@ -241,12 +241,33 @@ irqs_load:
 ; can be read here: https://codebase64.org/doku.php?id=base:nmi_lock
 ;
 nmi_debug:
+        pha
+        txa
+        pha
+        tya
+        pha
+
         lsr $dd0d
-        jmp $c003               ; invoke BSOD64!
+        jmp $c006               ; invoke BSOD64!
 nmi:
         rti
 
 ;===============================================================================
+; when the KERNAL is off, but no raster interrupts are in use, this simple
+; IRQ handler does the minimum amount necessary to service the interrupt
+;
+irq_kernal_off:
+        ;-----------------------------------------------------------------------
+        ; acknowledge the interrupt to prevent it double-firing.
+        ; we only need to write to the status register to do this
+        inc VIC_INTERRUPT_STATUS
+
+        pha
+        txa
+        pha
+        tya
+        pha
+
 ; when the KERNAL ROM is switched on, it controls the interrupt vectors at
 ; $FFFA-$FFFF. this means that there's some extra indirection that happens
 ; whenever an IRQ occurs. first, the KERNAL pushes A, X & Y onto the stack
@@ -266,11 +287,11 @@ nmi:
 irq_kernal_on:
         ;-----------------------------------------------------------------------
         ; check if BRK occurred:
-        pla                     ; retrieve the processor flags at interrupt
-        pha                     ; put them back to avoid crashing
+        tsx                     ; we need to look on the stack
+        lda $0104, x            ; retrieve the processor flags at interrupt
         and # %00010000         ; check the BRK bit
         beq +
-        jmp $c003               ; invoke BSOD64!
+        jmp $c006               ; invoke BSOD64!
 
 +       pla
         tay
@@ -278,27 +299,6 @@ irq_kernal_on:
         tax
         pla
 
-        rti
-
-; when the KERNAL is off, but no raster interrupts are in use, this simple
-; IRQ handler does the minimum amount necessary to service the interrupt
-;
-irq_kernal_off:
-        ;-----------------------------------------------------------------------
-        ; acknowledge the interrupt to prevent it double-firing.
-        ; we only need to write to the status register to do this
-        inc VIC_INTERRUPT_STATUS
-
-        ; check if BRK occurred:
-        sta @a+1                ; backup A register
-        pla                     ; retrieve the processor flags at interrupt
-        pha                     ; put them back to avoid crashing
-        and # %00010000         ; check the BRK bit
-        beq @a
-        jmp $c003               ; invoke BSOD64!
-
-@a      lda # $88               ; restore A register
-        
         ; return from interrupt
         ; (restore processor flags, enable interrupts)
         rti
@@ -315,22 +315,27 @@ irq:
         ; we only need to write to the status register to do this
         inc VIC_INTERRUPT_STATUS
 
-        ; backup the registers by writing them to an LDA at end of routine --
-        ; https://codebase64.org/doku.php?id=base:introduction_to_raster_irqs
-        sta @a+1
-        stx @x+1
-        sty @y+1
-
+;;        ; backup the registers by writing them to an LDA at end of routine --
+;;        ; https://codebase64.org/doku.php?id=base:introduction_to_raster_irqs
+;;        sta @a+1
+;;        stx @x+1
+;;        sty @y+1
+        pha
+        txa
+        pha
+        tya
+        pha
+        
         lda # $00
         sta frameReady
 
         ; check if BRK occurred:
         ;-----------------------------------------------------------------------
-        pla                     ; retrieve the processor flags at interrupt
-        pha                     ; put them back to avoid crashing
+        tsx                     ; we need to look on the stack
+        lda $0104, x            ; retrieve the processor flags at interrupt
         and # %00010000         ; check the BRK bit
         beq +
-        jmp $c003               ; invoke BSOD64!
+        jmp $c006               ; invoke BSOD64!
 +
         ; process the custom interrupt handler
         ;-----------------------------------------------------------------------
@@ -387,8 +392,13 @@ irq:
 
         ; finish interrupt:
         ;-----------------------------------------------------------------------
-@y      ldy # $88               ; restore Y register
-@x      ldx # $88               ; restore X register
-@a      lda # $88               ; restore A register
+        pla
+        tay
+        pla
+        tax
+        pla
+;;@y      ldy # $88               ; restore Y register
+;;@x      ldx # $88               ; restore X register
+;;@a      lda # $88               ; restore A register
         rti
 

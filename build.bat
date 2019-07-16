@@ -46,6 +46,7 @@ IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
 %ACME% -v1 ^
      --format cbm ^
+     --report "build\nucomer.txt" ^
      --outfile "build\nucomer.prg" ^
           "src\nucomer.acme"
 
