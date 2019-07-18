@@ -169,6 +169,7 @@ VECTOR_SAVE             = $1e   ;=$0332/3
 ; query keyboard; put current matrix code into memory address $00CB,
 ; current status of shift keys into memory address $028D and PETSCII
 ; code into keyboard buffer
+;
 !addr   kernal_scnkey   = $ff9f
 
 ; unknown. (set serial bus timeout)
@@ -458,8 +459,8 @@ CIA_TIMERB              = $0f   ;=$DC0F/$DD0F
 ;;!addr   zp_stack_lo     = $03
 ;;!addr   zp_stack_hi     = $04
 
-; address displayed at the top of the memory viewer
-; i.e. the scroll position
+; address pointer used for printing memory values
+; e.g. display the memory hexdump
 !addr   zp_addr         = $05
 !addr   zp_addr_lo      = $05
 !addr   zp_addr_hi      = $06
@@ -482,6 +483,12 @@ CIA_TIMERB              = $0f   ;=$DC0F/$DD0F
 ; 8888888P"   "Y8888P"   "Y88888P"  8888888P"   "Y8888P"        888
 ;===============================================================================
 * = $c000
+
+STR_END                 = $00
+STR_POS                 = $01
+STR_KEY                 = $02
+STR_KEYPOS              = $03
+
 ;===============================================================================
 ; install BSOD64's launch hooks:
 ;
@@ -547,7 +554,7 @@ bsod_irq:                       ; jmp $c006
         sta orig_x              ; keep an unmodified copy of X
         sta bsod_x              ; make a working (modifiable) copy
         lda stack+3, x          ; 3rd item on stack
-        stx orig_a              ; keep an unmodified copy of A
+        sta orig_a              ; keep an unmodified copy of A
         sta bsod_a              ; make a working (modifiable) copy
 
         ; below the registers should be the processor status
@@ -574,18 +581,9 @@ bsod_irq:                       ; jmp $c006
         ldx # 0
 -       lda zp, x
         sta orig_zp, x
-        dex
-        bne -
-
-        ; with the CPU port registers $00 & $01 backed up, we can now change
-        ; memory layout to ensure I/O is accessible to backup VIC, SID etc.
-        lda # %00000001         ; ignore Datasette control
-        sta zp+0                ; only modify memory layout
-        sta zp+1                ; switch I/O on, KERNAL & BASIC off
-
         ; backup the original stack. since BSOD64 will be using the stack
         ; too, we will want to take a copy of the stack at freeze-time
--       lda stack, x
+        lda stack, x
         sta orig_stack, x
         ; backup the KERNAL/BASIC work RAM at $0200-$02FF
         lda work, x
@@ -599,6 +597,12 @@ bsod_irq:                       ; jmp $c006
         ; rinse and repeat
         dex
         bne -
+
+        ; with the CPU port registers $00 & $01 backed up, we can now change
+        ; memory layout to ensure I/O is accessible to backup VIC, SID etc.
+        lda # %00000001         ; ignore Datasette control
+        sta zp+0                ; only modify memory layout
+        sta zp+1                ; switch I/O on, KERNAL & BASIC off
 
         ; freeze VIC-II:
         ;-----------------------------------------------------------------------
@@ -635,7 +639,7 @@ bsod_irq:                       ; jmp $c006
         ; memory to $04 just before it exits
         ;;jsr kernal_ramtas
 
-        ; restore the default vector table
+        ; restore the default vector table at $0314-$0333
         jsr kernal_restor
 
         ; re-initialise VIC-II
@@ -708,18 +712,46 @@ bsod_irq:                       ; jmp $c006
         ; on the program counter address
         lda bsod_pc_lo
         and # %11111000         ; align to every 8 bytes
-        sta zp_addr_lo
+        sta bsod_memaddr_lo
         lda bsod_pc_hi
-        sta zp_addr_hi
+        sta bsod_memaddr_hi
 
 ;===============================================================================
 ; redraw the entire BSOD64 screen
 ;
 bsod_redraw:
+        ; print the static elements of the screen
+        ; (title, legends, key-commands etc)
         jsr bsod_print_str_inline
-        !pet    PET_CLR, PET_LCASE
-        !pet    PET_CYAN, "BSOD64v0.0-190711"
-        !byte   0
+        !pet    PET_CLR, PET_LCASE, PET_CYAN, "BSOD64v0.0"
+        !pet    PET_GREEN, STR_POS
+        ; registers legend
+        !pet    2, 18, "PC:  A: X: Y:", STR_POS
+        ; flags legend "nv-bdiz"
+        !pet    2, 32, "nv-bdizc", STR_POS
+        ; banks legend
+        !pet    2, 9, "89ABCDEF", STR_KEYPOS
+
+        ; write the menu on the bottom of the screen
+        !byte   24, 0
+        !pet    PET_F1, "MEMORY ", STR_KEY
+        !pet    PET_F3, "VIC ", STR_KEY
+        !pet    PET_F5, "SID ", STR_KEY
+        !pet    PET_F7, "DISK", STR_KEYPOS
+        ; registers title
+        !pet    0, 18, "R", "REGISTERS", STR_KEYPOS
+        ; flags title
+        !pet    0, 32, "F", "FLAGS", STR_KEYPOS
+        ; stack title
+        !pet    5, 32, "S", "STACK", STR_KEYPOS
+        ; banks title
+        !pet    2, 0, "B", "BANKS", STR_KEYPOS
+        ; memory viewer title
+        !byte   5, 0
+        !pet    "M", "MEMORY ", STR_KEY
+        !pet    "G", "GOTO"
+        ; set the colour ready for filling in the data
+        !pet    PET_LTBLUE, STR_END
 
         ; draw the lines across the screen
         ldx # 39
@@ -735,20 +767,42 @@ bsod_redraw:
         dex
         bpl -
 
-        ; write the menu on the bottom of the screen
-        jsr bsod_print_key_inline_pos
-        !byte   24, 0
-        !pet    PET_F1, "MEMORY ", 1
-        !pet    PET_F3, "VIC ", 1
-        !pet    PET_F5, "SID ", 1
-        !pet    PET_F7, "DISK", 0
-        
         ; redraw the various windows
         jsr bsod_redraw_registers
         jsr bsod_redraw_flags
         jsr bsod_redraw_banks
         jsr bsod_redraw_stack
         jsr bsod_redraw_memory
+
+bsod_input:
+        ; scan the keyboard, placing any active key into the buffer
+        jsr kernal_scnkey
+        ; read a key from the keyboard buffer
+        jsr kernal_getin
+
+.down   cmp # $11               ; cursor down
+        bne .up
+
+        clc
+        lda bsod_memaddr_lo
+        adc # 8
+        sta bsod_memaddr_lo
+        bcc +
+        inc bsod_memaddr_hi
++       jsr bsod_redraw_memory
+        jmp bsod_input
+
+.up     cmp # $91               ; cursor up
+        bne bsod_input
+
+        sec
+        lda bsod_memaddr_lo
+        sbc # 8
+        sta bsod_memaddr_lo
+        bcs +
+        dec bsod_memaddr_hi
++       jsr bsod_redraw_memory
+        jmp bsod_input
 
         jmp *
 
@@ -764,17 +818,6 @@ bsod_set_cursor:
 ; redraw the register window
 ;
 bsod_redraw_registers:
-        ; title
-        jsr bsod_print_key_inline_pos
-        !pet    0, 18, "R", "REGISTERS", 0
-
-        ; register legend
-        jsr bsod_print_str_inline_pos
-        !byte   2, 18
-        !pet    PET_GREEN, "PC:  A: X: Y:"
-        !pet    PET_LTBLUE      ; set colour for hex digits
-        !byte   0
-
         ; program counter value
         ldy # 18
         ldx # 3
@@ -804,17 +847,6 @@ bsod_redraw_registers:
 ;
 bsod_redraw_flags:
 
-        ; title
-        jsr bsod_print_key_inline_pos
-        !pet    0, 32, "F", "FLAGS", 0
-
-        ; flags legend "nv-bdiz"
-        jsr bsod_print_str_inline_pos
-        !byte   2, 32
-        !pet    PET_GREEN, "nv-bdizc"
-        !pet    PET_LTBLUE      ; set colour for flag bits
-        !byte   0
-
         ; print the processor flags
         ldy # 32
         ldx # 3
@@ -829,21 +861,16 @@ bsod_redraw_flags:
 ;
 bsod_redraw_banks:
 
-        ; banks title / legend
-        jsr bsod_print_key_inline_pos
-        !pet    2, 0, "B", "BANKS  ", 0
-        jsr bsod_print_str_inline
-        !pet    PET_GREEN, "89ABCDEF"
-        !pet    PET_LTBLUE      ; set colour for memory map
-        !pet    PET_RVSON       ; turn reverse on for the memory map
-        !byte   0
-
         ; draw the memory layout:
         ;-----------------------------------------------------------------------
         ; position cursor
         ldy # 9
         ldx # 3
         jsr bsod_set_cursor
+
+        ; set reverse block printing
+        lda # PET_RVSON
+        jsr kernal_chrout
 
         ; default blank (no banked in ROM) character
         lda # ' '
@@ -897,10 +924,6 @@ bsod_redraw_banks:
 ;
 bsod_redraw_stack:
 
-        ; title
-        jsr bsod_print_key_inline_pos
-        !pet    5, 32, "S", "STACK", 0
-
         ; set cursor to first line
         lda # 7
         sta @line
@@ -908,7 +931,7 @@ bsod_redraw_stack:
         ldy bsod_sp
 
 -       jsr bsod_print_str_inline_pos
-@line   !pet    7, 32, PET_PURPLE, 0
+@line   !pet    7, 32, PET_PURPLE, STR_END
         ; is this line the top of the stack at freeze-time?
         cpy bsod_sp
         bne +
@@ -918,7 +941,7 @@ bsod_redraw_stack:
 +       lda # " "
         jsr kernal_chrout
         jsr bsod_print_str_inline
-        !pet    PET_GREEN, "1", 0
+        !pet    PET_GREEN, "1", STR_END
         tya
         jsr bsod_print_hex8
 
@@ -953,11 +976,11 @@ bsod_redraw_stack:
 ;
 bsod_redraw_memory:
 
-        ; title
-        jsr bsod_print_key_inline_pos
-        !byte   5, 0
-        !pet    "M", "MEMORY ", 1
-        !pet    "G", "GOTO", 0
+        ; set the address to begin printing lines at
+        lda bsod_memaddr_lo
+        sta zp_addr_lo
+        lda bsod_memaddr_hi
+        sta zp_addr_hi
 
         ; set cursor to first line
         ldy # 0
@@ -991,7 +1014,7 @@ bsod_print_hexline:
         ; print the gutter
         jsr bsod_print_str_inline
         !pet    PET_GREEN, "  $"
-        !byte   0
+        !byte   STR_END
 
         ; print the memory address
         lda zp_addr_hi
@@ -1149,7 +1172,7 @@ bsod_print_key_inline:
         jsr bsod_stack_string
         
 bsod_print_key_inline_print:
-
+        ;-----------------------------------------------------------------------
         ; print the key
         lda # PET_WHITE
         jsr kernal_chrout
@@ -1219,9 +1242,13 @@ bsod_print_str_inline_pos:
 @print  lda (zp_str), y
 !addr   bsod_print_str_inline_pos__print = @print
         tax
-        beq +
+        beq +                   ; STR_END -- stop printing
         dex
-        beq .next_key
+        beq @next_pos           ; STR_POS -- move cursor and continue printing
+        dex
+        beq @next_key           ; STR_KEY -- print another key-command
+        dex
+        beq @next_keypos        ; STR_KEYPOS -- move & print key-command
 
         jsr kernal_chrout
         iny
@@ -1241,15 +1268,30 @@ bsod_print_str_inline_pos:
 !addr   bsod_print_str_inline_pos__y = @y+1
         rts
 
-.next_key:
+@next_pos:
+        ; read & set the cursor position
+        ; from the next two bytes
         iny
+        jsr bsod_stack_string_pos
+        ; continue printing
+        jmp @print
+
+@next_key:
+        ; print another key-command
+        iny
+        jmp bsod_print_key_inline_print
+
+@next_keypos:
+        ; set cursor and print another key-command
+        iny
+        jsr bsod_stack_string_pos
         jmp bsod_print_key_inline_print
 
 ;===============================================================================
 ; read an inline string address from the stack:
 ;
 bsod_stack_string:
-
+        ;-----------------------------------------------------------------------
         php                     ; put aside the carry flag for later
 
         tsx                     ; current stack pointer
@@ -1263,21 +1305,28 @@ bsod_stack_string:
 
         ldy # 0
         plp                     ; retrieve the original carry flag
-        bcs @end
+        bcc bsod_stack_string_pos
+        rts
 
+bsod_stack_string_pos:
+        ;-----------------------------------------------------------------------
         ; read the row & col bytes
         ;
         lda (zp_str), y         ; read the row
         tax                     ; must be in X for KERNAL call
         iny
+        tya
+        pha
         lda (zp_str), y         ; read the col
         tay                     ; must be in Y for KERNAL call
 
         jsr bsod_set_cursor     ; position the cursor
 
-        ldy # 2                 ; new string index
+        pla
+        tay
+        iny                     ; new string index
 
-@end    rts
+        rts
 
 ;===============================================================================
 ; normalise the stack to appear the same as the interrupt call would:
@@ -1367,4 +1416,13 @@ bsod_f:                         ; working copy of the processor flags
 ; flag if BSOD64 was invoked from a BRK interrupt
 bsod_brk:
         !byte   $88             ; $00 = no, $FF = yes
+
+; address that appears at the top of the memory viewer window
+; i.e. the current viewing position within memeory
+bsod_memaddr:
+bsod_memaddr_lo:
+        !byte   $88
+bsod_memaddr_hi:
+        !byte   $88
+
 }
