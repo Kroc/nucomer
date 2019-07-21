@@ -55,84 +55,10 @@ READ_BACK               = GREY
 !addr   ZP_READ_BOT_HI          = $20
 
 ;===============================================================================
-; table of interrupts to use for the reading screen:
-;
-read_irqs:
-        +irqs_table_item read_irq_bottom,       SCANLINE_VBLANK_BEGIN
-        +irqs_table_item read_irq_top,          SCANLINE_VBLANK_END
-
-read_irq_top:
-        ;-----------------------------------------------------------------------
--       rts
-
-read_irq_bottom:
-        ;-----------------------------------------------------------------------
-        ; is there any scrolling to be done?
-        ;
-        lda ZP_READ_SCROLL      ; read requested scroll speed
-        beq -                   ; if scroll-speed = 0, then skip
-
-        ; apply the scroll to our current
-        ; vertical position within the article
-        clc
-        lda ZP_READ_VPOS_LO
-        ; remember the article position *before* the move;
-        ; we'll need to mask the bottom three bits later
-        tay
-        ; note that regardless of positive or negative scroll speed,
-        ; adding will always produce the same result due to the
-        ; wrap-around nature of negative numbers (e.g. -1 = +$FF)
-        adc ZP_READ_SCROLL
-        sta ZP_READ_VPOS_LO
-        ; remember the lower-bits of the
-        ; article position *after* the move
-        and # %00000111
-        tax
-        ; beyond one byte, we do have to take into
-        ; account the postive / negative direction
-        lda ZP_READ_VPOS_HI
-        ; check the sign-bit of the scroll-speed
-        bit ZP_READ_SCROLL
-        bmi +
-        ; for positive numbers,
-        ; the carry can be applied
-       ;; adc # 0
-       ;;+bit_skip2
-+      ;; sbc # 0
-       ;; sta ZP_READ_VPOS_HI
-        
-        ; retrieve the vertical scroll-offset 0-7
-        txa
-        ;     %---1---- = screen on
-        ;     %----0--- = 24 rows (for smooth scrolling)
-        ;     %-----??? = vertical scroll offset
-        ora # %00010000
-        sta VIC_SCREEN_CTL1
-
-        tya
-        and # %00000111
-        sta ZP_READ_ROW
-        txa
-        bit ZP_READ_SCROLL
-        bpl +
-
-        cmp ZP_READ_ROW
-        bcc @end
-
-        jmp read_scroll_down
-
-+       cmp ZP_READ_ROW
-        bcs @end
-
-        jsr read_scroll_up
-
-@end    rts
-
-;===============================================================================
 read_screen:
         ; setup the screen:
         ;-----------------------------------------------------------------------
-        ; turn the screen off whilst we clear it,
+        ; turn the screen off whilst we clear it
         lda # %00000000
         sta VIC_SCREEN_CTL1
 
@@ -174,22 +100,20 @@ read_screen:
         ; turn screen on
         ;     %---1---- = screen on
         ;     %----0--- = 24 rows
-        ;     %-----011 = default vertical scroll offset
+        ;     %-----111 = default vertical scroll offset
         lda # %00010111
         sta VIC_SCREEN_CTL1
 
         ; reset the smooth scrolling variables
         ldx # $00
         stx ZP_READ_SCROLL      ; scroll-speed = 0
-        stx ZP_READ_STOP_DN     ; allow scrolling down
+        stx ZP_READ_STOP_DN     ; allow scrolling down; $00 = go, $FF = stop
         stx ZP_READ_VPOS_LO     ; set the exact pixel vertical position
         stx ZP_READ_VPOS_HI     ; within the article to zero
         ; we begin at the top of the article,
         ; so disallow scrolling upwards
-        dex
-        stx ZP_READ_STOP_UP
-        lda # %00
-        sta ZP_READ_VPOS_LO
+        dex                     ; X = $FF
+        stx ZP_READ_STOP_UP     ; $00 = go, $FF = stop
 
 read_keyboard:
         ;-----------------------------------------------------------------------
@@ -220,34 +144,32 @@ read_keyboard:
         ; do not allow scrolling any further
         ;
 @dn     lda ZP_READ_STOP_DN     ; check flag set when scroll hits the bottom
-        bne read_keyboard       ; if flag is set ($FF) then don't scroll
+        bmi read_keyboard       ; if flag is set ($FF) then don't scroll
 
         ; scroll the content down the page:
         ; (smooth scroll upwards)
-        ldx # $ff               ; set -1 scroll speed
+        ldx # $03               ; set scroll speed
         stx ZP_READ_SCROLL      ; this will be applied at interrupt
-        ; when scrolling down,
+        ; whenever scrolling down,
         ; allow scrolling up again
-        inx
-        stx ZP_READ_STOP_UP
-        beq read_keyboard       ; (always branches)
+        sta ZP_READ_STOP_UP     ; A = $00 due to condition above
+        bne read_keyboard       ; (always branches, note X register is used!)
 
         ; crsr-up
         ;-----------------------------------------------------------------------
         ; if at the top of the article,
         ; do not allow scrolling any further
 @up     lda ZP_READ_STOP_UP     ; check flag set when scroll hits the top
-        bne read_keyboard       ; if flag is set ($FF) then don't scroll
+        bmi read_keyboard       ; if flag is set ($FF) then don't scroll
 
         ; scroll the content up the page
         ; (smooth scroll downwards)
-        ldx # $01               ; set +1 scroll speed
+        ldx # $fd               ; set -1 scroll speed
         stx ZP_READ_SCROLL      ; this will be applied at interrupt
-        ; when scrolling up,
+        ; whenever scrolling up,
         ; allow scrolling down again
-        dex
-        stx ZP_READ_STOP_DN
-        beq read_keyboard       ; (always branches)
+        sta ZP_READ_STOP_DN     ; A = $00 due to condition above
+        bne read_keyboard       ; (always branches, note X register is used!)
 
 @spc    cmp # $20
         bne @stop
@@ -265,6 +187,147 @@ read_keyboard:
         ; tear down the custom interrupt handlers
         jsr disable_interrupts
         rts
+
+;===============================================================================
+; table of interrupts to use for the reading screen:
+;
+read_irqs:
+        ; when copying the screen up/down a row, the copy *must* occur before
+        ; the raster-beam enters the visible portion of the screen otherwise
+        ; flickering occurs. because the IRQ handler has a bunch of preliminary
+        ; work to do before we get to scrolling, we can compensate for that
+        ; time by moving the interrupt line back a little -- too far back,
+        ; and the bottom of the screen will begin to flicker!
+        ;
+        +irqs_table_item read_irq_bottom,       SCANLINE_VBLANK_BEGIN - 2
+        +irqs_table_item read_irq_top,          SCANLINE_VBLANK_END
+
+read_irq_top:
+        ;-----------------------------------------------------------------------
+        rts
+
+        lda ZP_READ_VPOS_HI
+        pha                     ; put original value aside
+        sed                     ; enable decimal mode
+
+        lsr                     ; shift upper nybble down
+        lsr                     ; ...
+        lsr                     ; ...
+        lsr                     ; ...
+        cmp #9+1
+        adc # $30               ; rebase to PETSCII '0' and above
+        sta $0400+(10*40)+0
+
+        pla                     ; retrieve original value
+        and # $0f               ; extract lower nybble
+        cmp # 9+1
+        adc # $30               ; rebase to PETSCII '0' and above
+        sta $0400+(10*40)+1
+        cld
+
+        lda ZP_READ_VPOS_LO
+        pha                     ; put original value aside
+        sed
+
+        lsr                     ; shift upper nybble down
+        lsr                     ; ...
+        lsr                     ; ...
+        lsr                     ; ...
+        cmp #9+1
+        adc # $30               ; rebase to PETSCII '0' and above
+        sta $0400+(10*40)+2
+
+        pla                     ; retrieve original value
+        and # $0f               ; extract lower nybble
+        cmp # 9+1
+        adc # $30               ; rebase to PETSCII '0' and above
+        sta $0400+(10*40)+3
+
+        cld                     ; disable decimal mode
+
+-       rts
+
+read_irq_bottom:
+        ;-----------------------------------------------------------------------
+        ; is there any scrolling to be done?
+        ;
+        lda ZP_READ_SCROLL      ; read requested scroll speed
+        beq -                   ; if scroll-speed = 0, then skip
+
+        ; apply the scroll to our current
+        ; vertical position within the article
+        clc
+        lda ZP_READ_VPOS_LO
+        ; remember the article position *before* the move;
+        ; we'll need to mask the bottom three bits later
+        tay
+        ; note that regardless of positive or negative scroll speed,
+        ; adding will always produce the same result due to the
+        ; wrap-around nature of negative numbers (e.g. -1 = +$FF)
+        adc ZP_READ_SCROLL
+        sta ZP_READ_VPOS_LO
+
+        ; beyond one byte, we do have to take into
+        ; account the postive / negative direction
+        lda ZP_READ_VPOS_HI
+        ; check the sign-bit of the scroll-speed
+        bit ZP_READ_SCROLL
+        bmi +
+        ; for positive numbers,
+        ; the carry can be applied
+        adc # 0
+       +bit_skip2
++       sbc # 0
+        sta ZP_READ_VPOS_HI
+
+        ; hit top/bottom of article?
+        ;-----------------------------------------------------------------------
+        ; have we gone above the top of the article?
+        ; (pixel vertical position < $0000)
+        ldx ZP_READ_VPOS_HI
+        bpl +
+        ; gone above the article; move back to the top
+        stx ZP_READ_STOP_UP
+        inx
+        stx ZP_READ_VPOS_LO
+        stx ZP_READ_VPOS_HI
+        lda # %00010111
+        sta VIC_SCREEN_CTL1
+        rts
++
+        ; soft/hard-scroll the screen:
+        ;-----------------------------------------------------------------------
+        ; retrieve the vertical scroll-offset 0-7
+        lda ZP_READ_VPOS_LO
+        and # %00000111
+        eor # %00000111
+        ; update the screen/scroll register:
+        ;     %---1---- = screen on
+        ;     %----0--- = 24 rows (for smooth scrolling)
+        ;     %-----??? = vertical scroll offset
+        ora # %00010000
+        sta VIC_SCREEN_CTL1
+
+        tya
+        and # %00000111
+        sta ZP_READ_ROW
+
+        lda ZP_READ_VPOS_LO
+        and # %00000111
+        bit ZP_READ_SCROLL
+        bpl +
+
+        cmp ZP_READ_ROW
+        bcc @end
+
+        jmp read_scroll_up
+
++       cmp ZP_READ_ROW
+        bcs @end
+
+        jmp read_scroll_down
+
+@end    rts
 
 ;===============================================================================
 ; load the article:
@@ -373,9 +436,9 @@ read_scroll_up:
         bne +
         ; we are at the top of the article:
         ; set the flag to stop smooth scrolling
-        lda # $ff
-        sta ZP_READ_STOP_UP
-        sec                     ; set carry for error,
+;;        lda # $ff
+;;        sta ZP_READ_STOP_UP
+;;        sec                     ; set carry for error,
         rts                     ; and make like a tree
 +
         ; copy the screen down a row
@@ -513,9 +576,9 @@ read_scroll_down:
 
         ; we are at the bottom of the article:
         ; set the flag to stop smooth scrolling
-        lda # $ff
-        sta ZP_READ_STOP_DN
-        sec                     ; set carry for error,
+;;        lda # $ff
+;;        sta ZP_READ_STOP_DN
+;;        sec                     ; set carry for error,
         rts                     ; and make like a tree
 
         ; copy the screen up a row -- the bytes after the screen characters
