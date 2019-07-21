@@ -4,6 +4,13 @@
 !source "c64/vic.acme"
 !source "c64/kernal.acme"
 
+!macro  bit_skip1 {
+        !byte $24
+}
+!macro  bit_skip2 {
+        !byte $2c
+}
+
 ; CPU port: memory layout & Datasette
 ;===============================================================================
 ; memory address $00/$01 is hard-wired to the C64's 6510 CPU; the "processor

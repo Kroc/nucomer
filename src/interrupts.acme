@@ -74,16 +74,9 @@ init_interrupts:
         lda CIA1_INTERRUPT
         lda CIA2_INTERRUPT
 
-        ; replace the BASIC interrupt with our own --
-        ; see the comments on the `irq_kernal_on` routine above
-        lda #< irq_kernal_on
-        sta KERNAL_VECTOR_INTERRUPT+0
-        lda #> irq_kernal_on
-        sta KERNAL_VECTOR_INTERRUPT+1
-
         ; set the non-maskable interrupt location when the KERNAL is on.
         ; pressing the RESTORE key will fire this routine (unless disabled
-        ; -- see comments on `nmi` routine)
+        ; -- see comments on `nmi_disable` routine)
         lda #< nmi_debug
         sta KERNAL_VECTOR_NMI+0
         lda #> nmi_debug
@@ -112,12 +105,18 @@ disable_interrupts:
         lda # %00000000
         sta VIC_INTERRUPT_CONTROL
 
-        ; switch to the minimal 'do nothing' interrupt
+        ; switch to the minimal interrupt
         ; handler for when the KERNAL is off
         lda #< irq_kernal_off
         sta HW_VECTOR_IRQ+0
         lda #> irq_kernal_off
         sta HW_VECTOR_IRQ+1
+
+        ; and likewise for when the KERNAL is on
+        lda #< irq_kernal_on
+        sta KERNAL_VECTOR_INTERRUPT+0
+        lda #> irq_kernal_on
+        sta KERNAL_VECTOR_INTERRUPT+1
 
         cli                     ; enable interrupts
         rts
@@ -236,10 +235,6 @@ irqs_load:
         rts
 
 ;===============================================================================
-; exiting without acknowledging the NMI interrupt (via write to $DD0D)
-; will effectively disable further NMIs from occuring. further details
-; can be read here: https://codebase64.org/doku.php?id=base:nmi_lock
-;
 nmi_debug:
         pha
         txa
@@ -249,7 +244,13 @@ nmi_debug:
 
         lsr $dd0d
         jmp $c006               ; invoke BSOD64!
-nmi:
+
+; exiting without acknowledging the NMI interrupt (via write to $DD0D)
+; will effectively disable further NMIs from occuring. further details
+; can be read here: https://codebase64.org/doku.php?id=base:nmi_lock
+;
+nmi_disable:
+        ;-----------------------------------------------------------------------
         rti
 
 ;===============================================================================
@@ -315,11 +316,7 @@ irq:
         ; we only need to write to the status register to do this
         inc VIC_INTERRUPT_STATUS
 
-;;        ; backup the registers by writing them to an LDA at end of routine --
-;;        ; https://codebase64.org/doku.php?id=base:introduction_to_raster_irqs
-;;        sta @a+1
-;;        stx @x+1
-;;        sty @y+1
+        ; preserve the registers on the stack
         pha
         txa
         pha
@@ -397,8 +394,6 @@ irq:
         pla
         tax
         pla
-;;@y      ldy # $88               ; restore Y register
-;;@x      ldx # $88               ; restore X register
-;;@a      lda # $88               ; restore A register
+
         rti
 
