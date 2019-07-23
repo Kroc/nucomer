@@ -10,9 +10,12 @@ READ_BACK               = GREY
 !addr   ZP_READ_LINES_LO        = $10
 !addr   ZP_READ_LINES_HI        = $11
 
-; height of the complete article -- in pixels!
-; this is used to determine the exact point to
-; clip smooth scrolling when scrolling quickly
+; height of the complete article -- in pixels! this is used to determine the
+; exact point to clip smooth scrolling when scrolling quickly. the high-bit
+; is used to determine the top of the article, so in practice the article
+; is limited to $7FFF (32'767) pixels high, equivalant to 4'095 lines,
+; or 170 screens high!
+;
 !addr   ZP_READ_VLEN            = $11
 !addr   ZP_READ_VLEN_LO         = $11
 !addr   ZP_READ_VLEN_HI         = $12
@@ -244,6 +247,41 @@ read_irq_top:
         sta $0400+(10*40)+3
 
         cld                     ; disable decimal mode
+        lda ZP_READ_VLEN_HI
+        pha                     ; put original value aside
+        sed
+
+        lsr                     ; shift upper nybble down
+        lsr                     ; ...
+        lsr                     ; ...
+        lsr                     ; ...
+        cmp #9+1
+        adc # $30               ; rebase to PETSCII '0' and above
+        sta $0400+(10*40)+5
+
+        pla                     ; retrieve original value
+        and # $0f               ; extract lower nybble
+        cmp # 9+1
+        adc # $30               ; rebase to PETSCII '0' and above
+        sta $0400+(10*40)+6
+        cld                     ; disable decimal mode
+        lda ZP_READ_VLEN_LO
+        pha                     ; put original value aside
+        sed
+
+        lsr                     ; shift upper nybble down
+        lsr                     ; ...
+        lsr                     ; ...
+        lsr                     ; ...
+        cmp #9+1
+        adc # $30               ; rebase to PETSCII '0' and above
+        sta $0400+(10*40)+7
+
+        pla                     ; retrieve original value
+        and # $0f               ; extract lower nybble
+        cmp # 9+1
+        adc # $30               ; rebase to PETSCII '0' and above
+        sta $0400+(10*40)+8
 
 -       rts
 
@@ -294,11 +332,36 @@ read_irq_bottom:
         lda # %00010111
         sta VIC_SCREEN_CTL1
         rts
-+
+
+        ; check the end of the article:
+        ; (X = ZP_READ_VPOS_HI)
++       ldx ZP_READ_VLEN_HI
+        cpx ZP_READ_VPOS_HI
+        beq +                   ; hi-bytes equal, compare lo-bytes
+        bcs @scroll             ; scroll position < height, scroll ahead
+        bcc @stop               ; scroll position > height, go back!
+        ; check the low-bytes
++       ldx ZP_READ_VLEN_LO
+        cpx ZP_READ_VPOS_LO
+        bcs @scroll
+        
+        ; gone below the article!
+        ; move back to the end
+@stop   ldx # $ff
+        stx ZP_READ_STOP_DN
+        inx
+        sta ZP_READ_SCROLL      ; set scroll speed to zero
+        ; change the moved-to position back a bit
+        ; to the exact bottom of the article
+        ldx ZP_READ_VLEN_LO
+        stx ZP_READ_VPOS_LO
+        lda ZP_READ_VLEN_HI
+        sta ZP_READ_VPOS_HI
+        
         ; soft/hard-scroll the screen:
         ;-----------------------------------------------------------------------
         ; retrieve the vertical scroll-offset 0-7
-        lda ZP_READ_VPOS_LO
+@scroll lda ZP_READ_VPOS_LO
         and # %00000111
         eor # %00000111
         ; update the screen/scroll register:
@@ -392,6 +455,27 @@ read_load:
         lda #> $2000
         sta ZP_READ_LENS_HI
 
+        ; for the smooth scrolling to not overshoot the bottom of the article,
+        ; we need to calculate the height of the article in pixels; this is
+        ; the number of lines multiplied by 8
+        ;
+        lda $1ffe
+        ; subtract 24 to account for where the top of the screen
+        ; is when the bottom of the article is reached
+        sec
+        sbc # 25
+        sta ZP_READ_VLEN_LO
+        lda $1fff
+        sbc # 0
+        sta ZP_READ_VLEN_HI
+        ; begin multiplying
+        asl ZP_READ_VLEN_LO     ; x2
+        rol ZP_READ_VLEN_HI     ; ...
+        asl ZP_READ_VLEN_LO     ; x4
+        rol ZP_READ_VLEN_HI     ; ...
+        asl ZP_READ_VLEN_LO     ; x8
+        rol ZP_READ_VLEN_HI     ; ...
+
         ; set the initial screen address
         ; (row 0, col 0)
         lda # 0
@@ -424,23 +508,6 @@ read_load:
 ; scroll the article up a line:
 ;
 read_scroll_up:
-        ; are we at the top of the article?
-        ;-----------------------------------------------------------------------
-        ; check the address of the current line in the line array;
-        ; if this is $2000 then we are on the first line of the article
-        ;
-        lda ZP_READ_LENS_LO     ; the lo-byte of the address...
-        bne +                   ; must be $00
-        lda ZP_READ_LENS_HI     ; and the hi-byte
-        cmp #> $2000            ; must be $00
-        bne +
-        ; we are at the top of the article:
-        ; set the flag to stop smooth scrolling
-;;        lda # $ff
-;;        sta ZP_READ_STOP_UP
-;;        sec                     ; set carry for error,
-        rts                     ; and make like a tree
-+
         ; copy the screen down a row
         ;-----------------------------------------------------------------------
         ; credit for this particular methodology must go to Richard Bayliss
@@ -567,20 +634,6 @@ read_scroll_temp:
 ; scroll the article down a line:
 ;
 read_scroll_down:
-        ; are we at the bottom of the article?
-        ;-----------------------------------------------------------------------
-        ldy # 24
-        lda (ZP_READ_LENS), y   ; read length of line at bottom of screen
-        cmp # $ff               ; if this is $FF then we've hit the bottom
-        bne +                   ; more lines to go?
-
-        ; we are at the bottom of the article:
-        ; set the flag to stop smooth scrolling
-;;        lda # $ff
-;;        sta ZP_READ_STOP_DN
-;;        sec                     ; set carry for error,
-        rts                     ; and make like a tree
-
         ; copy the screen up a row -- the bytes after the screen characters
         ; are filled with spaces so as to automatically blank the last row!
         ; 

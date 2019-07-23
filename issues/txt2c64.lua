@@ -227,6 +227,9 @@ end
 
 -- convert to screen code
 scr64 = str2scr_low[ascii]
+-- non-ASCII characters;
+-- TODO: handle some utf-8 patterns
+if scr64 == nil then scr64 = 0xbf; end  -- reverse "?"
 
 -- add to the current word
 -- (and handle word-wrap)
