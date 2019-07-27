@@ -1,0 +1,11 @@
+{
+    "menu"      : [],
+    "articles"  : [
+        {
+            "title" : "Editorial",
+            "scr"   : "Editorial",
+            "file"  : "1_editorial.nu",
+            "prg"   : "editorial"
+        }
+    ]
+}

@@ -155,10 +155,9 @@ PAGE_Y  = 4
         sta ZP_COLOR
        +print_str_pos   item02
        +print_str_pos   item03
-       +print_str_pos   item04a
-       +print_str_pos   item04b
-       +print_str_pos   item05a
-       +print_str_pos   item05b
+       +print_str_pos   item04
+       +print_str_pos   item05
+       +print_str_pos   item06
        
         jmp *
 
@@ -176,7 +175,7 @@ petscii_logo:
 }
 subline:
         !byte   PAGE_Y, PAGE_X + 30
-        !scr    "issue #1", 0
+        !scr    "issue #0", 0
 
 thorne:
         !scr    $db, 0
@@ -188,18 +187,15 @@ item02:
         !scr    "Why 8-bit?", 0
 item03:
         !byte   PAGE_Y + 6, PAGE_X + 2
-        !scr    "The outfit", 0
+        !scr    "The Outfit: pt.I", 0
 
-item04a:
+item04:
         !byte   PAGE_Y + 8, PAGE_X + 2
-        !scr    "Help! My Interrupt", 0
-item04b:
-        !byte   PAGE_Y + 9, PAGE_X + 2
-        !scr    "Crashed!", 0
+        !scr    "Help! My Interrupt Crashed!", 0
 
-item05a:
-        !byte   PAGE_Y + 11, PAGE_X + 2
-        !scr    "BSOD64: The crash-screen", 0
-item05b:
+item05:
+        !byte   PAGE_Y + 10, PAGE_X + 2
+        !scr    "BSOD64 pt.I: BRK Dancing", 0
+item06:
         !byte   PAGE_Y + 12, PAGE_X + 2
-        !scr    "for your Commodore!", 0
+        !scr    "Next Issue", 0

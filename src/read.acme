@@ -400,7 +400,7 @@ read_irq_bottom:
 ;
 read_filename:
         ;-----------------------------------------------------------------------
-        !pet    "lorem-ipsum"
+        !pet    "editorial"
 
 read_load:
         ;-----------------------------------------------------------------------
@@ -417,7 +417,7 @@ read_load:
         tya                     ; logical file number
         jsr KERNAL_SETLFS
 
-        lda # 11                ; string-length
+        lda # 9                 ; string-length
         ldx #< read_filename
         ldy #> read_filename
         jsr KERNAL_SETNAM

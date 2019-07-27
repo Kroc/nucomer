@@ -33,8 +33,12 @@ All code & content, unless otherwise specified, is licensed under a [Creative Co
 
 - The [ACME Assembler][acme]
 - Microsoft [Visual Studio Code][vscode]
-- The VSCode environment is based on Ingo Hinterding's [ACME Assembly VSCode template][template]
+  - The VSCode environment is based on Ingo Hinterding's [ACME Assembly VSCode template][template]
+- [Lua][lua], for scripting
+  - [json.lua] by rxi
 
 [vscode]:   https://code.visualstudio.com/
 [acme]:     https://sourceforge.net/projects/acme-crossass/
 [template]: https://github.com/Esshahn/acme-assembly-vscode-template
+[lua]:      https://www.lua.org
+[json.lua]: https://github.com/rxi/json.lua

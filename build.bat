@@ -3,20 +3,12 @@ CLS & TITLE Building Nucomer...
 CD %~dp0
 
 SET LUA=bin\lua\lua53.exe
-SET LUA_TXT2C64=%LUA% "issues\txt2c64.lua"
+SET LUA_ARTICLE=%LUA% "issues\article.lua"
 
 SET ACME=bin\acme\acme.exe ^
      -I "src"
 
 SET C1541=bin\vice\c1541.exe
-
-
-REM # convert the article text into C64 text codes
-REM ============================================================================
-
-%LUA_TXT2C64% "issues\lorem-ipsum.txt" "build\article.nu"
-
-IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
 REM # assemble BSOD64 debugger
 REM ============================================================================
@@ -32,6 +24,12 @@ PUSHD src\bsod64
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 POPD
+
+REM # convert the article text into C64 text codes
+REM ============================================================================
+
+%LUA% "issues\issue.lua"
+IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
 REM # assemble the outfit
 REM ============================================================================
@@ -57,10 +55,23 @@ REM ============================================================================
 
 DEL "build\nucomer.d64"
 
+REM # prepare the disk image
 %C1541% ^
+     -silent -verbose off ^
      -format "nucomer,nu" d64 "build\nucomer.d64" ^
      -write "build\nucomer.prg"         "nucomer" ^
      -write "src\bsod64\bsod64.prg"     "bsod64" ^
-     -write "build\article.nu"          "lorem-ipsum"
+     1>NUL
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+
+REM # walk through the list of article and add them to the disk
+FOR /F "eol=* delims=; tokens=1,2" %%A IN (build\i00.lst) DO (
+     REM # add the C64-compressed article data to the disk image
+     %C1541% "build\nucomer.d64" ^
+          -silent -verbose off ^
+          -write "%%A" "%%B" ^
+          1>NUL
+     
+     IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+)
