@@ -2,13 +2,12 @@
 CLS & TITLE Building Nucomer...
 CD %~dp0
 
-SET LUA=bin\lua\lua53.exe
+SET LUA="bin\lua\lua53.exe"
 SET LUA_ARTICLE=%LUA% "issues\article.lua"
 
-SET ACME=bin\acme\acme.exe ^
-     -I "src"
-
-SET C1541=bin\vice\c1541.exe
+SET ACME=bin\acme\acme.exe -I "src"
+SET EXOMIZER="bin\exomizer.exe"
+SET C1541="bin\vice\c1541.exe"
 
 REM # assemble BSOD64 debugger
 REM ============================================================================
@@ -33,9 +32,9 @@ IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
 REM # assemble the outfit
 REM ============================================================================
-ECHO:
-ECHO nucomer
 ECHO ----------------------------------------
+ECHO Build Outfit...
+
 %ACME% ^
      --format plain ^
           "src\petscii_font.acme"
@@ -50,6 +49,16 @@ IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
+REM # exomize content:
+REM ============================================================================
+
+%EXOMIZER% sfx "sys" -n -q ^
+     -o "build\nucomer-exo.prg" ^
+     -- "build\nucomer.prg" ^
+        "src\bsod64\bsod64.prg"
+
+IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+
 REM # package disks
 REM ============================================================================
 
@@ -58,14 +67,14 @@ DEL "build\nucomer.d64"
 REM # prepare the disk image
 %C1541% ^
      -silent -verbose off ^
-     -format "nucomer,nu" d64 "build\nucomer.d64" ^
-     -write "build\nucomer.prg"         "nucomer" ^
+     -format "nucomer,00" d64 "build\nucomer.d64" ^
+     -write "build\nucomer-exo.prg"     "nucomer" ^
      -write "src\bsod64\bsod64.prg"     "bsod64" ^
      1>NUL
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
-REM # walk through the list of article and add them to the disk
+REM # walk through the list of articles and add them to the disk
 FOR /F "eol=* delims=; tokens=1,2" %%A IN (build\i00.lst) DO (
      REM # add the C64-compressed article data to the disk image
      %C1541% "build\nucomer.d64" ^
