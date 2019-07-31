@@ -2,10 +2,25 @@
     "menu"      : [],
     "articles"  : [
         {
-            "title" : "Editorial",
-            "scr"   : "Editorial",
+            "title" : "Editorial: Why 8-Bit?",
+            "scr"   : "Editorial: Why 8-Bit?",
             "file"  : "1_editorial.nu",
             "prg"   : "editorial"
+        },{
+            "title" : "The Outfit: Putting TXT2SCR",
+            "scr"   : "The Outfit: Putting TXT2SCR",
+            "file"  : "2_the-outfit.nu",
+            "prg"   : "the outfit"
+        },{
+            "title" : "Help! My Interrupt Crashed!",
+            "scr"   : "Help! My Interrupt Crashed!",
+            "file"  : "3_interrupt-crashed.nu",
+            "prg"   : "help!interrupt!"
+        },{
+            "title" : "BSOD64: BRK Dancing",
+            "scr"   : "BSOD64: BRK Dancing",
+            "file"  : "4_brk-dancing.nu",
+            "prg"   : "brk dancing"
         }
     ]
 }

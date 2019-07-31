@@ -58,14 +58,14 @@ data = {
 }
 offset = 0
 
+x = 1
+y = 6
+
 -- walk the `articles` table that lists, in-order, the articles to be included
 -- on disk; each of these will need converting to C64 formatted data
 for _,article in ipairs(issue["articles"]) do
     -- each article begins with the offset into the binary database
     table.insert(data.toc, offset)
-
-    local x = 1
-    local y = 6
 
     -- notify user of current article being processed...
     io.stdout:write(truncate(article["title"]))
@@ -90,6 +90,7 @@ for _,article in ipairs(issue["articles"]) do
     data.bin = data.bin .. s_scr            -- add the string,
     data.bin = data.bin .. string.char(0)   -- and null-terminate
     offset = offset + 2 + s_len + 1
+    y = y + 2
     -- article complete, move to the next
     io.stdout:write("[OK]\n")
 end
@@ -102,7 +103,7 @@ f_out,err = io.open("build/menu.db", "wb")
 if err then io.stderr:write("! error: " .. err); os.exit(false); end
 
 for _,i in ipairs(data.toc) do
-    f_out:write(string.pack("<I2", i + 2 + (#data.toc * 2)))
+    f_out:write(string.pack("<I2", i + (2 + #data.toc * 2)))
 end
 -- the end of the table-of-contents is marked by $FFFF
 f_out:write(string.pack("<I2", 0xffff))

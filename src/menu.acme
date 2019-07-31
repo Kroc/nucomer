@@ -158,17 +158,21 @@ menu_screen:
         sta ZP_MENU_DB_LO
         lda #> menu_db
         sta ZP_MENU_DB_HI
+
         ; from that read the offset of the menu item in the database
         clc
+-       lda (ZP_MENU_DB_LO), y
+        bmi +
         lda ZP_MENU_DB_LO
         adc (ZP_MENU_DB), y
         tax
         lda ZP_MENU_DB_HI
         iny
         adc (ZP_MENU_DB), y
-
+                iny
         jsr print_str_pos
-
+        bne -
++
         ;-----------------------------------------------------------------------
         ; turn screen on
         lda # %00011011
@@ -198,24 +202,3 @@ thorne:
 menu_db:
 ;===============================================================================
 !binary "build/menu.db"
-
-; item01:
-;         !byte   PAGE_Y + 2, PAGE_X + 2
-;         !scr    "Editorial", 0
-; item02:
-;         !byte   PAGE_Y + 4, PAGE_X + 2
-;         !scr    "Why 8-bit?", 0
-; item03:
-;         !byte   PAGE_Y + 6, PAGE_X + 2
-;         !scr    "The Outfit: pt.I", 0
-
-; item04:
-;         !byte   PAGE_Y + 8, PAGE_X + 2
-;         !scr    "Help! My Interrupt Crashed!", 0
-
-; item05:
-;         !byte   PAGE_Y + 10, PAGE_X + 2
-;         !scr    "BSOD64 pt.I: BRK Dancing", 0
-; item06:
-;         !byte   PAGE_Y + 12, PAGE_X + 2
-;         !scr    "Next Issue", 0

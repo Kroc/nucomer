@@ -35,11 +35,13 @@ clear_screen:
 ;
 ;       X = string address, lo-byte
 ;       A = string address, hi-byte
+;       preserves Y
 ;
 print_str_pos:
 
         ; read the row & col:
         ;-----------------------------------------------------------------------
+        sty @y+1                ; preserve Y
         tay                     ; put aside hi-byte
         txa                     ; begin with lo-byte
         sta $d1                 ; store address lo-byte for string reading
@@ -58,7 +60,6 @@ print_str_pos:
         iny
         lda ($d1), y            ; A = col
 
-@screen
         clc                     ; add the col to the row lo-addr
         adc screen_rows_lo, x   ; carry set if row-addr+col > $FF
         sta @to+1               ; write addr lo-byte into the print routine!
@@ -97,6 +98,7 @@ print_str_pos:
 @color  sta $d800, y
         bne -
 
+@y      ldy # $88
         rts
 
 .invalid
