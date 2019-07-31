@@ -6,9 +6,9 @@ READ_FORE               = DKGREY
 READ_BACK               = GREY
 
 ; number of lines in the complete article
-!addr   ZP_READ_LINES           = $10
-!addr   ZP_READ_LINES_LO        = $10
-!addr   ZP_READ_LINES_HI        = $11
+!addr   ZP_READ_LINES           = $20
+!addr   ZP_READ_LINES_LO        = $20
+!addr   ZP_READ_LINES_HI        = $21
 
 ; height of the complete article -- in pixels! this is used to determine the
 ; exact point to clip smooth scrolling when scrolling quickly. the high-bit
@@ -16,46 +16,46 @@ READ_BACK               = GREY
 ; is limited to $7FFF (32'767) pixels high, equivalant to 4'095 lines,
 ; or 170 screens high!
 ;
-!addr   ZP_READ_VLEN            = $11
-!addr   ZP_READ_VLEN_LO         = $11
-!addr   ZP_READ_VLEN_HI         = $12
+!addr   ZP_READ_VLEN            = $21
+!addr   ZP_READ_VLEN_LO         = $21
+!addr   ZP_READ_VLEN_HI         = $22
 
 ; exact scroll position -- in pixels!
-!addr   ZP_READ_VPOS            = $13
-!addr   ZP_READ_VPOS_LO         = $13
-!addr   ZP_READ_VPOS_HI         = $14
+!addr   ZP_READ_VPOS            = $23
+!addr   ZP_READ_VPOS_LO         = $23
+!addr   ZP_READ_VPOS_HI         = $24
 
 ; scroll accumulator, used for changing the speed
 ; of smooth scrolling; a signed byte
-!addr   ZP_READ_SCROLL          = $15
+!addr   ZP_READ_SCROLL          = $25
 
 ; flag to indicate to stop allowing upward scrolling
 ; (prevents smooth scrolling at top of article)
-!addr   ZP_READ_STOP_UP         = $16   ; $00 = go, $FF = stop
+!addr   ZP_READ_STOP_UP         = $26   ; $00 = go, $FF = stop
 ; flag to indicate to stop allowing downward scrolling
 ; (prevents smooth scrolling at bottom of article)
-!addr   ZP_READ_STOP_DN         = $17   ; $00 = go, $FF = stop
+!addr   ZP_READ_STOP_DN         = $27   ; $00 = go, $FF = stop
 
 ; pointer into the line-length array
-!addr   ZP_READ_LENS            = $18
-!addr   ZP_READ_LENS_LO         = $18
-!addr   ZP_READ_LENS_HI         = $19
+!addr   ZP_READ_LENS            = $28
+!addr   ZP_READ_LENS_LO         = $28
+!addr   ZP_READ_LENS_HI         = $29
 ; address of the line data that appears at the top of the screen
 ; (changes only when scrolling, not during printing)
-!addr   ZP_READ_TOP             = $1a
-!addr   ZP_READ_TOP_LO          = $1a
-!addr   ZP_READ_TOP_HI          = $1b
+!addr   ZP_READ_TOP             = $2a
+!addr   ZP_READ_TOP_LO          = $2a
+!addr   ZP_READ_TOP_HI          = $2b
 ; current row on screen being printed (0-24)
-!addr   ZP_READ_ROW             = $1c
+!addr   ZP_READ_ROW             = $2c
 ; current line length
-!addr   ZP_READ_LEN             = $1d
+!addr   ZP_READ_LEN             = $2d
 ; number of rows to print
-!addr   ZP_READ_ROWS            = $1e
+!addr   ZP_READ_ROWS            = $2e
 ; address of the line that appears at the bottom of the screen
 ; (changes only when scrolling, not during printing)
-!addr   ZP_READ_BOT             = $1f
-!addr   ZP_READ_BOT_LO          = $1f
-!addr   ZP_READ_BOT_HI          = $20
+!addr   ZP_READ_BOT             = $2f
+!addr   ZP_READ_BOT_LO          = $2f
+!addr   ZP_READ_BOT_HI          = $30
 
 ;===============================================================================
 read_screen:
@@ -73,7 +73,7 @@ read_screen:
 
         ; erase the text-screen
         lda # READ_FORE
-        sta ZP_COLOR
+        sta ZP_PRINT_COLOR
         jsr clear_screen
 
         ; for vertical scrolling, we place spaces before and after the

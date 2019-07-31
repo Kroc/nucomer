@@ -27,26 +27,28 @@ clear_screen:
 
         rts
 
-ZP_COLOR        = $02
+!addr   ZP_PRINT_COLOR          = $02
 
 ;===============================================================================
 ; print a null-terminated string, where the first two
 ; bytes are the row & col at which to begin printing:
 ;
-;       A = string address, lo-byte
-;       X = string address, hi-byte
+;       X = string address, lo-byte
+;       A = string address, hi-byte
 ;
 print_str_pos:
 
         ; read the row & col:
         ;-----------------------------------------------------------------------
+        tay                     ; put aside hi-byte
+        txa                     ; begin with lo-byte
         sta $d1                 ; store address lo-byte for string reading
         clc
-        adc # 2                 ; move string start point over the row+col
+        adc # 2                 ; move string pointer over the row+col bytes
         sta @from+1
 
-        stx $d2
-        txa
+        sty $d2
+        tya
         adc # 0
         sta @from+2
 
@@ -82,7 +84,7 @@ print_str_pos:
         ; over from $FF to $00), then it will stop printing
         bne @from
 
-+       lda ZP_COLOR            ; get the colour for the text
++       lda ZP_PRINT_COLOR      ; get the colour for the text
 
         ; the Y register contains the number of characters written,
         ; we can now rewind this to quickly apply the colour
@@ -164,8 +166,8 @@ set_crsr:
         rts
 
 !macro  ldaddr          .addr {
-        ldx #> .addr
-        lda #< .addr
+        lda #> .addr
+        ldx #< .addr
 }
 
 !macro  print_str       .str_addr {

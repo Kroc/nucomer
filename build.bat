@@ -33,46 +33,62 @@ IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 REM # assemble the outfit
 REM ============================================================================
 ECHO ----------------------------------------
-ECHO Build Outfit...
+<NUL (SET /P "$=Assemble Outfit...                  ")
 
 %ACME% ^
      --format plain ^
           "src\petscii_font.acme"
 
-IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
 
-%ACME% -v1 ^
+%ACME% ^
      --format cbm ^
      --report "build\nucomer.txt" ^
      --outfile "build\nucomer.prg" ^
           "src\nucomer.acme"
 
-IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+ECHO [OK]
 
 REM # exomize content:
 REM ============================================================================
+<NUL (SET /P "$=Exomize...                          ")
 
 %EXOMIZER% sfx "sys" -n -q ^
      -o "build\nucomer-exo.prg" ^
      -- "build\nucomer.prg" ^
         "src\bsod64\bsod64.prg"
 
-IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+ECHO [OK]
 
 REM # package disks
 REM ============================================================================
+<NUL (SET /P "$=Create D64...                       ")
 
 DEL "build\nucomer.d64"
 
 REM # prepare the disk image
 %C1541% ^
      -silent -verbose off ^
-     -format "nucomer,00" d64 "build\nucomer.d64" ^
+     -format "nucomer#00,2a" d64 "build\nucomer.d64" ^
      -write "build\nucomer-exo.prg"     "nucomer" ^
      -write "src\bsod64\bsod64.prg"     "bsod64" ^
      1>NUL
 
-IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
 
 REM # walk through the list of articles and add them to the disk
 FOR /F "eol=* delims=; tokens=1,2" %%A IN (build\i00.lst) DO (
@@ -82,5 +98,9 @@ FOR /F "eol=* delims=; tokens=1,2" %%A IN (build\i00.lst) DO (
           -write "%%A" "%%B" ^
           1>NUL
      
-     IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+     IF ERRORLEVEL 1 (
+          ECHO FAIL
+          EXIT /B %ERRORLEVEL%
+     )
 )
+ECHO [OK]

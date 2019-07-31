@@ -1,7 +1,4 @@
 
-bsod64_filename:
-        !pet   "bsod64"
-
 init:
 ;===============================================================================
         ; set screen at $0400,
@@ -9,8 +6,9 @@ init:
         lda # %00010111
         sta VIC_LAYOUT
         
-        ; NOTE: exomizer includes BSOD64 in the payload,
-        ; so we don't need to manually load it from the outfit
+        ; NOTE: exomizer includes BSOD64 in the payload, so we don't need
+        ; to manually load it from the outfit. TODO: load an exomized BSOD64
+        ; file using the IRQ fast-loader during some off-time (menu-screen?)
         ;
 ;;        ; load BSOD64:
 ;;        ;-----------------------------------------------------------------------
@@ -44,3 +42,5 @@ init:
         ; halt and catch fire
         jmp *
 
+;;bsod64_filename:
+;;        !pet   "bsod64"

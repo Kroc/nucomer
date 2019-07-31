@@ -80,15 +80,16 @@ for _,article in ipairs(issue["articles"]) do
     -- and to the list file used for packing onto 1541
     table.insert(list, s_out..";"..article["prg"])
     -- we need to integrate the article into the outfit:
-    -- handle the article title used for the menu page
-    local s_scr = article["scr"]
+    -- the article title for the menu page needs to be converted to C64
+    -- screen codes. two spaces are prefixed to make way for the "thorne"
+    -- (the currently selected menu marker)
+    local s_scr = c64_str2scr("  "..article["scr"])
     local s_len = #s_scr
     -- set screen co-ordinates
-    data.bin = data.bin .. string.char(x) .. string.char(y)
-    -- set length of string
-    data.bin = data.bin .. string.char(s_len)
-    data.bin = data.bin .. s_scr
-    offset = offset + 2 + 2 + s_len
+    data.bin = data.bin .. string.char(y) .. string.char(x)
+    data.bin = data.bin .. s_scr            -- add the string,
+    data.bin = data.bin .. string.char(0)   -- and null-terminate
+    offset = offset + 2 + s_len + 1
     -- article complete, move to the next
     io.stdout:write("[OK]\n")
 end
@@ -97,12 +98,14 @@ end
 -- write out the data file for outfit integration;
 -- this file will be embedded directly into the outfit
 --
-f_out,err = io.open("build/i00_menu", "wb")
+f_out,err = io.open("build/menu.db", "wb")
 if err then io.stderr:write("! error: " .. err); os.exit(false); end
 
 for _,i in ipairs(data.toc) do
-    f_out:write(string.pack("<I2", i))
+    f_out:write(string.pack("<I2", i + 2 + (#data.toc * 2)))
 end
+-- the end of the table-of-contents is marked by $FFFF
+f_out:write(string.pack("<I2", 0xffff))
 f_out:write(data.bin)
 
 f_out:close()

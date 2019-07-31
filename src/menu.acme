@@ -5,6 +5,14 @@ MENU_BORDER     = BLACK
 MENU_FORE       = BLACK
 MENU_BACK       = LTGREY
 
+; the address of the menu database is placed in the zero-page
+; for some addressing mode shenanigans
+!addr   ZP_MENU_DB              = $10
+!addr   ZP_MENU_DB_LO           = $10
+!addr   ZP_MENU_DB_HI           = $11
+; currently selected menu item
+!addr   ZP_MENU_INDEX           = $12
+
 ;===============================================================================
 ; table of interrupts to use for the menu screen:
 ;
@@ -111,8 +119,8 @@ menu_screen:
         ; print the logo with the base colour;
         ; we're going to recolour just the letters
         lda # DKGREY
-        sta ZP_COLOR
-       +print_str_pos       petscii_logo
+        sta ZP_PRINT_COLOR
+       +print_str_pos       menu_petscii_logo
 
         ; begin at the end of the logo and work backwards
         ; (easier for loop management to count toward 0)
@@ -130,7 +138,7 @@ menu_screen:
         bpl -           ; (always branches)
 
 +       lda # BLACK
-        sta ZP_COLOR
+        sta ZP_PRINT_COLOR
         
         ldx # 40
         lda # $63
@@ -138,26 +146,33 @@ menu_screen:
         sta $0400 + (3 * 40), x
         bne -
 
+       +print_str_pos   menu_subline
+
+        ; print menu items:
+        ;-----------------------------------------------------------------------
+        lda # 0                 ; begin at the first menu item
+        sta ZP_MENU_INDEX
+        tay
+        ; set the address of the menu database
+        lda #< menu_db
+        sta ZP_MENU_DB_LO
+        lda #> menu_db
+        sta ZP_MENU_DB_HI
+        ; from that read the offset of the menu item in the database
+        clc
+        lda ZP_MENU_DB_LO
+        adc (ZP_MENU_DB), y
+        tax
+        lda ZP_MENU_DB_HI
+        iny
+        adc (ZP_MENU_DB), y
+
+        jsr print_str_pos
+
         ;-----------------------------------------------------------------------
         ; turn screen on
         lda # %00011011
         sta VIC_SCREEN_CTL1
-
-PAGE_X  = 1
-PAGE_Y  = 4
-
-       +print_str_pos   subline
-
-       +print_str_at    PAGE_Y + 2, PAGE_X,   thorne
-       +print_str_pos   item01
-
-        lda # DKGREY
-        sta ZP_COLOR
-       +print_str_pos   item02
-       +print_str_pos   item03
-       +print_str_pos   item04
-       +print_str_pos   item05
-       +print_str_pos   item06
        
         jmp *
 
@@ -165,7 +180,7 @@ PAGE_Y  = 4
         jsr disable_interrupts
         rts
 
-petscii_logo:
+menu_petscii_logo:
 ;===============================================================================
         !byte   0, 0
 !ct "build/petscii_font.ct" {
@@ -173,29 +188,34 @@ petscii_logo:
         !text   " #  # #  # #    #  # # # # #___ #       "
         !text   " #  # #__# #___ #__# # # # #___ #       ", 0
 }
-subline:
-        !byte   PAGE_Y, PAGE_X + 30
+menu_subline:
+        !byte   4, 31
         !scr    "issue #0", 0
 
 thorne:
         !scr    $db, 0
-item01:
-        !byte   PAGE_Y + 2, PAGE_X + 2
-        !scr    "Editorial", 0
-item02:
-        !byte   PAGE_Y + 4, PAGE_X + 2
-        !scr    "Why 8-bit?", 0
-item03:
-        !byte   PAGE_Y + 6, PAGE_X + 2
-        !scr    "The Outfit: pt.I", 0
 
-item04:
-        !byte   PAGE_Y + 8, PAGE_X + 2
-        !scr    "Help! My Interrupt Crashed!", 0
+menu_db:
+;===============================================================================
+!binary "build/menu.db"
 
-item05:
-        !byte   PAGE_Y + 10, PAGE_X + 2
-        !scr    "BSOD64 pt.I: BRK Dancing", 0
-item06:
-        !byte   PAGE_Y + 12, PAGE_X + 2
-        !scr    "Next Issue", 0
+; item01:
+;         !byte   PAGE_Y + 2, PAGE_X + 2
+;         !scr    "Editorial", 0
+; item02:
+;         !byte   PAGE_Y + 4, PAGE_X + 2
+;         !scr    "Why 8-bit?", 0
+; item03:
+;         !byte   PAGE_Y + 6, PAGE_X + 2
+;         !scr    "The Outfit: pt.I", 0
+
+; item04:
+;         !byte   PAGE_Y + 8, PAGE_X + 2
+;         !scr    "Help! My Interrupt Crashed!", 0
+
+; item05:
+;         !byte   PAGE_Y + 10, PAGE_X + 2
+;         !scr    "BSOD64 pt.I: BRK Dancing", 0
+; item06:
+;         !byte   PAGE_Y + 12, PAGE_X + 2
+;         !scr    "Next Issue", 0
