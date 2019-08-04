@@ -9,22 +9,6 @@ MENU_BACK       = LTGREY
 !addr   ZP_MENU_INDEX           = $10
 ; number of menu entries
 !addr   ZP_MENU_COUNT           = $11
-; address of the menu entry offsets, lo-bytes
-!addr   ZP_MENU_DB_OFFL         = $12
-!addr   ZP_MENU_DB_OFFL_LO      = $12
-!addr   ZP_MENU_DB_OFFL_HI      = $13
-; address of the menu entry offsets, hi-bytes
-!addr   ZP_MENU_DB_OFFH         = $14
-!addr   ZP_MENU_DB_OFFH_LO      = $14
-!addr   ZP_MENU_DB_OFFH_HI      = $15
-; address of the menu entry rows
-!addr   ZP_MENU_DB_ROWS         = $16
-!addr   ZP_MENU_DB_ROWS_LO      = $16
-!addr   ZP_MENU_DB_ROWS_HI      = $17
-; address of the menu entry columns
-!addr   ZP_MENU_DB_COLS         = $18
-!addr   ZP_MENU_DB_COLS_LO      = $18
-!addr   ZP_MENU_DB_COLS_HI      = $19
 
 ;===============================================================================
 menu_screen:
@@ -108,8 +92,9 @@ menu_screen:
         jsr disable_interrupts
         rts
 
-menu_refresh:
 ;===============================================================================
+menu_refresh:
+
         ; the first byte of the menu database is the number of menu items.
         ; we also render the menu items from last to first for speed purposes
         ldy menu_db_count
@@ -117,11 +102,9 @@ menu_refresh:
         ; the menu-count is 1-based;
         ; subtract 1 to avoid printing garbage
         dey
-
-        lda # DKGREY
-        sta ZP_PRINT_COLOR
         
         ; position the cursor:
+        ;-----------------------------------------------------------------------
 -       lda menu_db_cols, y     ; get the column
         tax                     ; in X
         sty @i+1                ; (backup index)
@@ -129,25 +112,43 @@ menu_refresh:
         tay                     ; in Y
         jsr print_set_crsr      ; set cursor: Y = row, X = col
 
-        ; print the string:
+        ; set the text colour:
+        ;-----------------------------------------------------------------------
 @i      ldy # $88               ; retrieve the menu index
-        lda menu_db_strlo, y    ; load the string address lo-byte into X
-        tax
+        cpy ZP_MENU_INDEX       ; is this the selected menu item?
+        bne +                   ; no, use standard colour
+        lda # BLACK             ; yes, use selected colour
+       +bit_skip2               ; skip over the next instruction
++       lda # DKGREY
+        sta ZP_PRINT_COLOR
+
+        ; print the string:
+        ;-----------------------------------------------------------------------
+        lda menu_db_strlo, y    ; load the string address lo-byte...
+        tax                     ; ...into X
         lda menu_db_strhi, y    ; load the string address hi-byte into A
         jsr print_str           ; print the string!
         dey
         bpl -
 
-        ; get the screen address of the selected menu item:
+        ; mark the selected menu item:
+        ;-----------------------------------------------------------------------
         ldy ZP_MENU_INDEX
         lda menu_db_cols, y     ; column number
         tax                     ; must be in X
         lda menu_db_rows, y     ; row in Y
         jsr print_get_crsr      ; returns X = addr lo-byte, A = addr hi-byte
-        stx @scr+1
-        sta @scr+2
-        lda # $db
+        stx @scr+1              ; set screen address lo-byte
+        stx @color+1            ; mirror this in the screen RAM
+        sta @scr+2              ; set screen address hi-byte
+        clc                     ; to mirror this in the colour RAM, add the
+        adc # >($d800 - $0400)  ; distance between screen RAM & colour RAM
+        sta @color+2            ; e.g. $0508 -> $D908
+
+        lda # $db               ; screen code for marker symbol
 @scr    sta $8888
+        lda # BLACK
+@color  sta $8888
 
         rts
 
@@ -171,6 +172,7 @@ menu_db:
 ; table of interrupts to use for the menu screen:
 ;
 menu_irqs:
+        ;-----------------------------------------------------------------------
        +irqs_table_item menu_irq_vblank,        SCANLINE_VBLANK_BEGIN
        +irqs_table_item menu_irq_logo_end,      SCANLINE_VBLANK_END + (3 * 8)-1
        +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (2 * 8)-1
@@ -182,6 +184,7 @@ menu_irq_logo:
         sta VIC_BORDER
 
         ; now kill enough time for a whole line
+        ; TODO: time this more accurately (~63-65 cycles)
         ldx # 11
 -       dex
         bne -
@@ -199,13 +202,15 @@ menu_irq_logo_end:
         sta VIC_BACKGROUND
 
         ; now kill enough time for a whole line
+        ; TODO: time this more accurately (~63-65 cycles)
         ldx # 10
 -       dex
         bne -
         ; go back to black
         stx VIC_BORDER
 
-        ; now kill enough time for a whole line
+        ; kill enough time to get out of the left-hand border before we change
+        ; the colour. TODO: time this more accurately
         ldx # 3
 -       dex
         bne -

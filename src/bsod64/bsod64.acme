@@ -212,7 +212,9 @@ bsod_freeze
         ;-----------------------------------------------------------------------
         ; backup the original zero-page. this includes the processor port
         ; ($00/$01) that defines the memory layout that we must reinstate
-        ; when we defrost
+        ; when we defrost. note that even if the KERNAL is on, we can still
+        ; write to the RAM underneath
+        ;
         ldx # 0
 -       lda zp, x
         sta orig_zp, x
@@ -237,7 +239,7 @@ bsod_freeze
         ; memory layout to ensure I/O is accessible to backup VIC, SID etc.
         lda # %00000011         ; ignore Datasette control,
         sta zp+0                ; only modify memory layout
-        lda # %00000001         ; switch I/O on, KERNAL & BASIC off
+        lsr                     ; = %00000001: I/O on, KERNAL & BASIC off
         sta zp+1
 
         ; with KERNAL off, we can back up the hardware vectors underneath:
@@ -570,27 +572,40 @@ bsod_redraw_banks:
         jsr kernal_chrout
         jsr kernal_chrout
         
+        ; read the processor port state from the original zero-page
+        ; (note that this is under the KERNAL)
+        ;
+        sei                     ; disable interrupts
+        dec zp+1                ; turn off BASIC,
+        dec zp+1                ; and then KERNAL
         lda orig_zp+1
-        and # %00000011
-        beq .print              ; %00 = all RAM, nothing else
+        inc zp+1                ; turn on KERNAL,
+        inc zp+1                ; and then BASIC
+        cli                     ; enable interrupts
+        and # %00000011         ; we only care about the bottom bits
+        beq @print              ; %00 = all RAM, nothing else
 
-        ldy # 'I'               ; I/O is on
+        ; any non-zero value implies
+        ; that the I/O shield is on
+        ;
+        ldy # 'I'               ; use an "i" in bank D to indicate I/O on
         sty @i+1
 
-        clc
+        sec
         sbc # 1
-        beq .print
+        beq @print
 
-        ldy # 'K'
+        ldy # 'K'               ; use a "k" in banks E & F for KERNAL on
         sty @k+1
 
         sbc # 1
-        beq .print
+        beq @print
 
         ldy # 'B'
         sty @b+1
 
-.print:
+@print:
+        ;-----------------------------------------------------------------------
 @b      lda # $21
         jsr kernal_chrout
         jsr kernal_chrout

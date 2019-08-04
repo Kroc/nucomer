@@ -4,13 +4,13 @@
 SCANLINE_VBLANK_END     = 50
 SCANLINE_VBLANK_BEGIN   = 250
 
-; a pointer in the zero-page to the table of interrupt handlers
+
 ;-------------------------------------------------------------------------------
 !addr   ZP_IRQ          = $ff   ; current index in the table
-!addr   ZP_IRQS_LEN     = $fe   ; number of enteries in the table
-!addr   ZP_IRQS         = $fc
-!addr   ZP_IRQS_LO      = $fc
-!addr   ZP_IRQS_HI      = $fd
+!addr   ZP_IRQS_LEN     = $fe   ; number of entries in the table
+!addr   ZP_IRQS         = $fc   ; address of the table
+!addr   ZP_IRQS_LO      = $fc   ; - lo-byte
+!addr   ZP_IRQS_HI      = $fd   ; - hi-byte
 
 ;===============================================================================
 ; wait for a given number of frames to pass:
@@ -142,9 +142,7 @@ irqs_default:
 
 irq_nop:
         ;=======================================================================
-        ; an interrupt shim that does nothing -- used by the default table so
-        ; that the frame ready flag toggles at the right places, but nothing
-        ; needs to be altered on the screen at the splits
+        ; an interrupt shim that does nothing -- used by the default table
         ;
         rts
 
@@ -217,14 +215,14 @@ irqs_load:
         sta VIC_SCANLINE        ; set the scanline lo-byte
 
         ; because the height of the screen + borders will be more than 256,
-        ; an extra high-bit is included from `VIC_SCREEN_CTL1`. the byte in
+        ; an extra high-bit is included from `VIC_SCREEN_VERT`. the byte in
         ; the table is pre-processed to move this bit from bit 0 to bit 7,
         ; to match the location required for the register
         ;
         iny                     ; move to scanline hi-byte
-        lda VIC_SCREEN_CTL1     ; get current register value
+        lda VIC_SCREEN_VERT     ; get current register value
         eor (ZP_IRQS), y        ; merge the scanline hi-bit (in bit 7)
-        sta VIC_SCREEN_CTL1     ; update the register
+        sta VIC_SCREEN_VERT     ; update the register
 
         cli
         rts
@@ -259,6 +257,7 @@ irq_kernal_off:
         ; we only need to write to the status register to do this
         inc VIC_INTERRUPT_STATUS
 
+        ; for BSOD64 integration we push the registers to the stack
         pha
         txa
         pha
@@ -290,11 +289,13 @@ irq_kernal_on:
         beq +
         jmp $c006               ; invoke BSOD64!
 
-+       pla
-        tay
-        pla
-        tax
-        pla
+        ; pull the registers from the stack
+        ; (in reverse order)
++       pla                     ; pull...
+        tay                     ; ...Y
+        pla                     ; pull...
+        tax                     ; ...X
+        pla                     ; pull A
 
         ; return from interrupt
         ; (restore processor flags, enable interrupts)
@@ -310,8 +311,8 @@ irq_kernal_on:
 ; in order to make changes to the background / border colour without flicker,
 ; we need to align the VIC-II write to the "horizontal blank", the very small
 ; amount of time available whilst the beam "flies back" to the left side of
-; the screen. a line is 63 cycles on a PAL machine, 64 on most NTSC machines
-; but 65 on very early NTSC machines. we don't have to be absolutely accurate
+; the screen. a line is 63 cycles on a PAL machine, 65 on most NTSC machines
+; but 64 on very early NTSC machines. we don't have to be absolutely accurate
 ; in our delay, there's a few cycles worth of jitter in the flyback period
 ;
 irq:                                                                    ;cycles
@@ -395,9 +396,9 @@ irq:                                                                    ;cycles
         ; to match the location required for the register
         ;
         iny                     ; move to scanline hi-byte
-        lda VIC_SCREEN_CTL1     ; get current register value
+        lda VIC_SCREEN_VERT     ; get current register value
         eor (ZP_IRQS), y        ; merge the scanline hi-bit (in bit 7)
-        sta VIC_SCREEN_CTL1     ; update the register
+        sta VIC_SCREEN_VERT     ; update the register
 
         ; finish interrupt:
         ;-----------------------------------------------------------------------

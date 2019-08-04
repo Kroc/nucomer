@@ -115,30 +115,60 @@ print_str_pos:
 ;
 print_str:
         ;-----------------------------------------------------------------------
-!addr   print_str__from = @from
-!addr   print_str__to   = @to
+!addr   print_str__from         = @from
+!addr   print_str__to           = @to
+!addr   print_str__color        = @color
 
         sty @y+1                ; preserve Y
-        stx @from+1
-        stx @color+1
-        sta @from+2
-        clc
-        adc # >($d800 - $0400)
-        sta @color+2
-
-        inc CPU_CONTROL         ; enable I/O
+        stx @from+1             ; set the string address lo-byte
+        sta @from+2             ; set the string address hi-byte
 
         ldy # 0
+        ;-----------------------------------------------------------------------
 @from   lda .invalid, y
         beq +                   ; exit if null-terminator ($00)
 @to     sta $0400, y
-        lda ZP_PRINT_COLOR
-@color  sta $d800, y
         iny
         bne @from
 
-+       dec CPU_CONTROL         ; switch off I/O
+        ; when the string has been printed, the Y register gives us the length
+        ; of the string; we can use this to rewind and apply the colour to the
+        ; colour RAM in a tighter loop than combining screen RAM + colour RAM
+        ; writes in a single loop
+        ;
+        ; a 'branch on not zero' will cause the first character to be skipped,
+        ; so we use a pre-decrement loop where the colour is applied *after*
+        ; having decremented Y, so that the 0 index gets included
+        ;
++       lda ZP_PRINT_COLOR      ; text-colour to use
+-       dey
+@color  sta $d800, y
+        bne -
+
+        ; cleanup & exit
+        ;-----------------------------------------------------------------------
 @y      ldy # $88               ; restore Y
+        rts
+
+;===============================================================================
+; sets the screen address before printing:
+;
+;       Y = row
+;       X = col
+;
+print_set_crsr:
+        ;-----------------------------------------------------------------------
+        txa
+        clc
+        adc screen_rows_lo, y   ; add the column to the row-offset
+        sta print_str__to+1     ; set the lo-byte of the screen address
+        sta print_str__color+1  ; this is mirrored in the colour RAM
+        lda screen_rows_hi, y   ; get the screen address hi-byte
+        adc # 0                 ; ripple the column add
+        sta print_str__to+2     ; to mirror this in the colour RAM, add the
+        adc # >($d800 - $0400)  ; distance between screen RAM & colour RAM
+        sta print_str__color+2  ; e.g. $0508 -> $D908
+        
         rts
 
 ;===============================================================================
@@ -164,24 +194,6 @@ print_get_crsr:
         adc # 0                 ; if row+col overflow, increase the page number
 
 @y      ldy # $88
-        rts
-
-;===============================================================================
-; sets the screen address before printing:
-;
-;       Y = row
-;       X = col
-;
-print_set_crsr:
-        ;-----------------------------------------------------------------------
-        txa
-        clc
-        adc screen_rows_lo, y
-        sta print_str__to+1
-        lda screen_rows_hi, y
-        adc # 0
-        sta print_str__to+2
-
         rts
 
 !macro  ldaddr          .addr {
