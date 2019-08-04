@@ -39,7 +39,7 @@ logo_screen:
         ; once, this space will be overwritten by the article data later
         ;
         ldx # $00
--       lda sprites, x
+-       lda logo_sprites, x
         sta $2000, x
         dex
         bne - 
@@ -73,13 +73,13 @@ logo_screen:
 
         ; position the eye-lid sprites
         ldx # 0                 ; use initial position (out of sight)
-        jsr draw_eyelid         ; place the eye-lid sprite
+        jsr logo_draw_eyelid    ; place the eye-lid sprite
 
         ; draw the initial layout of logo text and sprites
         ; (this will set sprite X/Y positions and colours)
         ldx # 12
         lda # ORANGE
-        jsr draw_logo
+        jsr logo_draw
 
         ; sprites configured, turn them on
         lda # %00001111
@@ -92,17 +92,17 @@ logo_screen:
         ;-----------------------------------------------------------------------
         ldx # 12
         lda # YELLOW
-        jsr animate_logo
+        jsr logo_animate
         ldx # 6
-        jsr animate_logo
+        jsr logo_animate
         ldx # 3
         lda # LTGREEN
-        jsr animate_logo
+        jsr logo_animate
         ldx # 1
-        jsr animate_logo
+        jsr logo_animate
         ldx # 0
         lda # WHITE
-        jsr animate_logo
+        jsr logo_animate
 
         ; wait a moment
         ldx # 30
@@ -110,19 +110,19 @@ logo_screen:
 
         ; blink the eye:
         ; (note X is 0 due to above count-down)
--       jsr draw_eyelid         ; position the eye-lid (begins with frame 0)
+-       jsr logo_draw_eyelid    ; position the eye-lid (begins with frame 0)
         jsr wait_frame
         inx
         cpx # 9                 ; reached max. number of frames?
         bcc -                   ; no, keep going
 
         ; now open the eye-lid
--       jsr draw_eyelid
+-       jsr logo_draw_eyelid
         jsr wait_frame
         jsr wait_frame
         dex
         bpl -
-        jsr draw_eyelid         ; update for frame 0 at the drop-out
+        jsr logo_draw_eyelid    ; update for frame 0 at the drop-out
 
         ; wait a moment
         ldx # 25
@@ -132,7 +132,7 @@ logo_screen:
         ;-----------------------------------------------------------------------
         ldy # 5
 
-@fade   lda fadeout_colours, y
+@fade   lda logo_fadeout_colours, y
 
         ; colour the sprites and text
         sta VIC_SPRITE2_COLOR
@@ -154,17 +154,17 @@ logo_screen:
         lda # %00000000
         sta VIC_SPRITE_ENABLE
 
-        ; tear down the custom interrupt handlers
-        jsr disable_interrupts
         rts
 
-fadeout_colours:
+logo_fadeout_colours:
+        ;-----------------------------------------------------------------------
         !byte   ORANGE, PURPLE, GREY, YELLOW, YELLOW, LTGREEN
 
-animate_logo:
+;===============================================================================
+logo_animate:
         ;-----------------------------------------------------------------------
         pha
-        jsr draw_logo
+        jsr logo_draw
         
         ldx # 3
         jsr wait_frames
@@ -172,7 +172,7 @@ animate_logo:
         pla
         rts
         
-draw_logo:
+logo_draw:
         ;-----------------------------------------------------------------------
         ; the "camen design" text is centred on the logo at column 20.
         ; it's animated into place as two separate words
@@ -295,14 +295,14 @@ draw_logo:
 
         rts
 
-draw_eyelid:
+logo_draw_eyelid:
         ;-----------------------------------------------------------------------
         ; position the eye-lid over the eye:
         ;
         ;       X = frame index for blinking:
         ;           0 = open, 9 = closed
         ;
-        lda .frames, x
+        lda @frames, x
         tay
         clc
         adc # EYE_LID1_YPOS
@@ -321,10 +321,10 @@ draw_eyelid:
         
         rts
 
-.frames:
+@frames:
         !byte   0, 1, 2, 4, 7, 11, 16, 22, 29, 32
 
-sprites:
+logo_sprites:
 ;===============================================================================
 !macro  spriteBits .v {
         !byte .v >> 16, (.v >> 8) & 255, .v & 255
@@ -333,7 +333,7 @@ sprites:
 ; the camen design logo
 ; copyright (c) Kroc Camen
 ;
-eye_left:
+logo_eye_left:
 ;-------------------------------------------------------------------------------
         ;            765432107654321076543210
         +spriteBits %...................##...
@@ -359,7 +359,7 @@ eye_left:
         +spriteBits %............############
         !byte 0                 ; pad to 64-byte block
 
-eye_right:
+logo_eye_right:
 ;-------------------------------------------------------------------------------
         ; TODO: this is a mirrored and flipped copy of above
         ;       we could do this at runtime
@@ -388,7 +388,7 @@ eye_right:
         +spriteBits %...##...................
         !byte 0                 ; pad to 64-byte block
 
-eye_lid1:
+logo_eye_lid1:
 ;-------------------------------------------------------------------------------
         ;            765432107654321076543210
         +spriteBits %########################
@@ -414,7 +414,7 @@ eye_lid1:
         +spriteBits %#####...................
         !byte 0                 ; pad to 64-byte block
 
-eye_lid2:
+logo_eye_lid2:
 ;-------------------------------------------------------------------------------
         ;            765432107654321076543210
         +spriteBits %########################

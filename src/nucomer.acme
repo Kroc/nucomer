@@ -6,7 +6,7 @@
 
 !source "init.acme"
 !source "interrupts.acme"
-!source "print.acme"
+!source "print.acme"            ; global string-printing routines
 !source "keyboard.acme"
 
 !source "logo.acme"

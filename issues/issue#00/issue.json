@@ -21,6 +21,11 @@
             "scr"   : "BSOD64: BRK Dancing",
             "file"  : "4_brk-dancing.nu",
             "prg"   : "brk dancing"
+        },{
+            "title" : "Next Issue...",
+            "scr"   : "Next Issue...",
+            "file"  : "next-issue.nu",
+            "prg"   : "next issue..."
         }
     ]
 }

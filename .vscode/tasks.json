@@ -4,7 +4,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build & Run",
+            "label": "Build & Run (x64)",
             "type": "shell",
             "windows": {
                 "command": "build.bat && START bin\\vice\\x64.exe --autostart build\\nucomer.d64"
@@ -13,6 +13,30 @@
                 "kind": "build",
                 "isDefault": true
             },
+            "presentation": {
+                "clear": true
+            },
+            "problemMatcher": {
+                "owner": "acme",
+                "fileLocation": [
+                    "relative",
+                    "${workspaceFolder}"
+                ],
+                "pattern": {
+                    "regexp": "^(Error - File\\s+(.*), line (\\d+) (\\(Zone .*\\))?:\\s+(.*))$",
+                    "file": 2,
+                    "location": 3,
+                    "message": 1
+                }
+            }
+        },
+        {
+            "label": "Build & Run (x64sc)",
+            "type": "shell",
+            "windows": {
+                "command": "build.bat && START bin\\vice\\x64sc.exe --autostart build\\nucomer.d64"
+            },
+            "group": "build",
             "presentation": {
                 "clear": true
             },

@@ -81,13 +81,59 @@ menu_screen:
         ; draw the menu items on the screen
         jsr menu_refresh
 
-        ;-----------------------------------------------------------------------
         ; turn screen on
         lda # %00011011
         sta VIC_SCREEN_CTL1
-       
-        jmp *
+        
+menu_keyboard:
+        ;-----------------------------------------------------------------------
+        ; debounce the keyboard by waiting for no keypress
+        ;
+-       jsr Keyboard            ; check current state of keyboard
+        bcc -                   ; if key pressed, keep checking
 
+        ; now await a keypress
+-       jsr Keyboard
+        bcs -
+
+        ; load article?
+@enter  cpx # %00000001         ; check RETURN-key bit
+        bne @crsr               ; no? maybe cursor keys?
+
+        ; TODO: transition screen, load article
+
+
+        ; cursor up/down?
+@crsr   cpx # %10000000         ; check CRSR-key bit
+        bne @next               ; no? what other keys are pressed?
+        
+        ; up, or down?
+        tya
+        and # %01010000         ; are either of the shift keys pressed?
+        bne @up                 ; if yes, it's CRSR-UP
+
+        ; crsr-dn: move to the next menu item
+@dn     ldy ZP_MENU_INDEX       ; what's the currently selected menu item?
+        iny                     ; if we were to move down...
+        cpy ZP_MENU_COUNT       ; would we go below the bottom? (1-based)
+        beq menu_keyboard       ; if at the bottom, move no further
+        inc ZP_MENU_INDEX
+        jsr menu_refresh
+        jmp menu_keyboard
+
+        ; crsr-up: move to the previous menu item
+@up     ldy ZP_MENU_INDEX       ; what's the currently selected menu item?
+        dey                     ; if we were to move up?
+        bmi menu_keyboard       ; if already at top, move no further
+        dec ZP_MENU_INDEX
+        jsr menu_refresh
+        jmp menu_keyboard
+
+        ;-----------------------------------------------------------------------
+        ; TODO: handle other keys...
+@next   jmp menu_keyboard
+
+        ; (technically this code never runs unless I want it to)
         ; tear down the custom interrupt handlers
         jsr disable_interrupts
         rts

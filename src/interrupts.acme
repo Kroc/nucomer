@@ -4,7 +4,6 @@
 SCANLINE_VBLANK_END     = 50
 SCANLINE_VBLANK_BEGIN   = 250
 
-
 ;-------------------------------------------------------------------------------
 !addr   ZP_IRQ          = $ff   ; current index in the table
 !addr   ZP_IRQS_LEN     = $fe   ; number of entries in the table
@@ -354,15 +353,17 @@ irq:                                                                    ;cycles
         ; will begin around about the flyback period
         nop                                                             ;+2=52
         nop                                                             ;+2=54
-        nop                                                             ;+2=56
 
         ; for speed, the address of the handler will already
         ; have been written directly into this instruction
-@addr   jsr $8888                                                       ;+6=62
+@addr   jsr $8888                                                       ;+6=60
 !addr   irq_addr = @addr
 
         ; set up next interrupt in the chain:
         ;-----------------------------------------------------------------------
+        ; now that the time-sensitive stuff is done,
+        ; we can spend some time setting up the next interrupt 
+        ;
         dec ZP_IRQ              ; move down an index in the table
         bpl @next               ; if last one, we need to loop the table
 

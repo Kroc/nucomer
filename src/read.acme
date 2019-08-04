@@ -90,7 +90,7 @@ read_screen:
         ; the first screen-full of text
         jsr read_load
 
-        ; set our own interrupt handlers
+        ; set our own interrupt handlers:
         ; A = address of IRQ table, lo-byte
         ; X = address of IRQ table, hi-byte
         ; Y = number of entries in the table (1-based)
