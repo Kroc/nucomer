@@ -80,7 +80,7 @@ IF EXIST "build\nucomer.d64" DEL "build\nucomer.d64"
 REM # prepare the disk image
 %C1541% ^
      -silent -verbose off ^
-     -format "nucomer#00,2a" d64 "build\nucomer.d64" ^
+     -format "nucomer,00" d64 "build\nucomer.d64" ^
      -write "build\nucomer-exo.prg"     "nucomer" ^
      -write "src\bsod64\bsod64.prg"     "bsod64" ^
      1>NUL

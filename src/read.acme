@@ -428,8 +428,10 @@ read_load:
         jsr KERNAL_LOAD
 
         ; TODO: error handling, fastloader et al
-
-        dec CPU_CONTROL         ; turn KERNAL off
+        bcc +
+        brk
+        
++       dec CPU_CONTROL         ; turn KERNAL off
 
         ; file-read, initialise printing:
         ;-----------------------------------------------------------------------

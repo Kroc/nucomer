@@ -11,6 +11,65 @@ MENU_BACK       = LTGREY
 !addr   ZP_MENU_COUNT           = $11
 
 ;===============================================================================
+; table of interrupts to use for the menu screen:
+;
+menu_irqs:
+        ;-----------------------------------------------------------------------
+       +irqs_table_item menu_irq_vblank,        SCANLINE_VBLANK_BEGIN
+       +irqs_table_item menu_irq_logo_end,      SCANLINE_VBLANK_END + (3 * 8)-1
+       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (2 * 8)-1
+       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (1 * 8)-1
+
+menu_irq_logo:
+        ;-----------------------------------------------------------------------
+        lda # DKGREY
+        sta VIC_BORDER
+
+        ; now kill enough time for a whole line
+        ; TODO: time this more accurately (~63-65 cycles)
+        ldx # 11
+-       dex
+        bne -
+
+        ; go back to black
+        stx VIC_BORDER
+
+        rts
+
+menu_irq_logo_end:
+        ;-----------------------------------------------------------------------
+        lda # DKGREY
+        sta VIC_BORDER
+        lda # LTGREY
+        sta VIC_BACKGROUND
+
+        ; now kill enough time for a whole line
+        ; TODO: time this more accurately (~63-65 cycles)
+        ldx # 10
+-       dex
+        bne -
+        ; go back to black
+        stx VIC_BORDER
+
+        ; kill enough time to get out of the left-hand border before we change
+        ; the colour. TODO: time this more accurately
+        ldx # 3
+-       dex
+        bne -
+
+        lda # LTGREY
+        sta VIC_BORDER
+
+        rts
+
+menu_irq_vblank:
+        ;-----------------------------------------------------------------------
+        lda # MENU_BORDER
+        sta VIC_BORDER
+        sta VIC_BACKGROUND
+        rts
+
+;===============================================================================
 menu_screen:
         ; setup the screen:
         ;-----------------------------------------------------------------------
@@ -97,11 +156,9 @@ menu_keyboard:
         bcs -
 
         ; load article?
-@enter  cpx # %00000001         ; check RETURN-key bit
+@enter  cpx # %00000010         ; check RETURN-key bit
         bne @crsr               ; no? maybe cursor keys?
-
-        ; TODO: transition screen, load article
-
+        jmp menu_load           ; load & show the article
 
         ; cursor up/down?
 @crsr   cpx # %10000000         ; check CRSR-key bit
@@ -130,13 +187,20 @@ menu_keyboard:
         jmp menu_keyboard
 
         ;-----------------------------------------------------------------------
-        ; TODO: handle other keys...
 @next   jmp menu_keyboard
 
-        ; (technically this code never runs unless I want it to)
+;===============================================================================
+; load an article:
+; TODO: transition screen out
+;
+menu_load:
+        ; turn the screen off
+        lda # %00001000
+        sta VIC_SCREEN_CTL1
         ; tear down the custom interrupt handlers
         jsr disable_interrupts
-        rts
+        ; switch to the reading screen...
+        jmp read_screen
 
 ;===============================================================================
 menu_refresh:
@@ -213,62 +277,3 @@ menu_subline:
 menu_db:
 ;===============================================================================
 !source "build/menu_db.acme"
-
-;===============================================================================
-; table of interrupts to use for the menu screen:
-;
-menu_irqs:
-        ;-----------------------------------------------------------------------
-       +irqs_table_item menu_irq_vblank,        SCANLINE_VBLANK_BEGIN
-       +irqs_table_item menu_irq_logo_end,      SCANLINE_VBLANK_END + (3 * 8)-1
-       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (2 * 8)-1
-       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (1 * 8)-1
-
-menu_irq_logo:
-        ;-----------------------------------------------------------------------
-        lda # DKGREY
-        sta VIC_BORDER
-
-        ; now kill enough time for a whole line
-        ; TODO: time this more accurately (~63-65 cycles)
-        ldx # 11
--       dex
-        bne -
-
-        ; go back to black
-        stx VIC_BORDER
-
-        rts
-
-menu_irq_logo_end:
-        ;-----------------------------------------------------------------------
-        lda # DKGREY
-        sta VIC_BORDER
-        lda # LTGREY
-        sta VIC_BACKGROUND
-
-        ; now kill enough time for a whole line
-        ; TODO: time this more accurately (~63-65 cycles)
-        ldx # 10
--       dex
-        bne -
-        ; go back to black
-        stx VIC_BORDER
-
-        ; kill enough time to get out of the left-hand border before we change
-        ; the colour. TODO: time this more accurately
-        ldx # 3
--       dex
-        bne -
-
-        lda # LTGREY
-        sta VIC_BORDER
-
-        rts
-
-menu_irq_vblank:
-        ;-----------------------------------------------------------------------
-        lda # MENU_BORDER
-        sta VIC_BORDER
-        sta VIC_BACKGROUND
-        rts
