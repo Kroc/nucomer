@@ -5,86 +5,26 @@ MENU_BORDER     = BLACK
 MENU_FORE       = BLACK
 MENU_BACK       = LTGREY
 
-; the address of the menu database is placed in the zero-page
-; for some addressing mode shenanigans
-!addr   ZP_MENU_DB              = $10
-!addr   ZP_MENU_DB_LO           = $10
-!addr   ZP_MENU_DB_HI           = $11
 ; currently selected menu item
-!addr   ZP_MENU_INDEX           = $12
-
-;===============================================================================
-; table of interrupts to use for the menu screen:
-;
-menu_irqs:
-       +irqs_table_item menu_irq_vblank,        SCANLINE_VBLANK_BEGIN
-       +irqs_table_item menu_irq_logo_end,      SCANLINE_VBLANK_END + (3 * 8)-1
-       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (2 * 8)-1
-       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (1 * 8)-1
-
-menu_irq_logo:
-        ;-----------------------------------------------------------------------
-        ; manually, and very badly, stabilise the raster
-        ; by wasting enough time to get to the flyback
-        ldx # 2
--       dex
-        bne -
-
-        lda # DKGREY
-        sta VIC_BORDER
-
-        ; now kill enough time for a whole line
-        ldx # 12
--       dex
-        bne -
-
-        ; go back to black
-        stx VIC_BORDER
-
-        rts
-
-menu_irq_logo_end:
-        ;-----------------------------------------------------------------------
-        ; manually, and very badly, stabilise the raster
-        ; by wasting enough time to get to the flyback
-        ldx # 2
--       dex
-        bne -
-        
-        lda # DKGREY
-        sta VIC_BORDER
-        lda # LTGREY
-        sta VIC_BACKGROUND
-
-        ; now kill enough time for a whole line
-        ldx # 11
--       dex
-        bne -
-        ; go back to black
-        stx VIC_BORDER
-
-        ; now kill enough time for a whole line
-        ldx # 3
--       dex
-        bne -
-
-        lda # LTGREY
-        sta VIC_BORDER
-
-        rts
-
-menu_irq_vblank:
-        ;-----------------------------------------------------------------------
-        ; manually, and very badly, stabilise the raster
-        ; by wasting enough time to get to the flyback
-        ldx # 2
--       dex
-        bne -
-        
-        lda # MENU_BORDER
-        sta VIC_BORDER
-        sta VIC_BACKGROUND
-        rts
+!addr   ZP_MENU_INDEX           = $10
+; number of menu entries
+!addr   ZP_MENU_COUNT           = $11
+; address of the menu entry offsets, lo-bytes
+!addr   ZP_MENU_DB_OFFL         = $12
+!addr   ZP_MENU_DB_OFFL_LO      = $12
+!addr   ZP_MENU_DB_OFFL_HI      = $13
+; address of the menu entry offsets, hi-bytes
+!addr   ZP_MENU_DB_OFFH         = $14
+!addr   ZP_MENU_DB_OFFH_LO      = $14
+!addr   ZP_MENU_DB_OFFH_HI      = $15
+; address of the menu entry rows
+!addr   ZP_MENU_DB_ROWS         = $16
+!addr   ZP_MENU_DB_ROWS_LO      = $16
+!addr   ZP_MENU_DB_ROWS_HI      = $17
+; address of the menu entry columns
+!addr   ZP_MENU_DB_COLS         = $18
+!addr   ZP_MENU_DB_COLS_LO      = $18
+!addr   ZP_MENU_DB_COLS_HI      = $19
 
 ;===============================================================================
 menu_screen:
@@ -150,29 +90,13 @@ menu_screen:
 
         ; print menu items:
         ;-----------------------------------------------------------------------
-        lda # 0                 ; begin at the first menu item
+        ; select the first menu item by default
+        lda # 0
         sta ZP_MENU_INDEX
-        tay
-        ; set the address of the menu database
-        lda #< menu_db
-        sta ZP_MENU_DB_LO
-        lda #> menu_db
-        sta ZP_MENU_DB_HI
+        
+        ; draw the menu items on the screen
+        jsr menu_refresh
 
-        ; from that read the offset of the menu item in the database
-        clc
--       lda (ZP_MENU_DB_LO), y
-        bmi +
-        lda ZP_MENU_DB_LO
-        adc (ZP_MENU_DB), y
-        tax
-        lda ZP_MENU_DB_HI
-        iny
-        adc (ZP_MENU_DB), y
-                iny
-        jsr print_str_pos
-        bne -
-+
         ;-----------------------------------------------------------------------
         ; turn screen on
         lda # %00011011
@@ -182,6 +106,49 @@ menu_screen:
 
         ; tear down the custom interrupt handlers
         jsr disable_interrupts
+        rts
+
+menu_refresh:
+;===============================================================================
+        ; the first byte of the menu database is the number of menu items.
+        ; we also render the menu items from last to first for speed purposes
+        ldy menu_db_count
+        sty ZP_MENU_COUNT
+        ; the menu-count is 1-based;
+        ; subtract 1 to avoid printing garbage
+        dey
+
+        lda # DKGREY
+        sta ZP_PRINT_COLOR
+        
+        ; position the cursor:
+-       lda menu_db_cols, y     ; get the column
+        tax                     ; in X
+        sty @i+1                ; (backup index)
+        lda menu_db_rows, y     ; get the row
+        tay                     ; in Y
+        jsr print_set_crsr      ; set cursor: Y = row, X = col
+
+        ; print the string:
+@i      ldy # $88               ; retrieve the menu index
+        lda menu_db_strlo, y    ; load the string address lo-byte into X
+        tax
+        lda menu_db_strhi, y    ; load the string address hi-byte into A
+        jsr print_str           ; print the string!
+        dey
+        bpl -
+
+        ; get the screen address of the selected menu item:
+        ldy ZP_MENU_INDEX
+        lda menu_db_cols, y     ; column number
+        tax                     ; must be in X
+        lda menu_db_rows, y     ; row in Y
+        jsr print_get_crsr      ; returns X = addr lo-byte, A = addr hi-byte
+        stx @scr+1
+        sta @scr+2
+        lda # $db
+@scr    sta $8888
+
         rts
 
 menu_petscii_logo:
@@ -196,9 +163,61 @@ menu_subline:
         !byte   4, 31
         !scr    "issue #0", 0
 
-thorne:
-        !scr    $db, 0
-
 menu_db:
 ;===============================================================================
-!binary "build/menu.db"
+!source "build/menu_db.acme"
+
+;===============================================================================
+; table of interrupts to use for the menu screen:
+;
+menu_irqs:
+       +irqs_table_item menu_irq_vblank,        SCANLINE_VBLANK_BEGIN
+       +irqs_table_item menu_irq_logo_end,      SCANLINE_VBLANK_END + (3 * 8)-1
+       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (2 * 8)-1
+       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (1 * 8)-1
+
+menu_irq_logo:
+        ;-----------------------------------------------------------------------
+        lda # DKGREY
+        sta VIC_BORDER
+
+        ; now kill enough time for a whole line
+        ldx # 11
+-       dex
+        bne -
+
+        ; go back to black
+        stx VIC_BORDER
+
+        rts
+
+menu_irq_logo_end:
+        ;-----------------------------------------------------------------------
+        lda # DKGREY
+        sta VIC_BORDER
+        lda # LTGREY
+        sta VIC_BACKGROUND
+
+        ; now kill enough time for a whole line
+        ldx # 10
+-       dex
+        bne -
+        ; go back to black
+        stx VIC_BORDER
+
+        ; now kill enough time for a whole line
+        ldx # 3
+-       dex
+        bne -
+
+        lda # LTGREY
+        sta VIC_BORDER
+
+        rts
+
+menu_irq_vblank:
+        ;-----------------------------------------------------------------------
+        lda # MENU_BORDER
+        sta VIC_BORDER
+        sta VIC_BACKGROUND
+        rts

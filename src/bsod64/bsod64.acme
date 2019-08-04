@@ -405,8 +405,12 @@ bsod_redraw:
         ; print the static elements of the screen
         ; (title, legends, key-commands etc)
         jsr bsod_print_str_inline
+        ; configure screen + PETSCII
+        !pet    PET_CLR         ; clear the screen
+        !pet    PET_LCASE       ; switch to lower-case
+        !pet    PET_CASEOFF     ; disable case-switching via SHIFT+C=
         ; BSOD64 title
-        !pet    PET_CLR, PET_LCASE, PET_CYAN, "BSOD64v0.0"
+        !pet    PET_CYAN, "BSOD64v0.0"
         !pet    PET_GREEN
         ; registers legend
         !pet    STR_POS, 2, 18, "PC:  A: X: Y:"

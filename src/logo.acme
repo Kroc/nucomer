@@ -33,12 +33,6 @@ logo_screen:
         ; i.e. ensure text is effectively invsible by default
         jsr clear_screen
 
-        ; set the default raster interrupts to give us a frame-timer
-        lda #< irqs_default
-        ldx #> irqs_default
-        ldy # 2
-        jsr irqs_load
-
         ; configure sprites:
         ;-----------------------------------------------------------------------
         ; copy the 4 sprites to $2000-$20FF. since the logo screen is only used
@@ -196,12 +190,12 @@ draw_logo:
         ; these colour cells directly. ("camen" shifts left, so does not map
         ; to the original incomming X value)
         ;
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 20, x        ; "d"
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 21, x        ; "e"
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 22, x        ; "s"
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 23, x        ; "i"
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 24, x        ; "g"
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 25, x        ; "n"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 20, x        ; "d"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 21, x        ; "e"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 22, x        ; "s"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 23, x        ; "i"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 24, x        ; "g"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 25, x        ; "n"
         
         pha                     ; put aside colour value
 
@@ -271,11 +265,11 @@ draw_logo:
         ; and apply the colour:
         ; first, retrieve colour value
         pla
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 2, x         ; "c"
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 3, x         ; "a"
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 4, x         ; "m"
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 5, x         ; "e"
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 6, x         ; "n"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 2, x         ; "c"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 3, x         ; "a"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 4, x         ; "m"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 5, x         ; "e"
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 6, x         ; "n"
 
         ; multiply up the separation distance to
         ; better work for sprite pixel X co-ordinates

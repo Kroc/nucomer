@@ -1,3 +1,4 @@
+!addr   ZP_PRINT_COLOR          = $02
 
 ;===============================================================================
 ; clear the screen:
@@ -26,8 +27,6 @@ clear_screen:
         bne -
 
         rts
-
-!addr   ZP_PRINT_COLOR          = $02
 
 ;===============================================================================
 ; print a null-terminated string, where the first two
@@ -107,46 +106,64 @@ print_str_pos:
 ;===============================================================================
 ; print a null-terminated string:
 ;
-;       A = string address, lo-byte
-;       X = string address, hi-byte
+;       X = string address, lo-byte
+;       A = string address, hi-byte
+;       preserves Y
 ;
-; `set_crsr` must be called beforehand to set the screen address
+; `print_set_crsr` must be called beforehand to set the screen address
 ; to print at which is encoded directly into this routine
 ;
 print_str:
-        sta print_str__from+1
-        stx print_str__from+2
+        ;-----------------------------------------------------------------------
+!addr   print_str__from = @from
+!addr   print_str__to   = @to
+
+        sty @y+1                ; preserve Y
+        stx @from+1
+        stx @color+1
+        sta @from+2
+        clc
+        adc # >($d800 - $0400)
+        sta @color+2
+
+        inc CPU_CONTROL         ; enable I/O
 
         ldy # 0
-print_str__from:
-        lda $8888, y
-        beq +
-print_str__to:
-        sta $0400, y
+@from   lda .invalid, y
+        beq +                   ; exit if null-terminator ($00)
+@to     sta $0400, y
+        lda ZP_PRINT_COLOR
+@color  sta $d800, y
         iny
-        bne print_str__from
+        bne @from
 
-+       rts
++       dec CPU_CONTROL         ; switch off I/O
+@y      ldy # $88               ; restore Y
+        rts
 
 ;===============================================================================
 ; given a row+col, returns the corresponding screen address
 ;
-;       Y = row
+;       A = row
 ;       X = col
 ;
 ; returns:
 ;       X = screen address lo-byte
-;       Y = screen address hi-byte
+;       A = screen address hi-byte
+;       Y is preserved
 ;
-get_crsr:
-        txa                     ; begin by taking the column (0-40)
+print_get_crsr:
+        ;-----------------------------------------------------------------------
+        sty @y+1                ; preserve Y
+        tay                     ; index by row (0-24)
+        txa                     ; take the column (0-40)
         clc
         adc screen_rows_lo, y   ; add the screen low-address for that row
         tax                     ; store that in X. note that carry might be set
         lda screen_rows_hi, y   ; get the high-address for that row
         adc # 0                 ; if row+col overflow, increase the page number
-        tay                     ; put the addr hi-byte in Y
 
+@y      ldy # $88
         rts
 
 ;===============================================================================
@@ -155,8 +172,8 @@ get_crsr:
 ;       Y = row
 ;       X = col
 ;
-set_crsr:
-
+print_set_crsr:
+        ;-----------------------------------------------------------------------
         txa
         clc
         adc screen_rows_lo, y
@@ -173,7 +190,8 @@ set_crsr:
 }
 
 !macro  print_str       .str_addr {
-       +ldaddr .str_addr
+        ldx #< .addr
+        lda #> .addr
         jsr print_str
 }
 
@@ -186,7 +204,7 @@ set_crsr:
         
         ldy # .row
         ldx # .col
-        jsr set_crsr
+        jsr print_set_crsr
 
        +print_str .str_addr
 }

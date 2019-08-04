@@ -75,7 +75,7 @@ REM # package disks
 REM ============================================================================
 <NUL (SET /P "$=Create D64...                       ")
 
-DEL "build\nucomer.d64"
+IF EXIST "build\nucomer.d64" DEL "build\nucomer.d64"
 
 REM # prepare the disk image
 %C1541% ^

@@ -12,21 +12,13 @@ SCANLINE_VBLANK_BEGIN   = 250
 !addr   ZP_IRQS_LO      = $fc
 !addr   ZP_IRQS_HI      = $fd
 
-
-frameReady:
-;-------------------------------------------------------------------------------
-        ; flag to indicate if the interrupt loop has completed.
-        ; used to indicate that the frame is complete and the
-        ; next one can be started. $00 = no, $FF = yes
-        !byte $00
-
 ;===============================================================================
 ; wait for a given number of frames to pass:
 ;
 ;       X = number of frames to wait (1-based)
 ;
 wait_frames:
-
+        ;-----------------------------------------------------------------------
 -       jsr wait_frame
         dex
         bne -
@@ -34,20 +26,26 @@ wait_frames:
         rts
 
 wait_frame:
-        ;=======================================================================
-        ; wait for a full cycle of the raster interrupts:
+        ;-----------------------------------------------------------------------
+        ; wait for a full cycle of the raster beam:
         ;
-        ; first, wait until the ready flag goes from on to off; that is, wait
-        ; for a vblank period to complete in case the raster beam is already
-        ; within the vblank
+        ; bit 7 of $D011 is the upper-most bit of the current raster line,
+        ; i.e. when it is 0 the beam is on lines 0-255 and when it's 1 the
+        ; beam is on lines 256+ -- PAL has 312 lines, NTSC has 262 lines
+        ; but some very early NTSC machines have 263 lines
         ;
--       bit frameReady
-        bmi -                   ; wait until bit 7 is 0 (frameReady = $00)
+        ; first, we wait for the beam to enter the top of the screen
+        ; (lines 0-255), this is so that if the beam is currently within the
+        ; bottom of the screen (lines 256+), we wait for it to go back around
+        ; and don't trigger early
+        ;
+-       bit VIC_SCREEN_VERT
+        bmi -                   ; wait until bit 7 is 0
 
         ; now wait for the addressible screen to pass and the vblank
         ; to begin again, this syncronises the main thread with the vblank
--       bit frameReady
-        bpl -                   ; wait until bit 7 is 1 (frameReady = $FF)
+-       bit VIC_SCREEN_VERT
+        bpl -                   ; wait until bit 7 is 1
 
         rts
 
@@ -186,9 +184,6 @@ irqs_load:
         lda # %00000001
         sta VIC_INTERRUPT_CONTROL
 
-        lda # $00
-        sta frameReady
-
 ;; TODO: why is this broken?
 ;;
 ;;        ; push a fake "processor status" on to the stack so that the `rti`
@@ -236,6 +231,7 @@ irqs_load:
 
 ;===============================================================================
 nmi_debug:
+        ;-----------------------------------------------------------------------
         pha
         txa
         pha
@@ -305,40 +301,63 @@ irq_kernal_on:
         rti
 
 ;===============================================================================
-; the main interrupt handler that manages the interrupt list:
+; the main interrupt handler that manages the raster interrupt list:
 ;
 ; when raster interrupts are enabled, this routine is always called for
 ; every interrupt and then hands off to the individual handlers provided
 ; by the IRQ table
 ;
-irq:
+; in order to make changes to the background / border colour without flicker,
+; we need to align the VIC-II write to the "horizontal blank", the very small
+; amount of time available whilst the beam "flies back" to the left side of
+; the screen. a line is 63 cycles on a PAL machine, 64 on most NTSC machines
+; but 65 on very early NTSC machines. we don't have to be absolutely accurate
+; in our delay, there's a few cycles worth of jitter in the flyback period
+;
+irq:                                                                    ;cycles
+        ;-----------------------------------------------------------------------
+        ; note that an interrupt takes 7 cycles to execute before       ;+7=7
+        ; we get to this point
+
         ; acknowledge the interrupt to prevent it double-firing.
         ; we only need to write to the status register to do this
-        inc VIC_INTERRUPT_STATUS
+        inc VIC_INTERRUPT_STATUS                                        ;+6=13
 
         ; preserve the registers on the stack
-        pha
-        txa
-        pha
-        tya
-        pha
-        
-        lda # $00
-        sta frameReady
+        pha                                                             ;+3=16
+        txa                                                             ;+2=18
+        pha                                                             ;+3=21
+        tya                                                             ;+2=23
+        pha                                                             ;+3=26
 
         ; check if BRK occurred:
         ;-----------------------------------------------------------------------
-        tsx                     ; we need to look on the stack
-        lda $0104, x            ; retrieve the processor flags at interrupt
-        and # %00010000         ; check the BRK bit
-        beq +
+        tsx                     ; we need to look on the stack          ;+2=28
+        lda $0104, x            ; retrieve processor flags at interrupt ;+4=32
+        and # %00010000         ; check the BRK bit                     ;+2=34
+        beq +                                                           ;+3=37
         jmp $c006               ; invoke BSOD64!
-+
+
         ; process the custom interrupt handler
         ;-----------------------------------------------------------------------
+        ; preserve the memory layout (I/O, KERNAL, BASIC). the routines from
+        ; the IRQ table will always be executed with I/O on and KERNAL off
+        ;
++       lda CPU_CONTROL         ; current memory layout                 ;+3=40
+        pha                     ; push to stack                         ;+3=43
+        and %11111100           ; strip bottom bits, keep upper bits    ;+2=45
+        ora %00000001           ; set memory layout to I/O only         ;+2=47
+        sta CPU_CONTROL                                                 ;+3=50
+
+        ; delay just enough so that the call to the handler
+        ; will begin around about the flyback period
+        nop                                                             ;+2=52
+        nop                                                             ;+2=54
+        nop                                                             ;+2=56
+
         ; for speed, the address of the handler will already
-        ; have been written into this instruction
-@addr   jsr $8888
+        ; have been written directly into this instruction
+@addr   jsr $8888                                                       ;+6=62
 !addr   irq_addr = @addr
 
         ; set up next interrupt in the chain:
@@ -349,14 +368,7 @@ irq:
         lda ZP_IRQS_LEN
         sta ZP_IRQ
         
-        ; when all interrupts in the table have been processed, the frame is
-        ; 'complete'. when the next interrupt happens the frame will go 'busy'
-        ; for frame synchronisation, your 'last' interrupt (first in the table)
-        ; should be where vblank begins -- line 250
-        dec frameReady
-        
-        ; (each table entry is 4 bytes so we have to scale up the index)
-@next
+@next   ; (each table entry is 4 bytes so we have to scale up the index)
 !addr   irq_next = @next
         
         lda ZP_IRQ
@@ -378,7 +390,7 @@ irq:
         sta VIC_SCANLINE        ; set the scanline lo-byte
 
         ; because the height of the screen + borders will be more than 256,
-        ; an extra high-bit is included from `VIC_SCREEN_CTL1`. the byte in
+        ; an extra high-bit is included from `VIC_SCREEN_VERT`. the byte in
         ; the table is pre-processed to move this bit from bit 0 to bit 7,
         ; to match the location required for the register
         ;
@@ -389,6 +401,9 @@ irq:
 
         ; finish interrupt:
         ;-----------------------------------------------------------------------
+        pla                     ; restore the memory layout
+        sta CPU_CONTROL
+
         pla
         tay
         pla

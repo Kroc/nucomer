@@ -46,8 +46,9 @@ PET_LTGREEN             = $99
 PET_LTBLUE              = $9a
 PET_LTGREY              = $9b
 
-PET_CLR                 = $93
-PET_LCASE               = $0e
+PET_CLR                 = $93   ; clear screen
+PET_LCASE               = $0e   ; switch to lower-case
+PET_CASEOFF             = $08   ; disable SHIFT+C= to switch cases
 
 PET_RVSON               = $12
 PET_RVSOFF              = $92

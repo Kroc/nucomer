@@ -1,3 +1,6 @@
+; NOTE: exomizer includes BSOD64 in the payload, so we don't need to
+;       manually load it from the outfit. TODO: load an exomized BSOD64
+;       file using the IRQ fast-loader during some off-time (menu-screen?)
 
 init:
 ;===============================================================================
@@ -5,29 +8,6 @@ init:
         ; character set at +$1800 (lower-case)
         lda # %00010111
         sta VIC_LAYOUT
-        
-        ; NOTE: exomizer includes BSOD64 in the payload, so we don't need
-        ; to manually load it from the outfit. TODO: load an exomized BSOD64
-        ; file using the IRQ fast-loader during some off-time (menu-screen?)
-        ;
-;;        ; load BSOD64:
-;;        ;-----------------------------------------------------------------------
-;;        ldx $ba                 ; last-used device number set by the KERNAL
-;;        bne +                   ; not 0? good
-;;        ldx # DEV_DRV8          ; default to drive 8
-;;+       ldy # $00               ; use custom load address
-;;        tya                     ; logical file number
-;;        jsr KERNAL_SETLFS
-;;
-;;        lda # 6                ; string-length
-;;        ldx #< bsod64_filename
-;;        ldy #> bsod64_filename
-;;        jsr KERNAL_SETNAM
-;;
-;;        lda # 0                 ; load, not verify
-;;        ldx #< $c000
-;;        ldy #> $c000
-;;        jsr KERNAL_LOAD
 
         ;-----------------------------------------------------------------------
         jsr init_interrupts
@@ -41,6 +21,3 @@ init:
         
         ; halt and catch fire
         jmp *
-
-;;bsod64_filename:
-;;        !pet   "bsod64"
