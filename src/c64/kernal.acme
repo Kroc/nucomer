@@ -1,4 +1,3 @@
-
 ; these vectors are called by hardware events, independent of the KERNAL.
 ; when the KERNAL ROM is enabled the ROM provides the values, which are KERNAL
 ; addresses, to allow normal operation of the C64. if the KERNAL ROM is
@@ -33,6 +32,10 @@ DEV_DRV12               = 12            ; ...
 DEV_DRV13               = 13            ; ...
 DEV_DRV14               = 14            ; ...
 DEV_DRV15               = 15            ; drives above 15 are extremely rare
+
+; zero-page address used by the KERNAL to
+; remember the last-used device, e.g. drive 8
+!addr   ZP_KERNAL_DEV   = $ba
 
 ; KERNAL vectors:
 ;-------------------------------------------------------------------------------

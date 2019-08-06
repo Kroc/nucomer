@@ -1059,18 +1059,18 @@ bsod_push:
         php
         ; disable interrupts
         sei
-        ; the PHP instruction always sets the BRK bit! since this routine
-        ; is used for a JSR BSOD64 call and not an interrupt call, we know
-        ; the BRK bit should be zero, so we enforce that here:
-        pla                     ; pull the processor status
-        and # %11101111         ; mask out the BRK-bit
-        pha                     ; push back to the stack
         ; push the registers
         pha
         txa
         pha
         tya
         pha
+;;        ; the PHP instruction always sets the BRK bit! since this routine
+;;        ; is used for a JSR BSOD64 call and not an interrupt call, we know
+;;        ; the BRK bit should be zero, so we enforce that here:
+;;        pla                     ; pull the processor status
+;;        and # %11101111         ; mask out the BRK-bit
+;;        pha                     ; push back to the stack
         ; set flag to indicate BSOD64 being invoked by JSR
         ; -- we will have to resume execution differently
         lda # $ff

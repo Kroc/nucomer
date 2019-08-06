@@ -16,10 +16,10 @@ EYE_LID1_YPOS   = EYE_LEFT_YPOS - 24
 EYE_LID2_XPOS   = EYE_LEFT_XPOS
 EYE_LID2_YPOS   = EYE_LEFT_YPOS - 24 - 21
 
+;===============================================================================
 logo_screen:
-        ;=======================================================================
-        ; clear screen:
         ;-----------------------------------------------------------------------
+        ; clear screen:
         ; turn the screen off whilst we clear it
         lda # %00001000
         sta VIC_SCREEN_CTL1
@@ -322,6 +322,7 @@ logo_draw_eyelid:
         rts
 
 @frames:
+        ;-----------------------------------------------------------------------
         !byte   0, 1, 2, 4, 7, 11, 16, 22, 29, 32
 
 logo_sprites:

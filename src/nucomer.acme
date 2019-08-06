@@ -4,8 +4,8 @@
 ; BASIC bootstrap, to the get the machine-code program running
 !source "boot_basic.acme"
 
-!source "init.acme"
 !source "interrupts.acme"
+!source "init.acme"
 !source "print.acme"            ; global string-printing routines
 !source "keyboard.acme"
 

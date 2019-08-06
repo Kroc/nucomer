@@ -86,7 +86,8 @@ for _,article in ipairs(issue["articles"]) do
         off = offset,
         row = y,
         col = x,
-        str = s_scr
+        str = s_scr,
+        prg = article["prg"]
     })
     offset = offset + s_len + 1
     y = y + 2
@@ -103,11 +104,12 @@ if err then io.stderr:write("! error: " .. err); os.exit(false); end
 
 f_out:write("; auto-generated file, do not modify!\n")
 f_out:write("\n")
-f_out:write("menu_db_count:\n")
-f_out:write(string.format("        !byte   %i\n", #data.toc))
+f_out:write("MENU_DB_COUNT                   = ")
+f_out:write(string.format("%i\n", #data.toc))
 
 f_out:write("\n")
 f_out:write("menu_db_strlo:\n")
+--------------------------------------------------------------------------------
 for _,item in ipairs(data.toc) do
     f_out:write(string.format(
         "        !byte   <(menu_db_strs + $%04x)\n",
@@ -117,6 +119,7 @@ end
 
 f_out:write("\n")
 f_out:write("menu_db_strhi:\n")
+--------------------------------------------------------------------------------
 for _,item in ipairs(data.toc) do
     f_out:write(string.format(
         "        !byte   >(menu_db_strs + $%04x)\n",
@@ -126,6 +129,7 @@ end
 
 f_out:write("\n")
 f_out:write("menu_db_rows:\n")
+--------------------------------------------------------------------------------
 for _,item in ipairs(data.toc) do
     f_out:write(string.format(
         "        !byte   $%02x\n",
@@ -135,6 +139,7 @@ end
 
 f_out:write("\n")
 f_out:write("menu_db_cols:\n")
+--------------------------------------------------------------------------------
 for _,item in ipairs(data.toc) do
     f_out:write(string.format(
         "        !byte   $%02x\n",
@@ -144,6 +149,7 @@ end
 
 f_out:write("\n")
 f_out:write("menu_db_strs:\n")
+--------------------------------------------------------------------------------
 for _,item in ipairs(data.toc) do
     -- begin the line
     f_out:write("        !hex    ")
@@ -152,6 +158,35 @@ for _,item in ipairs(data.toc) do
     end
     -- null terminator
     f_out:write("00\n")
+end
+
+f_out:write("\n")
+f_out:write("menu_db_prg_lens:\n")
+f_out:write("        ; length of PRG filenames\n")
+--------------------------------------------------------------------------------
+for _,item in ipairs(data.toc) do
+    f_out:write(string.format(
+        "        !byte   %i\n",
+        #item.prg
+    ))
+end
+
+f_out:write("\n")
+f_out:write("menu_db_prg_strs:\n")
+f_out:write("        ; PRG filenames (padded to 16 bytes each)\n")
+--------------------------------------------------------------------------------
+for _,item in ipairs(data.toc) do
+    -- use ACME to convert the ASCII filename to PETSCII
+    f_out:write(string.format("        !pet    \"%s\"", item.prg))
+    -- pad with zeroes?
+    local pad = 16 - #item.prg
+    if pad > 0 then
+        for _ = 1, pad do
+            f_out:write(", 0")
+        end
+    end
+    -- don't forget to end the line!
+    f_out:write("\n")
 end
 
 f_out:close()

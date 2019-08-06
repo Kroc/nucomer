@@ -1,15 +1,23 @@
-; the scanlines to use for the pair of raster interrupts:
-; since scanlines include the borders, the top of the addressable
-; screen begins at 50 and proceeds to 250 where the vblank begins
-SCANLINE_VBLANK_END     = 50
-SCANLINE_VBLANK_BEGIN   = 250
-
+; since nücomer has multiple 'screens' (menu screen, reading screen etc.)
+; and each may need its own custom raster interrupts, we reduce code size
+; and manage the complexity by utilising a central interrupt handler that
+; works through a queue of custom scanline handlers. this allows each screen
+; to register a simple list of routines to run for any desired scanline
 ;-------------------------------------------------------------------------------
 !addr   ZP_IRQ          = $ff   ; current index in the table
 !addr   ZP_IRQS_LEN     = $fe   ; number of entries in the table
 !addr   ZP_IRQS         = $fc   ; address of the table
 !addr   ZP_IRQS_LO      = $fc   ; - lo-byte
 !addr   ZP_IRQS_HI      = $fd   ; - hi-byte
+
+; some helpful scanline numbers:
+; since scanlines include the borders, the top of the addressable
+; screen begins at 50 and proceeds to 250 where the vblank begins
+SCANLINE_VBLANK_END     = 50
+SCANLINE_VBLANK_BEGIN   = 250
+SCANLINE_PAL            = 312   ; PAL machines have 312 lines
+SCANLINE_NTSC_NEW       = 262   ; most NTSC machines have 262 lines
+SCANLINE_NTSC_OLD       = 263   ; very early NTSC machines have 263 lines
 
 ;===============================================================================
 ; wait for a given number of frames to pass:
@@ -49,10 +57,9 @@ wait_frame:
         rts
 
 ;===============================================================================
-init_interrupts:
-
-        ; disable interrupts whilst we alter them
-        sei
+irqs_init:
+        ;-----------------------------------------------------------------------
+        sei                     ; disable interrupts whilst we alter them
 
         ; turn off all interrupts on CIA1. note that bit 7 is used to fill all
         ; other bits that are given as 1! therefore, the value `%011111111` is
@@ -87,14 +94,14 @@ init_interrupts:
         sta HW_VECTOR_NMI+1
 
         ; put the KERNAL-off interrupt-handler on stand-by
-        jmp disable_interrupts
+        ; (fall-through to the routine below)
 
 ;===============================================================================
 ; switch off the custom VIC-II raster interrupts:
 ; (doesn't disable the other interrupts on the CIAs)
 ;
-disable_interrupts:
-
+irqs_disable:
+        ;-----------------------------------------------------------------------
         sei                     ; disable interrupts whilst we alter them
 
         ; disable all forms of VIC-II interrupts
@@ -153,8 +160,8 @@ irq_nop:
 ;       Y = number of entries in the table (1-based)
 ;
 irqs_load:
-        ; disable interrupts whilst we alter them
-        sei
+        ;-----------------------------------------------------------------------
+        sei                     ; disable interrupts whilst we alter them
 
         ; configure table
         ;-----------------------------------------------------------------------

@@ -10,7 +10,7 @@ init:
         sta VIC_LAYOUT
 
         ;-----------------------------------------------------------------------
-        jsr init_interrupts
+        jsr irqs_init
 
         ; turn off BASIC & KERNAL ROM
         dec CPU_CONTROL

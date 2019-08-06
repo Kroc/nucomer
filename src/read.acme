@@ -59,8 +59,8 @@ READ_BACK               = GREY
 
 ;===============================================================================
 read_screen:
-        ; setup the screen:
         ;-----------------------------------------------------------------------
+        ; setup the screen:
         ; turn the screen off whilst we clear it
         lda # %00000000
         sta VIC_SCREEN_CTL1
@@ -86,10 +86,78 @@ read_screen:
         dex
         bpl -
 
-        ; load the article and populate
-        ; the first screen-full of text
-        jsr read_load
+        ; initialise printing:
+        ;-----------------------------------------------------------------------
+        ; the first two bytes are the size of the line-length array;
+        ; in other words, how many lines in the article there are,
+        ; and how far forward to skip to find the text data.
+        ; we set the address of the first line to print
+        clc
+        lda $1ffe
+        adc #< $1ffe
+        sta READ_CHAR_LO
+        sta ZP_READ_TOP_LO
+        lda $1fff
+        adc #> $1fff
+        sta READ_CHAR_HI
+        sta ZP_READ_TOP_HI
 
+        ; ergo, the line-length array begins two bytes in
+        ; and this is our intial pointer in the array
+        ; -- we begin printing at article line 1
+        lda #< $2000
+        sta ZP_READ_LENS_LO
+        lda #> $2000
+        sta ZP_READ_LENS_HI
+
+        ; for the smooth scrolling to not overshoot the bottom of the article,
+        ; we need to calculate the height of the article in pixels; this is
+        ; the number of lines multiplied by 8
+        ;
+        lda $1ffe
+        ; subtract 24 to account for where the top of the screen
+        ; is when the bottom of the article is reached
+        sec
+        sbc # 25
+        sta ZP_READ_VLEN_LO
+        lda $1fff
+        sbc # 0
+        sta ZP_READ_VLEN_HI
+        ; begin multiplying
+        asl ZP_READ_VLEN_LO     ; x2
+        rol ZP_READ_VLEN_HI     ; ...
+        asl ZP_READ_VLEN_LO     ; x4
+        rol ZP_READ_VLEN_HI     ; ...
+        asl ZP_READ_VLEN_LO     ; x8
+        rol ZP_READ_VLEN_HI     ; ...
+
+        ; set the initial screen address
+        ; (row 0, col 0)
+        lda # 0
+        sta ZP_READ_ROW
+        ; set the output address in the printing
+        ; routine based on this row+col
+        lda screen_rows_lo
+        sta READ_OUT_LO
+        lda screen_rows_hi
+        sta READ_OUT_HI
+
+        ; print the article's first screen full of text
+        ;-----------------------------------------------------------------------
+        ; number of rows to print (1-based)
+        lda # 25
+        sta ZP_READ_ROWS
+
+        jsr read_lines
+
+        ; now that 25 rows have been printed, the routine will have left
+        ; the details of the last row behind which we can make use of
+        lda READ_CHAR_LO
+        sta ZP_READ_BOT_LO
+        lda READ_CHAR_HI
+        sta ZP_READ_BOT_HI
+
+        ;-----------------------------------------------------------------------
         ; set our own interrupt handlers:
         ; A = address of IRQ table, lo-byte
         ; X = address of IRQ table, hi-byte
@@ -188,13 +256,14 @@ read_keyboard:
         jmp *
 
         ; tear down the custom interrupt handlers
-        jsr disable_interrupts
+        jsr irqs_disable
         rts
 
 ;===============================================================================
 ; table of interrupts to use for the reading screen:
 ;
 read_irqs:
+        ;-----------------------------------------------------------------------
         ; when copying the screen up/down a row, the copy *must* occur before
         ; the raster-beam enters the visible portion of the screen otherwise
         ; flickering occurs. because the IRQ handler has a bunch of preliminary
@@ -209,79 +278,80 @@ read_irq_top:
         ;-----------------------------------------------------------------------
         rts
 
-        lda ZP_READ_VPOS_HI
-        pha                     ; put original value aside
-        sed                     ; enable decimal mode
-
-        lsr                     ; shift upper nybble down
-        lsr                     ; ...
-        lsr                     ; ...
-        lsr                     ; ...
-        cmp #9+1
-        adc # $30               ; rebase to PETSCII '0' and above
-        sta $0400+(10*40)+0
-
-        pla                     ; retrieve original value
-        and # $0f               ; extract lower nybble
-        cmp # 9+1
-        adc # $30               ; rebase to PETSCII '0' and above
-        sta $0400+(10*40)+1
-        cld
-
-        lda ZP_READ_VPOS_LO
-        pha                     ; put original value aside
-        sed
-
-        lsr                     ; shift upper nybble down
-        lsr                     ; ...
-        lsr                     ; ...
-        lsr                     ; ...
-        cmp #9+1
-        adc # $30               ; rebase to PETSCII '0' and above
-        sta $0400+(10*40)+2
-
-        pla                     ; retrieve original value
-        and # $0f               ; extract lower nybble
-        cmp # 9+1
-        adc # $30               ; rebase to PETSCII '0' and above
-        sta $0400+(10*40)+3
-
-        cld                     ; disable decimal mode
-        lda ZP_READ_VLEN_HI
-        pha                     ; put original value aside
-        sed
-
-        lsr                     ; shift upper nybble down
-        lsr                     ; ...
-        lsr                     ; ...
-        lsr                     ; ...
-        cmp #9+1
-        adc # $30               ; rebase to PETSCII '0' and above
-        sta $0400+(10*40)+5
-
-        pla                     ; retrieve original value
-        and # $0f               ; extract lower nybble
-        cmp # 9+1
-        adc # $30               ; rebase to PETSCII '0' and above
-        sta $0400+(10*40)+6
-        cld                     ; disable decimal mode
-        lda ZP_READ_VLEN_LO
-        pha                     ; put original value aside
-        sed
-
-        lsr                     ; shift upper nybble down
-        lsr                     ; ...
-        lsr                     ; ...
-        lsr                     ; ...
-        cmp #9+1
-        adc # $30               ; rebase to PETSCII '0' and above
-        sta $0400+(10*40)+7
-
-        pla                     ; retrieve original value
-        and # $0f               ; extract lower nybble
-        cmp # 9+1
-        adc # $30               ; rebase to PETSCII '0' and above
-        sta $0400+(10*40)+8
+;;        lda ZP_READ_VPOS_HI
+;;        pha                     ; put original value aside
+;;        sed                     ; enable decimal mode
+;;
+;;        lsr                     ; shift upper nybble down
+;;        lsr                     ; ...
+;;        lsr                     ; ...
+;;        lsr                     ; ...
+;;        cmp #9+1
+;;        adc # $30               ; rebase to PETSCII '0' and above
+;;        sta $0400+(10*40)+0
+;;
+;;        pla                     ; retrieve original value
+;;        and # $0f               ; extract lower nybble
+;;        cmp # 9+1
+;;        adc # $30               ; rebase to PETSCII '0' and above
+;;        sta $0400+(10*40)+1
+;;        cld
+;;
+;;        lda ZP_READ_VPOS_LO
+;;        pha                     ; put original value aside
+;;        sed
+;;
+;;        lsr                     ; shift upper nybble down
+;;        lsr                     ; ...
+;;        lsr                     ; ...
+;;        lsr                     ; ...
+;;        cmp #9+1
+;;        adc # $30               ; rebase to PETSCII '0' and above
+;;        sta $0400+(10*40)+2
+;;
+;;        pla                     ; retrieve original value
+;;        and # $0f               ; extract lower nybble
+;;        cmp # 9+1
+;;        adc # $30               ; rebase to PETSCII '0' and above
+;;        sta $0400+(10*40)+3
+;;
+;;        cld                     ; disable decimal mode
+;;        lda ZP_READ_VLEN_HI
+;;        pha                     ; put original value aside
+;;        sed
+;;
+;;        lsr                     ; shift upper nybble down
+;;        lsr                     ; ...
+;;        lsr                     ; ...
+;;        lsr                     ; ...
+;;        cmp #9+1
+;;        adc # $30               ; rebase to PETSCII '0' and above
+;;        sta $0400+(10*40)+5
+;;
+;;        pla                     ; retrieve original value
+;;        and # $0f               ; extract lower nybble
+;;        cmp # 9+1
+;;        adc # $30               ; rebase to PETSCII '0' and above
+;;        sta $0400+(10*40)+6
+;;        cld                     ; disable decimal mode
+;;        lda ZP_READ_VLEN_LO
+;;        pha                     ; put original value aside
+;;        sed
+;;
+;;        lsr                     ; shift upper nybble down
+;;        lsr                     ; ...
+;;        lsr                     ; ...
+;;        lsr                     ; ...
+;;        cmp #9+1
+;;        adc # $30               ; rebase to PETSCII '0' and above
+;;        sta $0400+(10*40)+7
+;;
+;;        pla                     ; retrieve original value
+;;        and # $0f               ; extract lower nybble
+;;        cmp # 9+1
+;;        adc # $30               ; rebase to PETSCII '0' and above
+;;        sta $0400+(10*40)+8
+;;
 
 -       rts
 
@@ -393,125 +463,12 @@ read_irq_bottom:
 @end    rts
 
 ;===============================================================================
-; load the article:
-;
-; TODO: obviously this would happen at some other stage and use an IRQ-driven
-;       fast-loader such as Krill's
-;
-read_filename:
-        ;-----------------------------------------------------------------------
-        !pet    "editorial"
-
-read_load:
-        ;-----------------------------------------------------------------------
-        sei                     ; disable interrupts
-
-        ; turn on the KERNAL
-        inc CPU_CONTROL
-
-        ; get the last-used device number set by the KERNAL
-        ldx $ba
-        bne +                   ; not 0? good
-        ldx # DEV_DRV8          ; default to drive 8
-+       ldy # $00               ; use custom load address
-        tya                     ; logical file number
-        jsr KERNAL_SETLFS
-
-        lda # 9                 ; string-length
-        ldx #< read_filename
-        ldy #> read_filename
-        jsr KERNAL_SETNAM
-
-        lda # 0                 ; load, not verify
-        ldx #< $1ffe
-        ldy #> $1ffe
-        jsr KERNAL_LOAD
-
-        ; TODO: error handling, fastloader et al
-        bcc +
-        brk
-        
-+       dec CPU_CONTROL         ; turn KERNAL off
-
-        ; file-read, initialise printing:
-        ;-----------------------------------------------------------------------
-        ; the first two bytes are the size of the line-length array;
-        ; in other words, how many lines in the article there are,
-        ; and how far forward to skip to find the text data.
-        ; we set the address of the first line to print
-        clc
-        lda $1ffe
-        adc #< $1ffe
-        sta READ_CHAR_LO
-        sta ZP_READ_TOP_LO
-        lda $1fff
-        adc #> $1fff
-        sta READ_CHAR_HI
-        sta ZP_READ_TOP_HI
-
-        ; ergo, the line-length array begins two bytes in
-        ; and this is our intial pointer in the array
-        ; -- we begin printing at article line 1
-        lda #< $2000
-        sta ZP_READ_LENS_LO
-        lda #> $2000
-        sta ZP_READ_LENS_HI
-
-        ; for the smooth scrolling to not overshoot the bottom of the article,
-        ; we need to calculate the height of the article in pixels; this is
-        ; the number of lines multiplied by 8
-        ;
-        lda $1ffe
-        ; subtract 24 to account for where the top of the screen
-        ; is when the bottom of the article is reached
-        sec
-        sbc # 25
-        sta ZP_READ_VLEN_LO
-        lda $1fff
-        sbc # 0
-        sta ZP_READ_VLEN_HI
-        ; begin multiplying
-        asl ZP_READ_VLEN_LO     ; x2
-        rol ZP_READ_VLEN_HI     ; ...
-        asl ZP_READ_VLEN_LO     ; x4
-        rol ZP_READ_VLEN_HI     ; ...
-        asl ZP_READ_VLEN_LO     ; x8
-        rol ZP_READ_VLEN_HI     ; ...
-
-        ; set the initial screen address
-        ; (row 0, col 0)
-        lda # 0
-        sta ZP_READ_ROW
-        ; set the output address in the printing
-        ; routine based on this row+col
-        lda screen_rows_lo
-        sta READ_OUT_LO
-        lda screen_rows_hi
-        sta READ_OUT_HI
-
-        ; print the article's first screen full of text
-        ;-----------------------------------------------------------------------
-        ; number of rows to print (1-based)
-        lda # 25
-        sta ZP_READ_ROWS
-
-        jsr read_lines
-
-        ; now that 25 rows have been printed, the routine will have left
-        ; the details of the last row behind which we can make use of
-        lda READ_CHAR_LO
-        sta ZP_READ_BOT_LO
-        lda READ_CHAR_HI
-        sta ZP_READ_BOT_HI
-
-        rts
-
-;===============================================================================
 ; scroll the article up a line:
 ;
 read_scroll_up:
-        ; copy the screen down a row
         ;-----------------------------------------------------------------------
+        ; copy the screen down a row:
+        ;
         ; credit for this particular methodology must go to Richard Bayliss
         ; of The New Dimenson for producing a copy routine fast enough to
         ; copy the screen from the bottom up before the scanline gets
@@ -601,11 +558,11 @@ read_scroll_up:
         bcs +
         dec ZP_READ_LENS_HI
         sec
-+
+
         ; move the address of the line at the top
         ; of the screen backwards to the previous line
         ;
-        lda ZP_READ_TOP_LO
++       lda ZP_READ_TOP_LO
         sbc (ZP_READ_LENS), y
         sta ZP_READ_TOP_LO
         sta READ_CHAR_LO        ; also set in the printing routine
@@ -636,10 +593,11 @@ read_scroll_temp:
 ; scroll the article down a line:
 ;
 read_scroll_down:
+        ;-----------------------------------------------------------------------
         ; copy the screen up a row -- the bytes after the screen characters
         ; are filled with spaces so as to automatically blank the last row!
         ; 
-+       ldy # 0
+        ldy # 0
 -       lda $0428, y            ; row below...
         sta $0400, y            ; to row above
         iny
@@ -707,8 +665,9 @@ read_scroll_down:
 ; print a number of lines from the article to the screen:
 ;
 read_lines:
-        ; prepare for printing
         ;-----------------------------------------------------------------------
+        ; prepare for printing:
+        ;
         ; get the number of bytes for this line:
         ; begin with the on-screen row index
 @lens   ldy ZP_READ_ROW
