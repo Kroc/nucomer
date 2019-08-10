@@ -1,0 +1,5 @@
+; BSOD64 integration; not the actual BSOD64 code as that is added
+; to the disk-image
+
+!addr   bsod64_jsr      = $c003
+!addr   bsod64_irq      = $c006

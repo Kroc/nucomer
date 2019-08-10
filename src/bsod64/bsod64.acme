@@ -119,10 +119,6 @@ bsod_basic:
 ; invoke BSOD64 manually with a JSR:
 ; (`SYS 49155` / `jsr $c003`)
 ;
-; DO NOT USE FROM WITHIN AN INTERRUPT HANDLER, otherwise BSOD64 will wrongly
-; see the JSR as the interrupt address -- use the next routine (`bsod_irq`)
-; for invoking BSDO64 from within your interrupt handler
-;
 ; THIS ASSUMES THE FOLLOWING STACK LAYOUT:
 ;
 ;       top  -> PC lo-byte              (pushed by JSR)
@@ -153,7 +149,8 @@ bsod_irq:
         ; we must stop any more host code from running!
         sei
         ; set the flag indicating how BSOD64 was launched
-        ; in this case, by IRQ (the default), not by JSR
+        ; in this case, by IRQ (the default), not by JSR.
+        ; the BRK bit will be checked later
         lda # $00
         sta bsod_is_jsr
 
@@ -338,7 +335,8 @@ bsod_freeze
         inc zp+1                ; and then BASIC
         cli                     ; enable interrupts
 
-        ; make a note if BSOD64 was invoked by a BRK instruction
+        ; make a note if BSOD64 was
+        ; invoked by a BRK instruction
         ;
         lda bsod_f              ; processor state before interrupt
         and # %00010000         ; isolate the BRK bit
@@ -366,11 +364,16 @@ bsod_freeze
         ; in order for BSOD64 to unfreeze the machine state and resume,
         ; it needs to normalise the program counter it works with
         ;
-        bit bsod_is_brk         ; begin by checking for the BRK state
+        ; note that when invoking BSOD64 by JSR the BRK-bit is always set
+        ; due to the use of PHP to push the processor status to the stack
+        ; which always sets the BRK-bit
+        bit bsod_is_jsr         ; invoked by JSR and not an interrupt?
+        bpl +                   ; skip over BRK-handling of PC
+        bit bsod_is_brk         ; check the BRK state
         bpl +                   ; bit 7 not set, this is not a BRK call
 
-        ; BRK call: fix the program counter
-        ; by subtracting 2
+        ; BRK call: fix the program
+        ; counter by subtracting 2
         sec
         lda bsod_pc_lo
         sbc # 2
@@ -438,9 +441,7 @@ bsod_redraw:
         ; memory viewer title
         !byte   STR_KEYPOS, 5, 0
         !pet    "M", "MEMORY ", STR_KEY
-        !pet    "G", "GOTO"
-        ; set the colour ready for filling in the data
-        !pet    PET_LTBLUE, STR_END
+        !pet    "G", "GOTO", STR_END
 
         ; draw the lines across the screen
         ldx # 39
@@ -456,7 +457,39 @@ bsod_redraw:
         dex
         bpl -
 
-        ; redraw the various windows
+        ; draw the box for how BSOD64 was invoked:
+        ; prepare the screen position / colour
+        jsr bsod_print_str_inline_pos
+        !byte   0, 14
+        !pet    PET_LTRED, PET_RVSON
+        !pet    STR_END
+        ; JSR overrides all other possibilities because the use of PHP
+        ; to capture the processor flags when invoking by JSR causes
+        ; the BRK bit to be set
+        bit bsod_is_jsr
+        bpl +
+        ; JSR:
+        jsr bsod_print_str_inline
+        !pet    "JSR", STR_END
+        bcc @data               ; (always branches)
+
+        ; check the break-bit
++       bit bsod_is_brk
+        bpl +
+        ; BRK:
+        jsr bsod_print_str_inline
+        !pet    "BRK", STR_END
+        bcc @data                              ; (always branches)
+        
++       ;IRQ:
+        jsr bsod_print_str_inline
+        !pet    "IRQ",  STR_END
+
+        ; set the colour ready for filling in the data
+@data:  jsr bsod_print_str_inline
+        !pet    PET_LTBLUE, STR_END
+
+        ; redraw the various windows' data
         jsr bsod_redraw_registers
         jsr bsod_redraw_flags
         jsr bsod_redraw_banks
@@ -464,6 +497,7 @@ bsod_redraw:
         jsr bsod_redraw_memory
 
 bsod_input:
+        ;-----------------------------------------------------------------------
         ; scan the keyboard, placing any active key into the buffer
         jsr kernal_scnkey
         ; read a key from the keyboard buffer
@@ -500,6 +534,7 @@ bsod_input:
 ; (save a byte every time we have to do this)
 ;
 bsod_set_cursor:
+        ;-----------------------------------------------------------------------
         clc                     ; = set cursor
         jmp kernal_plot         ; call KERNAL to position cursor
 
@@ -507,6 +542,7 @@ bsod_set_cursor:
 ; redraw the register window
 ;
 bsod_redraw_registers:
+        ;-----------------------------------------------------------------------
         ; program counter value
         ldy # 18
         ldx # 3
@@ -535,7 +571,7 @@ bsod_redraw_registers:
 ; redraw the flags window:
 ;
 bsod_redraw_flags:
-
+        ;-----------------------------------------------------------------------
         ; print the processor flags
         ldy # 32
         ldx # 3
@@ -549,9 +585,8 @@ bsod_redraw_flags:
 ; redraw the banks (I/O, ROMs) window:
 ;
 bsod_redraw_banks:
-
-        ; draw the memory layout:
         ;-----------------------------------------------------------------------
+        ; draw the memory layout:
         ; position cursor
         ldy # 9
         ldx # 3
@@ -625,7 +660,7 @@ bsod_redraw_banks:
 ; redraw the stack window:
 ;
 bsod_redraw_stack:
-
+        ;-----------------------------------------------------------------------
         ; set cursor to first line
         lda # 7
         sta @line
@@ -677,7 +712,7 @@ bsod_redraw_stack:
 ; redraw the memory window:
 ;
 bsod_redraw_memory:
-
+        ;-----------------------------------------------------------------------
         ; set the address to begin printing lines at
         lda bsod_memview_lo
         sta zp_addr_lo
@@ -689,17 +724,10 @@ bsod_redraw_memory:
         ldx # 7
         jsr bsod_set_cursor
 
-        ; begin printing the hex dump
+        ; print the hex-dump
         ldy # 16                ; number of lines to print
-
--       jsr bsod_print_hexline
-        clc
-        lda # 8
-        adc zp_addr_lo
-        sta zp_addr_lo
-        bcc +
-        inc zp_addr_hi
-+       dey
+-       jsr bsod_print_hexline  ; print 8-bytes
+        dey
         bne -
 
         rts
@@ -708,10 +736,8 @@ bsod_redraw_memory:
 ; print a row of memory values:
 ;
 bsod_print_hexline:
-
+        ;-----------------------------------------------------------------------
         sty @y+1                ; preserve Y-register
-        lda # 0                 ; byte offset
-        pha
 
         ; print the gutter
         jsr bsod_print_str_inline
@@ -726,28 +752,65 @@ bsod_print_hexline:
         lda # PET_LTBLUE
         jsr kernal_chrout
 
-        pla
-        tay
-        ldx # 8
-
--       lda # ' '
+        ldy # 8                 ; print 8-bytes
+-       lda # ' '               ; print space between bytes
         jsr kernal_chrout
-        sei                     ; disable interrupts
-        dec zp+1                ; turn off BASIC,
-        dec zp+1                ; and then KERNAL
-        lda (zp_addr), y
-        inc zp+1                ; turn on KERNAL,
-        inc zp+1                ; and then BASIC
-        cli                     ; enable interrupts
+        lda zp_addr_lo
+        ldx zp_addr_hi
+        jsr bsod_get_addr
         jsr bsod_print_hex8
-        iny
-        dex
+        ; move to the next byte
+        inc zp_addr_lo
+        bcc +
+        inc zp_addr_hi
++       dey
         bne -
 
         lda # $0d
         jsr kernal_chrout
 
 @y      ldy # $88
+        rts
+
+;===============================================================================
+; read the value of an address from the frozen state:
+; i.e. redirect addresses $0000-$04FF to $F000-$F4FF
+; (also this must always read RAM and not I/O or ROM)
+;
+;       A = original address lo-byte
+;       X = original address hi-byte
+;
+; returns:
+;       A = value of address from frozen state
+;
+bsod_get_addr:
+        ;-----------------------------------------------------------------------
+        ; put aside the lo-byte as we check the hi-byte first
+        pha
+        
+        ; the lower four pages of the machine
+        ; were backed up and now stored elsewhere
+        txa
+        cmp # 4
+        bcs +                   ; if address > $04FF then return actual RAM
+
+        ; the address is within low-RAM, redirect the address
+        ; to the frozen copy in high-RAM
+        clc
+        adc # $f0
+
++       sta @addr+2             ; set address hi-byte to read
+        pla                     ; retreive the lo-byte
+        sta @addr+1             ; set address lo-byte to read
+
+        sei                     ; disable interrupts
+        dec zp+1                ; turn off BASIC,
+        dec zp+1                ; and then KERNAL
+@addr   lda $8888               ; read the RAM address
+        inc zp+1                ; turn on KERNAL,
+        inc zp+1                ; and then BASIC
+        cli                     ; enable interrupts
+
         rts
 
 ;===============================================================================
@@ -798,13 +861,13 @@ bsod_print_hex8:
 ; print a byte as PETSCII binary:
 ;
 ;       A = value
-;      c- = use 0/1 digits
-;      c+ = use -/* digits
+;      -c = use 0/1 digits
+;      +c = use -/* digits
 ;       X = screen row
 ;       Y = screen col
 ;
 bsod_print_bin8:
-
+        ;-----------------------------------------------------------------------
         php                     ; put aside input carry state
         pha                     ; put aside original value
 
@@ -920,7 +983,7 @@ bsod_print_key_inline_print:
 ; preserves:    X, Y
 ;
 bsod_print_str_inline:
-
+        ;-----------------------------------------------------------------------
         ; set carry to indicate 'no embedded position'
         sec
         ; skip the next instruction (`clc`)
@@ -935,7 +998,7 @@ bsod_print_str_inline:
 ; preserves:    X, Y
 ;
 bsod_print_str_inline_pos:
-        
+        ;-----------------------------------------------------------------------
         ; clear carry to indicate that the cursor position
         ; is embdedded in the string
         clc
@@ -1038,10 +1101,10 @@ bsod_stack_string_pos:
 
 ;===============================================================================
 ; normalise the stack to appear the same as the interrupt call would:
-; this reduces the complexity of handling
-; the different methods of invoking BSOD64
+; this reduces the complexity of handling the different methods
+; of invoking BSOD64
 ;
-; this generates te following stack profile:
+; this generates the following stack profile:
 ;
 ;       top  -> Y register              (pushed by this routine)
 ;               X register              (pushed by this routine)
@@ -1051,11 +1114,19 @@ bsod_stack_string_pos:
 ;               PC hi-byte              (pushed by the JSR to BSOD64)
 ;
 bsod_push:
+        ;-----------------------------------------------------------------------
         ; push the processor status to the stack
         ;
         ; even though an interrupt could occur between this instruction
         ; and the next, we need to capture the current interrupt flag state
         ; before changing it
+        ;
+        ; WARNING: the PHP instruction always sets the BRK bit! a flag is set
+        ; (below) to indicate that BSOD64 was invoked by JSR instead of BRK
+        ; to ensure that BSOD64 does not misinterpret the machine state --
+        ; BRK adds 2 to the program counter and when defrosting the machine
+        ; state, BRK would use an RTI to return whereas JSR would use RTS
+        ;
         php
         ; disable interrupts
         sei
@@ -1065,12 +1136,6 @@ bsod_push:
         pha
         tya
         pha
-;;        ; the PHP instruction always sets the BRK bit! since this routine
-;;        ; is used for a JSR BSOD64 call and not an interrupt call, we know
-;;        ; the BRK bit should be zero, so we enforce that here:
-;;        pla                     ; pull the processor status
-;;        and # %11101111         ; mask out the BRK-bit
-;;        pha                     ; push back to the stack
         ; set flag to indicate BSOD64 being invoked by JSR
         ; -- we will have to resume execution differently
         lda # $ff
@@ -1082,6 +1147,7 @@ bsod_push:
 ;===============================================================================
 ;
 bsod_init:
+        ;-----------------------------------------------------------------------
         rts
 
 ;===============================================================================
@@ -1146,6 +1212,7 @@ orig_irq_hi:
 
 ;===============================================================================
 bsod_defrost:
+        ;-----------------------------------------------------------------------
         ; the "Return From Interrupt" will pull the processor status
         ; and return address from the stack
         rti

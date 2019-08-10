@@ -168,7 +168,7 @@ menu_keyboard:
 
         ; cursor up/down?
 @crsr   cpx # %10000000         ; check CRSR-key bit
-        bne @next               ; no? what other keys are pressed?
+        bne @stop               ; no? what other keys are pressed?
         
         ; up, or down?
         tya
@@ -191,6 +191,11 @@ menu_keyboard:
         dec ZP_MENU_INDEX
         jsr menu_refresh
         jmp menu_keyboard
+
+        ; run/stop: invoke BSOD64
+@stop   cpy # %10000000
+        bne @next
+        brk
 
         ;-----------------------------------------------------------------------
 @next   jmp menu_keyboard
@@ -312,13 +317,15 @@ menu_load:
 
         ; TODO: error handling, fastloader et al
         bcc +
-        jsr $c003
+        jsr bsod64_jsr
         
 +       dec CPU_CONTROL         ; turn KERNAL off
         cli
         
         ; switch to the reading screen...
-        jmp read_screen
+        jsr read_screen
+        ; upon return, restart the screen
+        jmp menu_screen
 
 menu_petscii_logo:
 ;===============================================================================

@@ -1,5 +1,8 @@
 ; the screen used when reading articles
 
+; TODO: pre-fill the lines before and after the screen
+;       rather than do this when actually scrolling
+
 ; theme colours
 READ_BORDER             = GREY
 READ_FORE               = DKGREY
@@ -79,6 +82,7 @@ read_screen:
         ; for vertical scrolling, we place spaces before and after the
         ; screen RAM so that a blind copy of rows up/down one position
         ; automatically fills the top/bottom screen row with spaces
+        ; TODO: these can be pre-filled lines ready for the next screen
         ldx # $3f
         lda # ' '
 -       sta $0400 - $40, x
@@ -159,13 +163,9 @@ read_screen:
 
         ;-----------------------------------------------------------------------
         ; set our own interrupt handlers:
-        ; A = address of IRQ table, lo-byte
-        ; X = address of IRQ table, hi-byte
-        ; Y = number of entries in the table (1-based)
-        ;
-        lda #< read_irqs
-        ldx #> read_irqs
-        ldy # 2
+        lda #< read_irqs        ; A = address of IRQ table, lo-byte
+        ldx #> read_irqs        ; X = address of IRQ table, hi-byte
+        ldy # 2                 ; Y = number of entries in the table (1-based)
         jsr irqs_load
 
         ; turn screen on
@@ -243,9 +243,12 @@ read_keyboard:
         bne read_keyboard       ; (always branches, note X register is used!)
 
 @spc    cmp # $20
-        bne @stop
+        bne @esc
         jmp read_screen
 
+@esc    cmp # $1f               ; "<-" key
+        beq @exit
+        
 @stop   cpy # %10000000
         bne +
         brk
@@ -255,9 +258,9 @@ read_keyboard:
         ;-----------------------------------------------------------------------
         jmp *
 
-        ; tear down the custom interrupt handlers
-        jsr irqs_disable
-        rts
+        ; TODO: transition out
+@exit   jsr irqs_disable        ; tear down the custom interrupt handlers
+        rts                     ; return to the menu
 
 ;===============================================================================
 ; table of interrupts to use for the reading screen:
@@ -668,7 +671,7 @@ read_lines:
         ;-----------------------------------------------------------------------
         ; prepare for printing:
         ;
-        ; get the number of bytes for this line:
+        ; get the number of bytes for this line,
         ; begin with the on-screen row index
 @lens   ldy ZP_READ_ROW
         lda (ZP_READ_LENS), y   ; get length of the line
