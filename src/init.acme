@@ -16,7 +16,7 @@ init:
         dec CPU_CONTROL
         dec CPU_CONTROL
 
-        jsr logo_screen
+        ;;jsr logo_screen
         jsr menu_screen         ; from here, there is no going back...
         
         ; halt and catch fire

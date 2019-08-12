@@ -12,11 +12,33 @@ MENU_BACK       = LTGREY
 ; table of interrupts to use for the menu screen:
 ;
 menu_irqs:
-        ;-----------------------------------------------------------------------
-       +irqs_table_item menu_irq_vblank,        SCANLINE_VBLANK_BEGIN
-       +irqs_table_item menu_irq_logo_end,      SCANLINE_VBLANK_END + (3 * 8)-1
-       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (2 * 8)-1
-       +irqs_table_item menu_irq_logo,          SCANLINE_VBLANK_END + (1 * 8)-1
+;-------------------------------------------------------------------------------
+MENU_IRQ1       = SCANLINE_VBLANK_END + (1 * 8)-1
+MENU_IRQ2       = SCANLINE_VBLANK_END + (2 * 8)-1
+MENU_IRQ3       = SCANLINE_VBLANK_END + (3 * 8)-1
+MENU_IRQ4       = SCANLINE_VBLANK_BEGIN
+MENU_IRQS_COUNT = 4
+
+menu_irqs_addr_lo:
+        !byte   <menu_irq_vblank
+        !byte   <menu_irq_logo_end
+        !byte   <menu_irq_logo
+        !byte   <menu_irq_logo
+menu_irqs_addr_hi:
+        !byte   >menu_irq_vblank
+        !byte   >menu_irq_logo_end
+        !byte   >menu_irq_logo
+        !byte   >menu_irq_logo
+menu_irqs_scanline_lo:
+        !byte   <MENU_IRQ4
+        !byte   <MENU_IRQ3
+        !byte   <MENU_IRQ2
+        !byte   <MENU_IRQ1
+menu_irqs_scanline_hi:
+        !byte   (>MENU_IRQ4) << 7
+        !byte   (>MENU_IRQ3) << 7
+        !byte   (>MENU_IRQ2) << 7
+        !byte   (>MENU_IRQ1) << 7
 
 menu_irq_logo:
         ;-----------------------------------------------------------------------
@@ -90,7 +112,7 @@ menu_screen:
         ;
         lda #< menu_irqs
         ldx #> menu_irqs
-        ldy # 4
+        ldy # MENU_IRQS_COUNT
         jsr irqs_load
 
         ; set screen colour

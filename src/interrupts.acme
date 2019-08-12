@@ -4,11 +4,24 @@
 ; works through a queue of custom scanline handlers. this allows each screen
 ; to register a simple list of routines to run for any desired scanline
 ;-------------------------------------------------------------------------------
-!addr   ZP_IRQ          = $ff   ; current index in the table
-!addr   ZP_IRQS_LEN     = $fe   ; number of entries in the table
-!addr   ZP_IRQS         = $fc   ; address of the table
-!addr   ZP_IRQS_LO      = $fc   ; - lo-byte
-!addr   ZP_IRQS_HI      = $fd   ; - hi-byte
+!addr {
+
+ZP_IRQ                  = $ff   ; current index in the table
+ZP_IRQS_LEN             = $fe   ; number of entries in the table
+ZP_IRQS_ADDRLO          = $fc   ; table of IRQs, interrupt routines lo-bytes
+ZP_IRQS_ADDRLO_LO       = $fc   ; - address of table field, lo-byte
+ZP_IRQS_ADDRLO_HI       = $fd   ; - address of table field, hi-byte
+ZP_IRQS_ADDRHI          = $fa   ; table of IRQs, interrupt routines hi-bytes
+ZP_IRQS_ADDRHI_LO       = $fa   ; - address of table field, lo-byte
+ZP_IRQS_ADDRHI_HI       = $fb   ; - address of table field, hi-byte
+ZP_IRQS_SCANLO          = $f8   ; table of IRQs, scanline lo-bytes
+ZP_IRQS_SCANLO_LO       = $f8   ; - address of table field, lo-byte
+ZP_IRQS_SCANLO_HI       = $f9   ; - address of table field, hi-byte
+ZP_IRQS_SCANHI          = $f6   ; table of IRQs, scanline hi-bytes
+ZP_IRQS_SCANHI_LO       = $f6   ; - address of table field, lo-byte
+ZP_IRQS_SCANHI_HI       = $f7   ; - address of table field, hi-byte
+
+}
 
 ; some helpful scanline numbers:
 ; since scanlines include the borders, the top of the addressable
@@ -117,10 +130,19 @@ irqs_disable:
         sta HW_VECTOR_IRQ+1
 
         ; and likewise for when the KERNAL is on
+        ;
+        ; the C64 doesn't have a separate hardware vector for the BRK
+        ; instruction (a great shame), so the KERNAL's IRQ handler detects
+        ; the BRK-bit and jumps to a user-vector. we need to catch this as
+        ; the machine will crash if RESTORE is pressed when the KERNAL is on,
+        ; but BASIC is off!
+        ;
         lda #< irq_kernal_on
         sta KERNAL_VECTOR_INTERRUPT+0
+        sta KERNAL_VECTOR_BRK+0
         lda #> irq_kernal_on
         sta KERNAL_VECTOR_INTERRUPT+1
+        sta KERNAL_VECTOR_BRK+1
 
         cli                     ; enable interrupts
         rts
@@ -130,21 +152,16 @@ irqs_disable:
 ; the order of the entries is last-to-first as the code reads them backwards
 ; for speed / simplicity reasons
 ;
-!macro  irqs_table_item         .irq_addr, .scanline {
-        !word   .irq_addr
-        !byte   (<.scanline)
-        !byte   (>.scanline) << 7
-}
 irqs_default:
-        ;-----------------------------------------------------------------------
-        ; 2. this raster interrupt occurs as soon as vblank begins. this lets
-        ; us time code to the point where the beam is 'off-screen' so we can
-        ; begin updating the display, as well as giving us a fixed point to
-        ; time / count frames
-       +irqs_table_item         irq_nop,        SCANLINE_VBLANK_BEGIN
-
-        ; 1.
-       +irqs_table_item         irq_nop,        SCANLINE_VBLANK_END
+;-------------------------------------------------------------------------------
+irqs_default_addr_lo:
+        !byte   <irq_nop
+irqs_default_addr_hi:
+        !byte   >irq_nop
+irqs_default_scanline_lo:
+        !byte   <SCANLINE_VBLANK_BEGIN
+irqs_default_scanline_hi:
+        !byte   >SCANLINE_VBLANK_BEGIN << 7
 
 irq_nop:
         ;=======================================================================
@@ -154,6 +171,7 @@ irq_nop:
 
 ;===============================================================================
 ; set up custom interrupts using an interrupt table:
+; (the default table above gives an example)
 ;
 ;       A = address of IRQ table, lo-byte
 ;       X = address of IRQ table, hi-byte
@@ -169,12 +187,63 @@ irqs_load:
         ; whenever an interrupt occurs, this table will
         ; determine the chain of raster interrupts
         ;
+        ; the first field is the interrupt-handler
+        ; routine addresses, lo-bytes
+        sta ZP_IRQS_ADDRLO_LO
+        stx ZP_IRQS_ADDRLO_HI
+        
+        ; add the number of table entries to move to the next field,
+        ; the interrupt-handler routine address hi-byte
+        clc
+        tya                     ; number of records per field
+        adc ZP_IRQS_ADDRLO_LO
+        sta ZP_IRQS_ADDRHI_LO
+        txa
+        adc # 0
+        sta ZP_IRQS_ADDRHI_HI
+        
+        ; move to the next field,
+        ; the scanline lo-byte
+        tya                     ; number of records per field
+        adc ZP_IRQS_ADDRHI_LO
+        sta ZP_IRQS_SCANLO_LO
+        lda ZP_IRQS_ADDRHI_HI
+        adc # 0
+        sta ZP_IRQS_SCANLO_HI
+
+        ; move to the next field,
+        ; the scanline hi-byte
+        tya                     ; number of records per field
+        adc ZP_IRQS_SCANLO_LO
+        sta ZP_IRQS_SCANHI_LO
+        lda ZP_IRQS_SCANLO_HI
+        adc # 0
+        sta ZP_IRQS_SCANHI_HI
+
+        ; store the number of entries
+        ; and set the starting index
+        ;
         dey                     ; (1-based purely for readability)
-        sta ZP_IRQS_LO
-        stx ZP_IRQS_HI
         tya
-        sta ZP_IRQS_LEN         ; number of entries in the table
+        sta ZP_IRQS_LEN         ; number of entries in the table (0-based)
         sta ZP_IRQ              ; also set as current index -- we work backward
+
+        ; prepare the first interrupt:
+        ;-----------------------------------------------------------------------
+        ; set the scanline for the initial
+        ; interrupt by reading from the table
+        ;
+        lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte
+        sta VIC_SCANLINE        ; set the scanline lo-byte
+
+        ; because the height of the screen + borders will be more than 256,
+        ; an extra high-bit is included from `VIC_SCREEN_VERT`. the byte in
+        ; the table is pre-processed to move this bit from bit 0 to bit 7,
+        ; to match the location required for the register
+        ;
+        lda VIC_SCREEN_VERT     ; get current register value
+        eor (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7)
+        sta VIC_SCREEN_VERT     ; update the register
 
         ; set the central interrupt handling routine,
         ; this will read the table to chain interrupts
@@ -187,48 +256,6 @@ irqs_load:
         ; (sprite-sprite, sprite-background & lightpen interrupts are disabled)
         lda # %00000001
         sta VIC_INTERRUPT_CONTROL
-
-;; TODO: why is this broken?
-;;
-;;        ; push a fake "processor status" on to the stack so that the `rti`
-;;        ; instruction will have something to pull -- we can't use the actual
-;;        ; processor status (`php`) because interrupts are currently disabled
-;;        ; and the `rti` would pull this status and disable interrupts!
-;;        pha
-;;
-;;        ; setup the 'next' (first in our case) interrupt by borrowing the
-;;        ; code of the central interrupt handler. when the `rti` instruction
-;;        ; is encountered the return address already on the stack will be used,
-;;        ; effectively reproducing the `rts` for us!
-;;        jmp irq_next
-
-        lda ZP_IRQ
-        asl                     ; x2
-        asl                     ; x4
-        tay
-        
-        ; read the address of the interrupt handler from the table
-        ; (for speed, we write the address directly into the code above)
-        lda (ZP_IRQS), y
-        sta irq_addr+1
-        iny
-        lda (ZP_IRQS), y
-        sta irq_addr+2
-
-        ; set the scanline for the interrupt by reading from the table
-        iny
-        lda (ZP_IRQS), y        ; read scanline lo-byte
-        sta VIC_SCANLINE        ; set the scanline lo-byte
-
-        ; because the height of the screen + borders will be more than 256,
-        ; an extra high-bit is included from `VIC_SCREEN_VERT`. the byte in
-        ; the table is pre-processed to move this bit from bit 0 to bit 7,
-        ; to match the location required for the register
-        ;
-        iny                     ; move to scanline hi-byte
-        lda VIC_SCREEN_VERT     ; get current register value
-        eor (ZP_IRQS), y        ; merge the scanline hi-bit (in bit 7)
-        sta VIC_SCREEN_VERT     ; update the register
 
         cli
         rts
@@ -356,46 +383,30 @@ irq:                                                                    ;cycles
         ora %00000001           ; set memory layout to I/O only         ;+2=47
         sta CPU_CONTROL                                                 ;+3=50
 
-        ; delay just enough so that the call to the handler
-        ; will begin around about the flyback period
-        nop                                                             ;+2=52
-        nop                                                             ;+2=54
+;;        ; delay just enough so that the call to the handler
+;;        ; will begin around about the flyback period
+;;        nop                                                             ;+2=52
+;;        nop                                                             ;+2=54
 
-        ; for speed, the address of the handler will already
-        ; have been written directly into this instruction
-@addr   jsr $8888                                                       ;+6=60
-!addr   irq_addr = @addr
-
-        ; set up next interrupt in the chain:
+        ; execute the custom interrupt-handler:
         ;-----------------------------------------------------------------------
-        ; now that the time-sensitive stuff is done,
-        ; we can spend some time setting up the next interrupt 
+        ; read the address of the current interrupt handler from the table
         ;
-        dec ZP_IRQ              ; move down an index in the table
-        bpl @next               ; if last one, we need to loop the table
+        ldy ZP_IRQ              ; current index in the table
+        lda (ZP_IRQS_ADDRLO), y ; read the lo-byte of the routine address
+        sta @addr+1             ; write lo-byte to the JSR that follows
+        lda (ZP_IRQS_ADDRHI), y ; read the hi-byte of the routine address
+        sta @addr+2             ; write hi-byte to the JSR that follows
 
-        lda ZP_IRQS_LEN
-        sta ZP_IRQ
-        
-@next   ; (each table entry is 4 bytes so we have to scale up the index)
-!addr   irq_next = @next
-        
-        lda ZP_IRQ
-        asl                     ; x2
-        asl                     ; x4
-        tay
-        
-        ; read the address of the interrupt handler from the table
-        ; (for speed, we write the address directly into the code above)
-        lda (ZP_IRQS), y
-        sta @addr+1
-        iny
-        lda (ZP_IRQS), y
-        sta @addr+2
+        dey                     ; move down an index in the table
+        bpl +
+        ldy ZP_IRQS_LEN         ; go to the last table-entry
 
-        ; set the scanline for the interrupt by reading from the table
-        iny
-        lda (ZP_IRQS), y        ; read scanline lo-byte
+        ; set the scanline for the next interrupt
+        ; by reading from the table
+        ;
++       sty ZP_IRQ              ; update the 'current' index
+        lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte
         sta VIC_SCANLINE        ; set the scanline lo-byte
 
         ; because the height of the screen + borders will be more than 256,
@@ -403,10 +414,21 @@ irq:                                                                    ;cycles
         ; the table is pre-processed to move this bit from bit 0 to bit 7,
         ; to match the location required for the register
         ;
-        iny                     ; move to scanline hi-byte
         lda VIC_SCREEN_VERT     ; get current register value
-        eor (ZP_IRQS), y        ; merge the scanline hi-bit (in bit 7)
+        eor (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7)
         sta VIC_SCREEN_VERT     ; update the register
+        
+        ; as soon as the next scanline to interrupt at has been set,
+        ; re-enable interrupts to avoid the custom interrupt handler
+        ; (below) over-running the next desired scanline
+        cli
+
+        ; the address of the handler will already have been written directly
+        ; into this instruction; the one given here in the source code is
+        ; just a dummy one that does nothing
+        ;
+@addr   jsr irq_nop                                                     ;+6=60
+!addr   irq_addr = @addr
 
         ; finish interrupt:
         ;-----------------------------------------------------------------------
