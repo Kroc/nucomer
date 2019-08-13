@@ -207,11 +207,7 @@ read_screen:
         ; print the article's first screen full of text
         ;-----------------------------------------------------------------------
         ldy # 0                 ; begin on row 0 -- the off-screen row
-        jsr read_set_row        ; set the screen & colour RAM addresses
-
-        lda # 27                ; number of rows to print (1-based)
-        sta ZP_READ_ROWS
-
+        ldx # 27                ; number of rows to print (1-based)
         jsr read_lines
 
         ; now that 27 rows have been printed, the routine will have left
@@ -497,7 +493,7 @@ read_irq_scroll:
         stx ZP_READ_VPOS_HI     ; to $0000
         stx ZP_READ_VERT        ; reset vertical smooth-scroll register
 
-        ;;dec VIC_BORDER
+@done:  ;;dec VIC_BORDER
         rts
 
         ; check the end of the article:
@@ -542,17 +538,12 @@ read_irq_scroll:
         bpl +
 
         cmp ZP_READ_ROW
-        bcc @end
+        bcc @done
 
         jmp read_scroll_up
 
 +       cmp ZP_READ_ROW
-        bcs @end
-
-        jmp read_scroll_down
-
-@end    ;;dec VIC_BORDER
-        rts
+        bcs @done
 
 ;===============================================================================
 ; scroll the article down a line:
@@ -673,41 +664,41 @@ read_scroll_down:
         dey
         bpl -
 
-        ldy # 39
--       lda $0400+(20 * 40), y
-        sta $0400+(19 * 40), y
-        lda $d800+(20 * 40), y
-        sta $d800+(19 * 40), y
+        ldy # 40
+-       lda $0400+(20 * 40)-1, y
+        sta $0400+(19 * 40)-1, y
+        lda $d800+(20 * 40)-1, y
+        sta $d800+(19 * 40)-1, y
         
-        lda $0400+(21 * 40), y
-        sta $0400+(20 * 40), y
-        lda $d800+(21 * 40), y
-        sta $d800+(20 * 40), y
+        lda $0400+(21 * 40)-1, y
+        sta $0400+(20 * 40)-1, y
+        lda $d800+(21 * 40)-1, y
+        sta $d800+(20 * 40)-1, y
         
-        lda $0400+(22 * 40), y
-        sta $0400+(21 * 40), y
-        lda $d800+(22 * 40), y
-        sta $d800+(21 * 40), y
+        lda $0400+(22 * 40)-1, y
+        sta $0400+(21 * 40)-1, y
+        lda $d800+(22 * 40)-1, y
+        sta $d800+(21 * 40)-1, y
         
-        lda $0400+(23 * 40), y
-        sta $0400+(22 * 40), y
-        lda $d800+(23 * 40), y
-        sta $d800+(22 * 40), y
+        lda $0400+(23 * 40)-1, y
+        sta $0400+(22 * 40)-1, y
+        lda $d800+(23 * 40)-1, y
+        sta $d800+(22 * 40)-1, y
         
-        lda $0400+(24 * 40), y
-        sta $0400+(23 * 40), y
-        lda $d800+(24 * 40), y
-        sta $d800+(23 * 40), y
+        lda $0400+(24 * 40)-1, y
+        sta $0400+(23 * 40)-1, y
+        lda $d800+(24 * 40)-1, y
+        sta $d800+(23 * 40)-1, y
         
         ; copy the off-screen line into view
-        lda $0400+(25 * 40), y
-        sta $0400+(24 * 40), y
+        lda $0400+(25 * 40)-1, y
+        sta $0400+(24 * 40)-1, y
         ; the color for the off-screen line is stored at a different
         ; place as we cannot store data at $DC00 when I/O is on!
-        lda read_color_addr_after, y
-        sta $d800+(24 * 40), y
+        lda read_color_addr_after-1, y
+        sta $d800+(24 * 40)-1, y
         dey
-        bpl -
+        bne -                   ; stop when Y = 0 (important for later!)
 
         ;;dec VIC_BORDER
 
@@ -715,34 +706,27 @@ read_scroll_down:
         ;-----------------------------------------------------------------------
         ; blank the off-screen row so that we don't scroll in garbage
         ; if the new line is shorter than the previous line
-        ldx # 40-1
+        ldx # 40
         lda # ' '
--       sta read_screen_addr_after, x
+-       sta read_screen_addr_after-1, x
         dex
-        bpl -
+        bne -                   ; stop when X = 0 (important for later!)
 
         ; read the length of the current line at the top of the screen,
         ; and move the line-pointer for the top screen line to the next line
-        clc
-        iny                     ; set Y to 0
-        lda (ZP_READ_LENS), y   ; length of line at top of screen
+        ;
+        clc                     ; (note that Y = 0)
+        lda (ZP_READ_LENS), y   ; length of line above screen
         adc ZP_READ_TOP_LO      ; add line-length to the line address
         sta ZP_READ_TOP_LO      ; (move to next line)
         bcc +
         inc ZP_READ_TOP_HI
         clc
 
-        ; number of rows to print
-+       iny                     ; (1-based)
-        sty ZP_READ_ROWS
-
-        ; set the screen address to print at
-        ldy # 26                ; (bottom of screen)
-        jsr read_set_row
-
         ; do the same but with the line-pointer for the bottom row of the
         ; screen, but also write the address into the print routine
         ;
++       ldy # 26                ; row to begin printing at (below screen)
         lda (ZP_READ_LENS), y   ; length of line at bottom of screen
         adc ZP_READ_BOT_LO      ; add line-length to the line address
         sta ZP_READ_BOT_LO      ; (move to next line)
@@ -757,7 +741,8 @@ read_scroll_down:
         bne +
         inc ZP_READ_LENS_HI
 
-+       jmp read_lines
++       inx                     ; X = 1; number of lines to print
+        jmp read_lines
 
 ;===============================================================================
 ; scroll the article up a line:
@@ -902,65 +887,62 @@ read_scroll_up:
         dey
         bpl -
 
-        ldy # 39
+        ldy # 40
 -       ; the bottom line moves into the off-screen
         ; buffer ready for if the user scrolls down
-        lda $0400+(24 * 40), y
-        sta $0400+(25 * 40), y
-        lda $d800+(24 * 40), y
+        lda $0400+(24 * 40)-1, y
+        sta $0400+(25 * 40)-1, y
         ; the color for the off-screen line is stored at a different
         ; place as we cannot store data at $DC00 when I/O is on!
-        sta read_color_addr_after, y
+        lda $d800+(24 * 40)-1, y
+        sta read_color_addr_after-1, y
 
-        lda $0400+(23 * 40), y
-        sta $0400+(24 * 40), y
-        lda $d800+(23 * 40), y
-        sta $d800+(24 * 40), y
+        lda $0400+(23 * 40)-1, y
+        sta $0400+(24 * 40)-1, y
+        lda $d800+(23 * 40)-1, y
+        sta $d800+(24 * 40)-1, y
         
-        lda $0400+(22 * 40), y
-        sta $0400+(23 * 40), y
-        lda $d800+(22 * 40), y
-        sta $d800+(23 * 40), y
+        lda $0400+(22 * 40)-1, y
+        sta $0400+(23 * 40)-1, y
+        lda $d800+(22 * 40)-1, y
+        sta $d800+(23 * 40)-1, y
         
-        lda $0400+(21 * 40), y
-        sta $0400+(22 * 40), y
-        lda $d800+(21 * 40), y
-        sta $d800+(22 * 40), y
+        lda $0400+(21 * 40)-1, y
+        sta $0400+(22 * 40)-1, y
+        lda $d800+(21 * 40)-1, y
+        sta $d800+(22 * 40)-1, y
         
-        lda $0400+(20 * 40), y
-        sta $0400+(21 * 40), y
-        lda $d800+(20 * 40), y
-        sta $d800+(21 * 40), y
+        lda $0400+(20 * 40)-1, y
+        sta $0400+(21 * 40)-1, y
+        lda $d800+(20 * 40)-1, y
+        sta $d800+(21 * 40)-1, y
         
-        lda $0400+(19 * 40), y
-        sta $0400+(20 * 40), y
-        lda $d800+(19 * 40), y
-        sta $d800+(20 * 40), y
+        lda $0400+(19 * 40)-1, y
+        sta $0400+(20 * 40)-1, y
+        lda $d800+(19 * 40)-1, y
+        sta $d800+(20 * 40)-1, y
         
-        lda $0400+(18 * 40), y
-        sta $0400+(19 * 40), y
-        lda $d800+(18 * 40), y
-        sta $d800+(19 * 40), y
+        lda $0400+(18 * 40)-1, y
+        sta $0400+(19 * 40)-1, y
+        lda $d800+(18 * 40)-1, y
+        sta $d800+(19 * 40)-1, y
         
-        lda read_scroll_temp2_char, y
-        sta $0400+(18 * 40), y
-        lda read_scroll_temp2_color, y
-        sta $d800+(18 * 40), y
+        lda read_scroll_temp2_char-1, y
+        sta $0400+(18 * 40)-1, y
+        lda read_scroll_temp2_color-1, y
+        sta $d800+(18 * 40)-1, y
         dey
-        bpl -
+        bne -                   ; stop when Y = 0 (important for later!)
 
         ;;dec VIC_BORDER
 
         ; print the next row in the off-screen space
         ;-----------------------------------------------------------------------
-        ldx # 40-1
+        ldx # 40
         lda # ' '
--       sta read_screen_addr_before, x
+-       sta read_screen_addr_before-1, x
         dex
-        bpl -
-
-        iny                     ; set Y to 0
-        jsr read_set_row
+        bne -                   ; stop when X = 0 (important for later!)
 
         ; move the index in the line-lengths array back one line
         sec
@@ -971,8 +953,8 @@ read_scroll_up:
         dec ZP_READ_LENS_HI
         sec
 
-        ; move the address of the line at the top
-        ; of the screen backwards to the previous line
+        ; move the address of the line above the screen
+        ; backwards to the previous line address
         ;
 +       lda ZP_READ_TOP_LO
         sbc (ZP_READ_LENS), y
@@ -983,26 +965,31 @@ read_scroll_up:
         sta ZP_READ_TOP_HI
         sta READ_CHAR_HI
 
-        ; number of rows to print
-        iny                     ; (1-based)
-        sty ZP_READ_ROWS
-
-        ; repeat this for the off-screen line after the screen RAM
+        ; repeat this for the off-screen
+        ; line after the screen RAM
         ldy # 26
         lda ZP_READ_BOT_LO
         sbc (ZP_READ_LENS), y
         sta ZP_READ_BOT_LO
         bcs +
         dec ZP_READ_BOT_HI
-+
+
++       ldy # 0                 ; starting row
+        inx                     ; X = 1; number of rows to print
 
 ;===============================================================================
 ; print a number of lines from the article to the screen:
 ;
+;       Y = row to begin printing
+;       X = number of lines to print (1-based)
+;       
 read_lines:
         ;-----------------------------------------------------------------------
         ; prepare for printing:
         ;
+        stx ZP_READ_ROWS        ; number of lines to print (1-based)
+        jsr read_set_row        ; set starting row (0-based)
+
         ; get the number of bytes for this line,
         ; begin with the on-screen row index
 @lens   ldy ZP_READ_ROW
