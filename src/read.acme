@@ -233,7 +233,7 @@ read_keyboard:
 
         ; scroll the content down the page:
         ; (smooth scroll upwards)
-        ldx # $01               ; set scroll speed
+        ldx # $03               ; set scroll speed
         stx ZP_READ_SCROLL      ; this will be applied at interrupt
         ; whenever scrolling down,
         ; allow scrolling up again
@@ -249,7 +249,7 @@ read_keyboard:
 
         ; scroll the content up the page
         ; (smooth scroll downwards)
-        ldx # $ff               ; set -1 scroll speed
+        ldx # $fd               ; set -1 scroll speed
         stx ZP_READ_SCROLL      ; this will be applied at interrupt
         ; whenever scrolling up,
         ; allow scrolling down again
@@ -285,7 +285,7 @@ read_irqs:
 ; beam when we do this to avoid screen-tearing, therefore we begin scrolling
 ; the top of the screen whilst the beam is in the middle of the screen
 ;
-READ_IRQ1 = SCANLINE_VBLANK_BEGIN - (10 * 8)
+READ_IRQ1 = SCANLINE_VBLANK_BEGIN - (12 * 8)
 
 ; just before the visible screen begins we set the vertical smooth-scrolling
 ; offset -- we cannot change the vertical scroll inside the screen or we will
@@ -315,7 +315,7 @@ read_irqs_scanline_hi:
 
 read_irq_top:
         ;-----------------------------------------------------------------------
-        inc VIC_BORDER
+        ;;inc VIC_BORDER
         
         lda ZP_READ_VERT
         and # %00000111
@@ -402,12 +402,12 @@ read_irq_top:
 ;;        sta $0400+(10*40)+8
 ;;
 
--       dec VIC_BORDER
+-       ;;dec VIC_BORDER
         rts
 
 read_irq_scroll:
         ;-----------------------------------------------------------------------
-        inc VIC_BORDER
+        ;;inc VIC_BORDER
 
         ; is there any scrolling to be done?
         ;
@@ -454,7 +454,7 @@ read_irq_scroll:
         lda # 0
         sta ZP_READ_VERT
 
-        dec VIC_BORDER
+        ;;dec VIC_BORDER
         rts
 
         ; check the end of the article:
@@ -507,7 +507,7 @@ read_irq_scroll:
 
         jmp read_scroll_down
 
-@end    dec VIC_BORDER
+@end    ;;dec VIC_BORDER
         rts
 
 ;===============================================================================
@@ -519,84 +519,169 @@ read_scroll_up:
         ;
         ; credit for this particular methodology must go to Richard Bayliss
         ; of The New Dimenson for producing a copy routine fast enough to
-        ; copy the screen from the bottom up before the scanline gets
-        ; past the vblank (which would cause flickering)
+        ; copy the screen bottom-up before the scanline catches up
         ; <http://tnd64.unikat.sk/assemble_it6.html>
         ;
+        ; due to the number of rows, the loop has to be split into three
+        ; otherwise the relative branches cannot reach the top (>128 bytes)
+        ; but we do want to get close to that limit as possible (about 41
+        ; load + stores) as this minimizes the amount of cycles wasted
+        ; each interation maintaining the loop
+        ;
         ldy # $27               ; as always, loop backwards for speed
+-       lda $0400+( 8 * 40), y
+        sta read_scroll_temp1_char, y
+        lda $d800+( 8 * 40), y
+        sta read_scroll_temp1_color, y
 
-        ; due to the number of rows, the loop has to be split into two
-        ; otherwise the relative branch cannot reach the top (>128 bytes)
--       lda $0400+(10 * 40), y
-        sta read_scroll_temp, y
-        lda $0400+( 9 * 40), y
-        sta $0400+(10 * 40), y
-        lda $0400+( 8 * 40), y
-        sta $0400+( 9 * 40), y
         lda $0400+( 7 * 40), y
         sta $0400+( 8 * 40), y
+        lda $d800+( 7 * 40), y
+        sta $d800+( 8 * 40), y
+
         lda $0400+( 6 * 40), y
         sta $0400+( 7 * 40), y
+        lda $d800+( 6 * 40), y
+        sta $d800+( 7 * 40), y
+        
         lda $0400+( 5 * 40), y
         sta $0400+( 6 * 40), y
+        lda $d800+( 5 * 40), y
+        sta $d800+( 6 * 40), y
+        
         lda $0400+( 4 * 40), y
         sta $0400+( 5 * 40), y
+        lda $d800+( 4 * 40), y
+        sta $d800+( 5 * 40), y
+        
         lda $0400+( 3 * 40), y
         sta $0400+( 4 * 40), y
+        lda $d800+( 3 * 40), y
+        sta $d800+( 4 * 40), y
+        
         lda $0400+( 2 * 40), y
         sta $0400+( 3 * 40), y
+        lda $d800+( 2 * 40), y
+        sta $d800+( 3 * 40), y
+        
         lda $0400+( 1 * 40), y
         sta $0400+( 2 * 40), y
+        lda $d800+( 1 * 40), y
+        sta $d800+( 2 * 40), y
+        
         lda $0400+( 0 * 40), y
         sta $0400+( 1 * 40), y
+        lda $d800+( 0 * 40), y
+        sta $d800+( 1 * 40), y
+        
         ; blank the top-row by copying in the spaces
         ; stored just before the screen ram
         lda $0400-( 1 * 40), y
         sta $0400+( 0 * 40), y
+        lda # READ_FORE
+        sta $d800+( 0 * 40), y
         dey
         bpl -
-               
+
+        ldy # $27
+-       lda $0400+(17 * 40), y
+        sta read_scroll_temp2_char, y
+        lda $d800+(17 * 40), y
+        sta read_scroll_temp2_color, y
+
+        lda $0400+(16 * 40), y
+        sta $0400+(17 * 40), y
+        lda $d800+(16 * 40), y
+        sta $d800+(17 * 40), y
+        
+        lda $0400+(15 * 40), y
+        sta $0400+(16 * 40), y
+        lda $d800+(15 * 40), y
+        sta $d800+(16 * 40), y
+        
+        lda $0400+(14 * 40), y
+        sta $0400+(15 * 40), y
+        lda $d800+(14 * 40), y
+        sta $d800+(15 * 40), y
+        
+        lda $0400+(13 * 40), y
+        sta $0400+(14 * 40), y
+        lda $d800+(13 * 40), y
+        sta $d800+(14 * 40), y
+        
+        lda $0400+(12 * 40), y
+        sta $0400+(13 * 40), y
+        lda $d800+(12 * 40), y
+        sta $d800+(13 * 40), y
+        
+        lda $0400+(11 * 40), y
+        sta $0400+(12 * 40), y
+        lda $d800+(11 * 40), y
+        sta $d800+(12 * 40), y
+        
+        lda $0400+(10 * 40), y
+        sta $0400+(11 * 40), y
+        lda $d800+(10 * 40), y
+        sta $d800+(11 * 40), y
+        
+        lda $0400+( 9 * 40), y
+        sta $0400+(10 * 40), y
+        lda $d800+( 9 * 40), y
+        sta $d800+(10 * 40), y
+        
+        lda read_scroll_temp1_char, y
+        sta $0400+( 9 * 40), y
+        lda read_scroll_temp1_color, y
+        sta $d800+( 9 * 40), y
+        dey
+        bpl -
+
         ldy # $27
 -       lda $0400+(23 * 40), y
         sta $0400+(24 * 40), y
+        lda $d800+(23 * 40), y
+        sta $d800+(24 * 40), y
+        
         lda $0400+(22 * 40), y
         sta $0400+(23 * 40), y
+        lda $d800+(22 * 40), y
+        sta $d800+(23 * 40), y
+        
         lda $0400+(21 * 40), y
         sta $0400+(22 * 40), y
+        lda $d800+(21 * 40), y
+        sta $d800+(22 * 40), y
+        
         lda $0400+(20 * 40), y
         sta $0400+(21 * 40), y
+        lda $d800+(20 * 40), y
+        sta $d800+(21 * 40), y
+        
         lda $0400+(19 * 40), y
         sta $0400+(20 * 40), y
+        lda $d800+(19 * 40), y
+        sta $d800+(20 * 40), y
+        
         lda $0400+(18 * 40), y
         sta $0400+(19 * 40), y
-        lda $0400+(17 * 40), y
+        lda $d800+(18 * 40), y
+        sta $d800+(19 * 40), y
+        
+        lda read_scroll_temp2_char, y
         sta $0400+(18 * 40), y
-        lda $0400+(16 * 40), y
-        sta $0400+(17 * 40), y
-        lda $0400+(15 * 40), y
-        sta $0400+(16 * 40), y
-        lda $0400+(14 * 40), y
-        sta $0400+(15 * 40), y
-        lda $0400+(13 * 40), y
-        sta $0400+(14 * 40), y
-        lda $0400+(12 * 40), y
-        sta $0400+(13 * 40), y
-        lda $0400+(11 * 40), y
-        sta $0400+(12 * 40), y
-        lda read_scroll_temp, y
-        sta $0400+(11 * 40), y
+        lda read_scroll_temp2_color, y
+        sta $d800+(18 * 40), y
         dey
         bpl -
-        iny                     ; set Y to 0
 
-        dec VIC_BORDER
+        ;;dec VIC_BORDER
 
         ; begin printing the new row
         ;-----------------------------------------------------------------------
-        ; set the screen address to print at
+        iny                     ; set Y to 0
         sty ZP_READ_ROW
-        lda #< $0400
-        sta READ_OUT_LO
+        ; set the screen address to print at
+        sty READ_OUT_LO
         lda #> $0400
         sta READ_OUT_HI
 
@@ -635,7 +720,19 @@ read_scroll_up:
 
 +       jmp read_lines
 
-read_scroll_temp:
+read_scroll_temp1_char:
+        ;-----------------------------------------------------------------------
+        !fill   $28, $00
+
+read_scroll_temp1_color:
+        ;-----------------------------------------------------------------------
+        !fill   $28, $00
+
+read_scroll_temp2_char:
+        ;-----------------------------------------------------------------------
+        !fill   $28, $00
+
+read_scroll_temp2_color:
         ;-----------------------------------------------------------------------
         !fill   $28, $00
 
@@ -647,7 +744,7 @@ read_scroll_down:
         ; copy the screen up a row -- the bytes after the screen characters
         ; are filled with spaces so as to automatically blank the last row!
         ;
-        ; due to the number of rows, the loop has to be split into four
+        ; due to the number of rows, the loop has to be split into three
         ; otherwise the relative branches cannot reach the top (>128 bytes)
         ; but we do want to get close to that limit as possible (about 41
         ; load + stores) as this minimizes the amount of cycles wasted
@@ -768,7 +865,7 @@ read_scroll_down:
         bpl -
         iny                     ; set Y to 0
 
-        dec VIC_BORDER
+        ;;dec VIC_BORDER
 
         ; begin printing the new row
         ;-----------------------------------------------------------------------
