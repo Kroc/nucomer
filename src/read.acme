@@ -67,11 +67,11 @@ READ_BACK               = GREY
 
 ;===============================================================================
 ; in a case of "if it's stupid but it works, it's not stupid" we handle the
-; scrolling in of new lines by simply treating the screen memory as taller
-; than it actually is, filling new lines into the 40 chars before / after
-; the screen RAM. when the screen is hard-scrolled (all lines in the screen
-; are moved up/down), then the routine blindly moves the lines above/below
-; the real screen into place without any special consideration
+; scrolling in of new lines by simply treating the screen as taller than it
+; actually is, filling new lines into the 40 chars before / after screen RAM.
+; when the screen is hard-scrolled (all lines in the screen are moved up/down),
+; the routine blindly moves the lines above/below the real screen into place
+; without any special consideration
 ;
 !addr   read_screen_addr        = $0400-40
 !addr   read_screen_addr_before = $0400-40
@@ -95,8 +95,10 @@ read_screen_rows_hi:
         !byte   >(read_screen_addr + (row * 40))
         }
 
+read_color_addr:
+;-------------------------------------------------------------------------------
 ; because we cannot / do not want to write to the bytes before & after the
-; colour-RAM (when I/O is on) we put the off-screen colour-RAM lines here:
+; colour-RAM (when I/O is on!) we put the off-screen colour-RAM lines here:
 ;
 read_color_addr_before:
 ;-------------------------------------------------------------------------------
@@ -157,18 +159,6 @@ read_screen:
         dex
         bpl -
 
-        ; fill colour RAM with nonsense
-;;        inc CPU_CONTROL
-;;        ldx # 0
-;;-       txa
-;;        sta $d800 + $000, x
-;;        sta $d800 + $100, x
-;;        sta $d800 + $200, x
-;;        sta $d800 + $300, x
-;;        dex
-;;        bne -
-;;        dec CPU_CONTROL
-
         ; initialise printing:
         ;-----------------------------------------------------------------------
         ; the first two bytes are the size of the line-length array;
@@ -214,19 +204,11 @@ read_screen:
         asl ZP_READ_VLEN_LO     ; x8
         rol ZP_READ_VLEN_HI     ; ...
 
-        ; set the initial screen address
-        ; (row 0, col 0)
-        lda # 0
-        sta ZP_READ_ROW
-        ; set the output address in the printing
-        ; routine based on this row+col
-        lda read_screen_rows_lo
-        sta READ_OUT_LO
-        lda read_screen_rows_hi
-        sta READ_OUT_HI
-
         ; print the article's first screen full of text
         ;-----------------------------------------------------------------------
+        ldy # 0                 ; begin on row 0 -- the off-screen row
+        jsr read_set_row        ; set the screen & colour RAM addresses
+
         lda # 27                ; number of rows to print (1-based)
         sta ZP_READ_ROWS
 
@@ -347,7 +329,7 @@ read_irqs:
 ; beam when we do this to avoid screen-tearing, therefore we begin scrolling
 ; the top of the screen whilst the beam is in the middle of the screen
 ;
-READ_IRQ1 = SCANLINE_VBLANK_BEGIN - (13 * 8)
+READ_IRQ1 = SCANLINE_VBLANK_BEGIN - (14 * 8)
 
 ; just before the visible screen begins we set the vertical smooth-scrolling
 ; offset -- we cannot change the vertical scroll inside the screen or we will
@@ -377,7 +359,7 @@ read_irqs_scanline_hi:
 
 read_irq_top:
         ;-----------------------------------------------------------------------
-        inc VIC_BORDER
+        ;;inc VIC_BORDER
         
         lda ZP_READ_VERT
         and # %00000111
@@ -464,12 +446,12 @@ read_irq_top:
 ;;        sta $0400+(10*40)+8
 ;;
 
--       dec VIC_BORDER
+-       ;;dec VIC_BORDER
         rts
 
 read_irq_scroll:
         ;-----------------------------------------------------------------------
-        inc VIC_BORDER
+        ;;inc VIC_BORDER
 
         ; is there any scrolling to be done?
         ;
@@ -515,7 +497,7 @@ read_irq_scroll:
         stx ZP_READ_VPOS_HI     ; to $0000
         stx ZP_READ_VERT        ; reset vertical smooth-scroll register
 
-        dec VIC_BORDER
+        ;;dec VIC_BORDER
         rts
 
         ; check the end of the article:
@@ -569,7 +551,7 @@ read_irq_scroll:
 
         jmp read_scroll_down
 
-@end    dec VIC_BORDER
+@end    ;;dec VIC_BORDER
         rts
 
 ;===============================================================================
@@ -584,7 +566,14 @@ read_scroll_down:
         ; cycles wasted each iteration maintaining the loop
         ;
         ldy # 39                ; as always, loop backwards for speed
--       lda $0400+( 1 * 40), y
+-       ; the top line moves into the off-screen
+        ; buffer ready for if the user scrolls up
+        lda $0400+( 0 * 40), y
+        sta $0400-( 1 * 40), y
+        lda $d800+( 0 * 40), y
+        sta read_color_addr_before, y
+        
+        lda $0400+( 1 * 40), y
         sta $0400+( 0 * 40), y
         lda $d800+( 1 * 40), y
         sta $d800+( 0 * 40), y
@@ -628,16 +617,16 @@ read_scroll_down:
         sta $0400+( 8 * 40), y
         lda $d800+( 9 * 40), y
         sta $d800+( 8 * 40), y
-        
-        lda $0400+(10 * 40), y
-        sta $0400+( 9 * 40), y
-        lda $d800+(10 * 40), y
-        sta $d800+( 9 * 40), y
         dey
         bpl -
 
         ldy # 39
--       lda $0400+(11 * 40), y
+-       lda $0400+(10 * 40), y
+        sta $0400+( 9 * 40), y
+        lda $d800+(10 * 40), y
+        sta $d800+( 9 * 40), y
+        
+        lda $0400+(11 * 40), y
         sta $0400+(10 * 40), y
         lda $d800+(11 * 40), y
         sta $d800+(10 * 40), y
@@ -681,16 +670,16 @@ read_scroll_down:
         sta $0400+(18 * 40), y
         lda $d800+(19 * 40), y
         sta $d800+(18 * 40), y
-        
-        lda $0400+(20 * 40), y
-        sta $0400+(19 * 40), y
-        lda $d800+(20 * 40), y
-        sta $d800+(19 * 40), y
         dey
         bpl -
 
         ldy # 39
--       lda $0400+(21 * 40), y
+-       lda $0400+(20 * 40), y
+        sta $0400+(19 * 40), y
+        lda $d800+(20 * 40), y
+        sta $d800+(19 * 40), y
+        
+        lda $0400+(21 * 40), y
         sta $0400+(20 * 40), y
         lda $d800+(21 * 40), y
         sta $d800+(20 * 40), y
@@ -720,7 +709,7 @@ read_scroll_down:
         dey
         bpl -
 
-        dec VIC_BORDER
+        ;;dec VIC_BORDER
 
         ; begin printing the new row
         ;-----------------------------------------------------------------------
@@ -748,13 +737,8 @@ read_scroll_down:
         sty ZP_READ_ROWS
 
         ; set the screen address to print at
-        ; (last row)
         ldy # 26                ; (bottom of screen)
-        sty ZP_READ_ROW
-        lda read_screen_rows_lo, y
-        sta READ_OUT_LO
-        lda read_screen_rows_hi, y
-        sta READ_OUT_HI
+        jsr read_set_row
 
         ; do the same but with the line-pointer for the bottom row of the
         ; screen, but also write the address into the print routine
@@ -965,7 +949,7 @@ read_scroll_up:
         dey
         bpl -
 
-        dec VIC_BORDER
+        ;;dec VIC_BORDER
 
         ; print the next row in the off-screen space
         ;-----------------------------------------------------------------------
@@ -976,12 +960,7 @@ read_scroll_up:
         bpl -
 
         iny                     ; set Y to 0
-        sty ZP_READ_ROW         ; row to print (0 = row before screen)
-        ; set the screen address to print at
-        lda #< read_screen_addr_before
-        sta READ_OUT_LO
-        lda #> read_screen_addr_before
-        sta READ_OUT_HI
+        jsr read_set_row
 
         ; move the index in the line-lengths array back one line
         sec
@@ -1028,7 +1007,7 @@ read_lines:
         ; begin with the on-screen row index
 @lens   ldy ZP_READ_ROW
         lda (ZP_READ_LENS), y   ; get length of the line
-        tay
+        tay                     ; Y = length of line data (in bytes)
 
         ; whilst we count Y down to zero, we keep a copy of the line-length
         ; to move the character pointer forward to the next line
@@ -1052,6 +1031,10 @@ read_lines:
 !addr   READ_OUT_LO     = @out+1
 !addr   READ_OUT_HI     = @out+2
 
+!addr   READ_COLOR      = @color+1
+!addr   READ_COLOR_LO   = @color+1
+!addr   READ_COLOR_HI   = @color+2
+
         ; screen memory offset for the line
         ; (increases as each character is printed)
         ldx # 0
@@ -1059,8 +1042,9 @@ read_lines:
         ; read a byte from the binary string
 @char   lda $8888, y
         
-        ; print the character
-@out    sta read_screen_addr, x
+@out    sta read_screen_addr, x ; print the character
+        ;;lda # READ_FORE         ; get text-colour ('random' for now)
+@color  sta read_color_addr, x  ; set character colour
         inx
         dey
         bne @char
@@ -1068,23 +1052,20 @@ read_lines:
         ; end-of-line:
 @eol    ; (note that Y is now zero due to line-bytes counting toward zero)
         tya
-        ; reset screen address offset for the next line
+        ; reset screen-RAM / colour-RAM address
+        ; offset for the next line
         tax
         
-        ; move to the next screen row
-        inc ZP_READ_ROW
-        ; all rows printed?
-        dec ZP_READ_ROWS
-        beq @eof
+        dec ZP_READ_ROWS        ; all rows printed?
+        beq @eof                ; yes -- stop printing
 
         ; look up the screen-address of the next row.
-        ; faster than adding 40 to the existing address,
-        ; since we don't need to read back the current value
+        ; (faster than adding 40 to the existing address,
+        ;  since we don't need to read back the current value)
+        ;
         ldy ZP_READ_ROW
-        lda read_screen_rows_lo, y
-        sta READ_OUT_LO
-        lda read_screen_rows_hi, y
-        sta READ_OUT_HI
+        iny                     ; move to the next screen row
+        jsr read_set_row
 
         ; move the data-pointer forward to the beginning of the next line,
         ; that is, add the length of the line (in bytes) to the pointer
@@ -1097,3 +1078,24 @@ read_lines:
         bne @lens
 
 @eof    rts
+
+;===============================================================================
+; given a row, configures the line-printing routine to start from that row:
+;
+;       Y = screen row
+;
+read_set_row:
+        ;-----------------------------------------------------------------------
+        ; set this as the current row being printed
+        sty ZP_READ_ROW
+        ; get the screen address from the row number
+        lda read_screen_rows_lo, y
+        sta READ_OUT_LO
+        lda read_screen_rows_hi, y
+        sta READ_OUT_HI
+        ; get the colour RAM address from the row number
+        lda read_color_rows_lo, y
+        sta READ_COLOR_LO
+        lda read_color_rows_hi, y
+        sta READ_COLOR_HI
+        rts
