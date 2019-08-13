@@ -86,14 +86,46 @@ read_screen_rows:
 ;
 read_screen_rows_lo:
 ;-------------------------------------------------------------------------------
-!for    row, 0, 26 {
+        !for    row, 0, 26 {
         !byte   <(read_screen_addr + (row * 40))
-}
+        }
 read_screen_rows_hi:
 ;-------------------------------------------------------------------------------
-!for    row, 0, 26 {
+        !for    row, 0, 26 {
         !byte   >(read_screen_addr + (row * 40))
-}
+        }
+
+; because we cannot / do not want to write to the bytes before & after the
+; colour-RAM (when I/O is on) we put the off-screen colour-RAM lines here:
+;
+read_color_addr_before:
+;-------------------------------------------------------------------------------
+        !fill   40, READ_FORE
+
+read_color_addr_after:
+;-------------------------------------------------------------------------------
+        !fill   40, READ_FORE
+
+read_color_rows:
+;-------------------------------------------------------------------------------
+; and as before with screen RAM, a lookup table of colour-RAM addresses
+; for each row, but accounting for our before & after rows (above)
+;
+read_color_rows_lo:
+;-------------------------------------------------------------------------------
+        !byte   <read_color_addr_before
+        !for    row, 0, 24 {
+        !byte   <($d800 + (row * 40))
+        }
+        !byte   <read_color_addr_after
+
+read_color_rows_hi:
+;-------------------------------------------------------------------------------
+        !byte   >read_color_addr_before
+        !for    row, 0, 24 {
+        !byte   >($d800 + (row * 40))
+        }
+        !byte   >read_color_addr_after
 
 ;===============================================================================
 read_screen:
@@ -345,7 +377,7 @@ read_irqs_scanline_hi:
 
 read_irq_top:
         ;-----------------------------------------------------------------------
-        ;;inc VIC_BORDER
+        inc VIC_BORDER
         
         lda ZP_READ_VERT
         and # %00000111
@@ -432,12 +464,12 @@ read_irq_top:
 ;;        sta $0400+(10*40)+8
 ;;
 
--       ;;dec VIC_BORDER
+-       dec VIC_BORDER
         rts
 
 read_irq_scroll:
         ;-----------------------------------------------------------------------
-        ;;inc VIC_BORDER
+        inc VIC_BORDER
 
         ; is there any scrolling to be done?
         ;
@@ -483,7 +515,7 @@ read_irq_scroll:
         stx ZP_READ_VPOS_HI     ; to $0000
         stx ZP_READ_VERT        ; reset vertical smooth-scroll register
 
-        ;;dec VIC_BORDER
+        dec VIC_BORDER
         rts
 
         ; check the end of the article:
@@ -537,7 +569,7 @@ read_irq_scroll:
 
         jmp read_scroll_down
 
-@end    ;;dec VIC_BORDER
+@end    dec VIC_BORDER
         rts
 
 ;===============================================================================
@@ -681,12 +713,14 @@ read_scroll_down:
         ; copy the off-screen line into view
         lda $0400+(25 * 40), y
         sta $0400+(24 * 40), y
-        lda # READ_FORE
+        ; the color for the off-screen line is stored at a different
+        ; place as we cannot store data at $DC00 when I/O is on!
+        lda read_color_addr_after, y
         sta $d800+(24 * 40), y
         dey
         bpl -
 
-        ;;dec VIC_BORDER
+        dec VIC_BORDER
 
         ; begin printing the new row
         ;-----------------------------------------------------------------------
@@ -746,20 +780,20 @@ read_scroll_down:
 ;
 read_scroll_temp1_char:
         ;-----------------------------------------------------------------------
-        !fill   $28, $00
-
-read_scroll_temp1_color:
-        ;-----------------------------------------------------------------------
-        !fill   $28, $00
+        !fill   40, ' '
 
 read_scroll_temp2_char:
         ;-----------------------------------------------------------------------
-        !fill   $28, $00
+        !fill   40, ' '
+
+read_scroll_temp1_color:
+        ;-----------------------------------------------------------------------
+        !fill   40, READ_FORE
 
 read_scroll_temp2_color:
         ;-----------------------------------------------------------------------
-        !fill   $28, $00
-        
+        !fill   40, READ_FORE
+
 read_scroll_up:
         ;-----------------------------------------------------------------------
         ; copy the screen down a row:
@@ -824,7 +858,9 @@ read_scroll_up:
         ; copy the off-screen line into view
         lda $0400-( 1 * 40), y
         sta $0400+( 0 * 40), y
-        lda # READ_FORE
+        ; the color for the off-screen line is stored at a different
+        ; place as we cannot store data at $D800-40 when I/O is on!
+        lda read_color_addr_before, y
         sta $d800+( 0 * 40), y
         dey
         bpl -
@@ -887,7 +923,10 @@ read_scroll_up:
         ; buffer ready for if the user scrolls down
         lda $0400+(24 * 40), y
         sta $0400+(25 * 40), y
-        ; TODO: copy colour RAM into colour RAM buffer
+        lda $d800+(24 * 40), y
+        ; the color for the off-screen line is stored at a different
+        ; place as we cannot store data at $DC00 when I/O is on!
+        sta read_color_addr_after, y
 
         lda $0400+(23 * 40), y
         sta $0400+(24 * 40), y
@@ -926,7 +965,7 @@ read_scroll_up:
         dey
         bpl -
 
-        ;;dec VIC_BORDER
+        dec VIC_BORDER
 
         ; print the next row in the off-screen space
         ;-----------------------------------------------------------------------

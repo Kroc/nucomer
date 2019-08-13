@@ -11,6 +11,9 @@
 !source "print.acme"            ; global string-printing routines
 !source "keyboard.acme"
 
-!source "logo.acme"
 !source "menu.acme"
 !source "read.acme"
+
+; we don't mind if the logo screen gets overwritten
+; by article text as it's never used again
+!source "logo.acme"
