@@ -37,6 +37,12 @@ f_out:write(string.pack("<I2", 0x1FFE))
 text = f_in:read("*all")
 f_in:close()
 
+-- due to the off-screen scrolling used on the C64, we need to add one blank
+-- line before the article and one-blank line after, though we strip excess
+-- leading / trailing lines first
+--
+text = "\n"..string.gsub(text, "^\\[\\s\\n\\r]+|[\\s\\n\\r]+$", "").."\n"
+
 -- walk through the string
 index       = 0
 line_len    = 0

@@ -351,6 +351,13 @@ irq_kernal_on:
 ; due to the amount of work we need to do to set up the next interrupt two
 ; lines are skipped
 ;
+; the 6502 wastes extra cycles when branches or indexed reads cross a page
+; boundary ($FF->$00) which could throw our timings off, therefore we align
+; this routine to ensure that the code will not cross a boundary before the
+; stabilisation has been done
+;
+!align  $ff, 0
+
 irq:                                                                    ;cycles
         ;-----------------------------------------------------------------------
         ; note that an interrupt takes 7 cycles to execute              ;+7=7
