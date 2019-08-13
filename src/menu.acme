@@ -13,9 +13,9 @@ MENU_BACK       = LTGREY
 ;
 menu_irqs:
 ;-------------------------------------------------------------------------------
-MENU_IRQ1       = SCANLINE_VBLANK_END + (1 * 8)-1
-MENU_IRQ2       = SCANLINE_VBLANK_END + (2 * 8)-1
-MENU_IRQ3       = SCANLINE_VBLANK_END + (3 * 8)-1
+MENU_IRQ1       = SCANLINE_VBLANK_END + (1 * 8)-2
+MENU_IRQ2       = SCANLINE_VBLANK_END + (2 * 8)-2
+MENU_IRQ3       = SCANLINE_VBLANK_END + (3 * 8)-2
 MENU_IRQ4       = SCANLINE_VBLANK_BEGIN
 MENU_IRQS_COUNT = 4
 

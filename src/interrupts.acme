@@ -348,6 +348,9 @@ irq_kernal_on:
 ; but 64 on very early NTSC machines. we don't have to be absolutely accurate
 ; in our delay, there's a few cycles worth of jitter in the flyback period
 ;
+; due to the amount of work we need to do to set up the next interrupt two
+; lines are skipped
+;
 irq:                                                                    ;cycles
         ;-----------------------------------------------------------------------
         ; note that an interrupt takes 7 cycles to execute              ;+7=7
@@ -383,51 +386,60 @@ irq:                                                                    ;cycles
         ora %00000001           ; set memory layout to I/O only         ;+2=47
         sta CPU_CONTROL                                                 ;+3=50
 
-;;        ; delay just enough so that the call to the handler
-;;        ; will begin around about the flyback period
-;;        nop                                                             ;+2=52
-;;        nop                                                             ;+2=54
-
         ; execute the custom interrupt-handler:
         ;-----------------------------------------------------------------------
         ; read the address of the current interrupt handler from the table
         ;
-        ldy ZP_IRQ              ; current index in the table
-        lda (ZP_IRQS_ADDRLO), y ; read the lo-byte of the routine address
-        sta @addr+1             ; write lo-byte to the JSR that follows
-        lda (ZP_IRQS_ADDRHI), y ; read the hi-byte of the routine address
-        sta @addr+2             ; write hi-byte to the JSR that follows
+        ldy ZP_IRQ              ; current index in the table            ;+3=53
+        lda (ZP_IRQS_ADDRLO), y ; read lo-byte of the routine address   ;+5=58
+        sta @addr+1             ; write lo-byte to the JSR that follows ;+4=62
+        lda (ZP_IRQS_ADDRHI), y ; read hi-byte of the routine address   ;+5=67
+        sta @addr+2             ; write hi-byte to the JSR that follows ;+4=71
 
-        dey                     ; move down an index in the table
-        bpl +
-        ldy ZP_IRQS_LEN         ; go to the last table-entry
+        dey                     ; move down an index in the table       ;+2=73
+        bmi +                                                           ;+2=75
+        bpl @next                                                       ;+3=78
 
+        ; (for branch-taken, +3 cycles, not +2)                         ;+3=76
++       ldy ZP_IRQS_LEN         ; go to the last table-entry            ;+3=79
+        bpl +                                                           ;+3=82
+
+@next   nop                                                             ;+2=80
+        nop                                                             ;+2=82
+        ; (at this point the cycles will match)
         ; set the scanline for the next interrupt
         ; by reading from the table
         ;
-+       sty ZP_IRQ              ; update the 'current' index
-        lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte
-        sta VIC_SCANLINE        ; set the scanline lo-byte
++       sty ZP_IRQ              ; update the 'current' index            ;+3=85
+        lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte                 ;+5=90
+        sta VIC_SCANLINE        ; set the scanline lo-byte              ;+3=93
 
         ; because the height of the screen + borders will be more than 256,
         ; an extra high-bit is included from `VIC_SCREEN_VERT`. the byte in
         ; the table is pre-processed to move this bit from bit 0 to bit 7,
         ; to match the location required for the register
         ;
-        lda VIC_SCREEN_VERT     ; get current register value
-        eor (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7)
-        sta VIC_SCREEN_VERT     ; update the register
+        lda VIC_SCREEN_VERT     ; get current register value            ;+3=96
+        eor (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7)  ;+5=101
+        sta VIC_SCREEN_VERT     ; update the register                   ;+3=104
         
         ; as soon as the next scanline to interrupt at has been set,
         ; re-enable interrupts to avoid the custom interrupt handler
         ; (below) over-running the next desired scanline
-        cli
+        cli                                                             ;+2=106
+
+        ; delay just enough so that the call to the handler
+        ; will begin around about the flyback period
+        nop                                                             ;+2=108
+        nop                                                             ;+2=110
+        nop                                                             ;+2=112
+        nop                                                             ;+2=114
 
         ; the address of the handler will already have been written directly
         ; into this instruction; the one given here in the source code is
         ; just a dummy one that does nothing
         ;
-@addr   jsr irq_nop                                                     ;+6=60
+@addr   jsr irq_nop                                                     ;+6=120
 !addr   irq_addr = @addr
 
         ; finish interrupt:
