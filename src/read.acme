@@ -1,22 +1,21 @@
 ; the screen used when reading articles
 
-; TODO: pre-fill the lines before and after the screen
-;       rather than do this when actually scrolling
-
 ; theme colours
 READ_BORDER             = GREY
 READ_FORE               = DKGREY
 READ_BACK               = GREY
 
+!addr {
+
 ; vertical scrolling register value to write at each vblank.
 ; this ensures that the change to the vertical smooth-scroll
 ; offset only ever occurs offscreen
-!addr   ZP_READ_VERT            = $20
+ZP_READ_VERT            = $20
 
 ; number of lines in the complete article
-!addr   ZP_READ_LINES           = $21
-!addr   ZP_READ_LINES_LO        = $21
-!addr   ZP_READ_LINES_HI        = $22
+ZP_READ_LINES           = $21
+ZP_READ_LINES_LO        = $21
+ZP_READ_LINES_HI        = $22
 
 ; height of the complete article -- in pixels! this is used to determine the
 ; exact point to clip smooth scrolling when scrolling quickly. the high-bit
@@ -24,46 +23,47 @@ READ_BACK               = GREY
 ; is limited to $7FFF (32'767) pixels high, equivalant to 4'095 lines,
 ; or 170 screens high!
 ;
-!addr   ZP_READ_VLEN            = $23
-!addr   ZP_READ_VLEN_LO         = $23
-!addr   ZP_READ_VLEN_HI         = $24
+ZP_READ_VLEN            = $23
+ZP_READ_VLEN_LO         = $23
+ZP_READ_VLEN_HI         = $24
 
 ; exact scroll position -- in pixels!
-!addr   ZP_READ_VPOS            = $25
-!addr   ZP_READ_VPOS_LO         = $25
-!addr   ZP_READ_VPOS_HI         = $26
+ZP_READ_VPOS            = $25
+ZP_READ_VPOS_LO         = $25
+ZP_READ_VPOS_HI         = $26
 
 ; scroll accumulator, used for changing the speed
 ; of smooth scrolling; a signed byte
-!addr   ZP_READ_SCROLL          = $27
+ZP_READ_SCROLL          = $27
 
 ; flag to indicate to stop allowing upward scrolling
 ; (prevents smooth scrolling at top of article)
-!addr   ZP_READ_STOP_UP         = $28   ; $00 = go, $FF = stop
+ZP_READ_STOP_UP         = $28   ; $00 = go, $FF = stop
 ; flag to indicate to stop allowing downward scrolling
 ; (prevents smooth scrolling at bottom of article)
-!addr   ZP_READ_STOP_DN         = $29   ; $00 = go, $FF = stop
+ZP_READ_STOP_DN         = $29   ; $00 = go, $FF = stop
 
 ; pointer into the line-length array
-!addr   ZP_READ_LENS            = $2a
-!addr   ZP_READ_LENS_LO         = $2a
-!addr   ZP_READ_LENS_HI         = $2b
+ZP_READ_LENS            = $2a
+ZP_READ_LENS_LO         = $2a
+ZP_READ_LENS_HI         = $2b
 ; address of the line data that appears at the top of the screen
 ; (changes only when scrolling, not during printing)
-!addr   ZP_READ_TOP             = $2c
-!addr   ZP_READ_TOP_LO          = $2c
-!addr   ZP_READ_TOP_HI          = $2d
-; current row on screen being printed (0-24)
-!addr   ZP_READ_ROW             = $2e
+ZP_READ_TOP             = $2c
+ZP_READ_TOP_LO          = $2c
+ZP_READ_TOP_HI          = $2d
+; current row on screen being printed (0-26)
+ZP_READ_ROW             = $2e
 ; current line length
-!addr   ZP_READ_LEN             = $2f
+ZP_READ_LEN             = $2f
 ; number of rows to print
-!addr   ZP_READ_ROWS            = $30
+ZP_READ_ROWS            = $30
 ; address of the line that appears at the bottom of the screen
 ; (changes only when scrolling, not during printing)
-!addr   ZP_READ_BOT             = $31
-!addr   ZP_READ_BOT_LO          = $31
-!addr   ZP_READ_BOT_HI          = $32
+ZP_READ_BOT             = $31
+ZP_READ_BOT_LO          = $31
+ZP_READ_BOT_HI          = $32
+}
 
 ;===============================================================================
 ; in a case of "if it's stupid but it works, it's not stupid" we handle the
@@ -73,9 +73,11 @@ READ_BACK               = GREY
 ; the routine blindly moves the lines above/below the real screen into place
 ; without any special consideration
 ;
-!addr   read_screen_addr        = $0400-40
-!addr   read_screen_addr_before = $0400-40
-!addr   read_screen_addr_after  = $0400+(25*40)
+!addr {
+read_screen_addr        = $0400-40
+read_screen_addr_before = $0400-40
+read_screen_addr_after  = $0400+(25*40)
+}
 
 read_screen_rows:
 ;-------------------------------------------------------------------------------
@@ -95,39 +97,104 @@ read_screen_rows_hi:
         !byte   >(read_screen_addr + (row * 40))
         }
 
-read_color_addr:
+!addr {
+; provided purely for clarity in reading the code
+; during the hard-scroll block copying
+read_screen_row0        = $0400+(-1*40) ; offscreen-row before screen RAM
+read_screen_row1        = $0400+( 0*40) ;=$0400
+read_screen_row2        = $0400+( 1*40)
+read_screen_row3        = $0400+( 2*40)
+read_screen_row4        = $0400+( 3*40)
+read_screen_row5        = $0400+( 4*40)
+read_screen_row6        = $0400+( 5*40)
+read_screen_row7        = $0400+( 6*40)
+read_screen_row8        = $0400+( 7*40)
+read_screen_row9        = $0400+( 8*40)
+read_screen_row10       = $0400+( 9*40)
+read_screen_row11       = $0400+(10*40)
+read_screen_row12       = $0400+(11*40)
+read_screen_row13       = $0400+(12*40)
+read_screen_row14       = $0400+(13*40)
+read_screen_row15       = $0400+(14*40)
+read_screen_row16       = $0400+(15*40)
+read_screen_row17       = $0400+(16*40)
+read_screen_row18       = $0400+(17*40)
+read_screen_row19       = $0400+(18*40)
+read_screen_row20       = $0400+(19*40)
+read_screen_row21       = $0400+(20*40)
+read_screen_row22       = $0400+(21*40)
+read_screen_row23       = $0400+(22*40)
+read_screen_row24       = $0400+(23*40)
+read_screen_row25       = $0400+(24*40)
+read_screen_row26       = $0400+(25*40) ; offscreen-row after screen RAM
+}
+
+read_colour_addr:
 ;-------------------------------------------------------------------------------
-; because we cannot / do not want to write to the bytes before & after the
-; colour-RAM (when I/O is on!) we put the off-screen colour-RAM lines here:
+; we can't put data before / after the colour RAM when I/O is on,
+; and turning I/O on & off to use the RAM underneath is too slow
+; so the 'offscreen' colour rows are stored here
 ;
-read_color_addr_before:
+read_colour_before:
 ;-------------------------------------------------------------------------------
         !fill   40, READ_FORE
 
-read_color_addr_after:
+read_colour_after:
 ;-------------------------------------------------------------------------------
         !fill   40, READ_FORE
 
-read_color_rows:
+read_colour_rows:
 ;-------------------------------------------------------------------------------
 ; and as before with screen RAM, a lookup table of colour-RAM addresses
 ; for each row, but accounting for our before & after rows (above)
 ;
-read_color_rows_lo:
+read_colour_rows_lo:
 ;-------------------------------------------------------------------------------
-        !byte   <read_color_addr_before
+        !byte   <read_colour_before
         !for    row, 0, 24 {
         !byte   <($d800 + (row * 40))
         }
-        !byte   <read_color_addr_after
+        !byte   <read_colour_after
 
-read_color_rows_hi:
+read_colour_rows_hi:
 ;-------------------------------------------------------------------------------
-        !byte   >read_color_addr_before
+        !byte   >read_colour_before
         !for    row, 0, 24 {
         !byte   >($d800 + (row * 40))
         }
-        !byte   >read_color_addr_after
+        !byte   >read_colour_after
+
+!addr {
+; provided purely for clarity in reading the code
+; during the hard-scroll block copying
+read_colour_row0        = read_colour_before
+read_colour_row1        = $d800+( 0*40) ;=$D800
+read_colour_row2        = $d800+( 1*40)
+read_colour_row3        = $d800+( 2*40)
+read_colour_row4        = $d800+( 3*40)
+read_colour_row5        = $d800+( 4*40)
+read_colour_row6        = $d800+( 5*40)
+read_colour_row7        = $d800+( 6*40)
+read_colour_row8        = $d800+( 7*40)
+read_colour_row9        = $d800+( 8*40)
+read_colour_row10       = $d800+( 9*40)
+read_colour_row11       = $d800+(10*40)
+read_colour_row12       = $d800+(11*40)
+read_colour_row13       = $d800+(12*40)
+read_colour_row14       = $d800+(13*40)
+read_colour_row15       = $d800+(14*40)
+read_colour_row16       = $d800+(15*40)
+read_colour_row17       = $d800+(16*40)
+read_colour_row18       = $d800+(17*40)
+read_colour_row19       = $d800+(18*40)
+read_colour_row20       = $d800+(19*40)
+read_colour_row21       = $d800+(20*40)
+read_colour_row22       = $d800+(21*40)
+read_colour_row23       = $d800+(22*40)
+read_colour_row24       = $d800+(23*40)
+read_colour_row25       = $d800+(24*40)
+read_colour_row26       = read_colour_after
+}
 
 ;===============================================================================
 read_screen:
@@ -557,146 +624,147 @@ read_scroll_down:
         ; cycles wasted each iteration maintaining the loop
         ;
         ldy # 39                ; as always, loop backwards for speed
--       ; the top line moves into the off-screen
-        ; buffer ready for if the user scrolls up
-        lda $0400+( 0 * 40), y
-        sta $0400-( 1 * 40), y
-        lda $d800+( 0 * 40), y
-        sta read_color_addr_before, y
-        
-        lda $0400+( 1 * 40), y
-        sta $0400+( 0 * 40), y
-        lda $d800+( 1 * 40), y
-        sta $d800+( 0 * 40), y
-
-        lda $0400+( 2 * 40), y
-        sta $0400+( 1 * 40), y
-        lda $d800+( 2 * 40), y
-        sta $d800+( 1 * 40), y
-
-        lda $0400+( 3 * 40), y
-        sta $0400+( 2 * 40), y
-        lda $d800+( 3 * 40), y
-        sta $d800+( 2 * 40), y
-
-        lda $0400+( 4 * 40), y
-        sta $0400+( 3 * 40), y
-        lda $d800+( 4 * 40), y
-        sta $d800+( 3 * 40), y
-        
-        lda $0400+( 5 * 40), y
-        sta $0400+( 4 * 40), y
-        lda $d800+( 5 * 40), y
-        sta $d800+( 4 * 40), y
-        
-        lda $0400+( 6 * 40), y
-        sta $0400+( 5 * 40), y
-        lda $d800+( 6 * 40), y
-        sta $d800+( 5 * 40), y
-        
-        lda $0400+( 7 * 40), y
-        sta $0400+( 6 * 40), y
-        lda $d800+( 7 * 40), y
-        sta $d800+( 6 * 40), y
-        
-        lda $0400+( 8 * 40), y
-        sta $0400+( 7 * 40), y
-        lda $d800+( 8 * 40), y
-        sta $d800+( 7 * 40), y
-        
-        lda $0400+( 9 * 40), y
-        sta $0400+( 8 * 40), y
-        lda $d800+( 9 * 40), y
-        sta $d800+( 8 * 40), y
+-       ; row 1 -> row 0
+        lda read_screen_row1, y ; the top line moves into the off-screen
+        sta read_screen_row0, y ; buffer ready for if the user scrolls up
+        lda read_colour_row1, y ; (=$D800)
+        sta read_colour_row0, y ; (offscreen colour-RAM buffer, outside $D800)
+        ; row 2 -> row 1
+        lda read_screen_row2, y
+        sta read_screen_row1, y
+        lda read_colour_row2, y
+        sta read_colour_row1, y
+        ; row 3 -> row 2
+        lda read_screen_row3, y
+        sta read_screen_row2, y
+        lda read_colour_row3, y
+        sta read_colour_row2, y
+        ; row 4 -> row 3
+        lda read_screen_row4, y
+        sta read_screen_row3, y
+        lda read_colour_row4, y
+        sta read_colour_row3, y
+        ; row 5 -> row 4
+        lda read_screen_row5, y
+        sta read_screen_row4, y
+        lda read_colour_row5, y
+        sta read_colour_row4, y
+        ; row 6 -> row 5
+        lda read_screen_row6, y
+        sta read_screen_row5, y
+        lda read_colour_row6, y
+        sta read_colour_row5, y
+        ; row 7 -> row 6
+        lda read_screen_row7, y
+        sta read_screen_row6, y
+        lda read_colour_row7, y
+        sta read_colour_row6, y
+        ; row 8 -> row 7
+        lda read_screen_row8, y
+        sta read_screen_row7, y
+        lda read_colour_row8, y
+        sta read_colour_row7, y
+        ; row 9 -> row 8
+        lda read_screen_row9, y
+        sta read_screen_row8, y
+        lda read_colour_row9, y
+        sta read_colour_row8, y
+        ; row 10 -> row 9
+        lda read_screen_row10, y
+        sta read_screen_row9, y
+        lda read_colour_row10, y
+        sta read_colour_row9, y
         dey
         bpl -
 
         ldy # 39
--       lda $0400+(10 * 40), y
-        sta $0400+( 9 * 40), y
-        lda $d800+(10 * 40), y
-        sta $d800+( 9 * 40), y
-        
-        lda $0400+(11 * 40), y
-        sta $0400+(10 * 40), y
-        lda $d800+(11 * 40), y
-        sta $d800+(10 * 40), y
-        
-        lda $0400+(12 * 40), y
-        sta $0400+(11 * 40), y
-        lda $d800+(12 * 40), y
-        sta $d800+(11 * 40), y
-        
-        lda $0400+(13 * 40), y
-        sta $0400+(12 * 40), y
-        lda $d800+(13 * 40), y
-        sta $d800+(12 * 40), y
-        
-        lda $0400+(14 * 40), y
-        sta $0400+(13 * 40), y
-        lda $d800+(14 * 40), y
-        sta $d800+(13 * 40), y
-        
-        lda $0400+(15 * 40), y
-        sta $0400+(14 * 40), y
-        lda $d800+(15 * 40), y
-        sta $d800+(14 * 40), y
-        
-        lda $0400+(16 * 40), y
-        sta $0400+(15 * 40), y
-        lda $d800+(16 * 40), y
-        sta $d800+(15 * 40), y
-        
-        lda $0400+(17 * 40), y
-        sta $0400+(16 * 40), y
-        lda $d800+(17 * 40), y
-        sta $d800+(16 * 40), y
-        
-        lda $0400+(18 * 40), y
-        sta $0400+(17 * 40), y
-        lda $d800+(18 * 40), y
-        sta $d800+(17 * 40), y
-        
-        lda $0400+(19 * 40), y
-        sta $0400+(18 * 40), y
-        lda $d800+(19 * 40), y
-        sta $d800+(18 * 40), y
+        ; row 11 -> row 10
+-       lda read_screen_row11, y
+        sta read_screen_row10, y
+        lda read_colour_row11, y
+        sta read_colour_row10, y
+        ; row 12 -> row 11
+        lda read_screen_row12, y
+        sta read_screen_row11, y
+        lda read_colour_row12, y
+        sta read_colour_row11, y
+        ; row 13 -> row 12
+        lda read_screen_row13, y
+        sta read_screen_row12, y
+        lda read_colour_row13, y
+        sta read_colour_row12, y
+        ; row 14 -> row 13
+        lda read_screen_row14, y
+        sta read_screen_row13, y
+        lda read_colour_row14, y
+        sta read_colour_row13, y
+        ; row 15 -> row 14
+        lda read_screen_row15, y
+        sta read_screen_row14, y
+        lda read_colour_row15, y
+        sta read_colour_row14, y
+        ; row 16 -> row 15
+        lda read_screen_row16, y
+        sta read_screen_row15, y
+        lda read_colour_row16, y
+        sta read_colour_row15, y
+        ; row 17 -> row 16
+        lda read_screen_row17, y
+        sta read_screen_row16, y
+        lda read_colour_row17, y
+        sta read_colour_row16, y
+        ; row 18 -> row 17
+        lda read_screen_row18, y
+        sta read_screen_row17, y
+        lda read_colour_row18, y
+        sta read_colour_row17, y
+        ; row 19 -> row 18
+        lda read_screen_row19, y
+        sta read_screen_row18, y
+        lda read_colour_row19, y
+        sta read_colour_row18, y
+        ; row 20 -> row 19
+        lda read_screen_row20, y
+        sta read_screen_row19, y
+        lda read_colour_row20, y
+        sta read_colour_row19, y
         dey
         bpl -
 
         ldy # 40
--       lda $0400+(20 * 40)-1, y
-        sta $0400+(19 * 40)-1, y
-        lda $d800+(20 * 40)-1, y
-        sta $d800+(19 * 40)-1, y
-        
-        lda $0400+(21 * 40)-1, y
-        sta $0400+(20 * 40)-1, y
-        lda $d800+(21 * 40)-1, y
-        sta $d800+(20 * 40)-1, y
-        
-        lda $0400+(22 * 40)-1, y
-        sta $0400+(21 * 40)-1, y
-        lda $d800+(22 * 40)-1, y
-        sta $d800+(21 * 40)-1, y
-        
-        lda $0400+(23 * 40)-1, y
-        sta $0400+(22 * 40)-1, y
-        lda $d800+(23 * 40)-1, y
-        sta $d800+(22 * 40)-1, y
-        
-        lda $0400+(24 * 40)-1, y
-        sta $0400+(23 * 40)-1, y
-        lda $d800+(24 * 40)-1, y
-        sta $d800+(23 * 40)-1, y
-        
+        ; row 21 -> row 20
+-       lda read_screen_row21-1, y
+        sta read_screen_row20-1, y
+        lda read_colour_row21-1, y
+        sta read_colour_row20-1, y
+        ; row 22 -> row 21
+        lda read_screen_row22-1, y
+        sta read_screen_row21-1, y
+        lda read_colour_row22-1, y
+        sta read_colour_row21-1, y
+        ; row 23 -> row 22
+        lda read_screen_row23-1, y
+        sta read_screen_row22-1, y
+        lda read_colour_row23-1, y
+        sta read_colour_row22-1, y
+        ; row 24 -> row 23
+        lda read_screen_row24-1, y
+        sta read_screen_row23-1, y
+        lda read_colour_row24-1, y
+        sta read_colour_row23-1, y
+        ; row 25 -> row 24
+        lda read_screen_row25-1, y
+        sta read_screen_row24-1, y
+        lda read_colour_row25-1, y
+        sta read_colour_row24-1, y
+        ; row 26 -> row 25
         ; copy the off-screen line into view
-        lda $0400+(25 * 40)-1, y
-        sta $0400+(24 * 40)-1, y
+        lda read_screen_row26-1, y
+        sta read_screen_row25-1, y
         ; the color for the off-screen line is stored at a different
         ; place as we cannot store data at $DC00 when I/O is on!
-        lda read_color_addr_after-1, y
-        sta $d800+(24 * 40)-1, y
+        lda read_colour_row26-1, y
+        sta read_colour_row25-1, y
         dey
         bne -                   ; stop when Y = 0 (important for later!)
 
@@ -779,158 +847,161 @@ read_scroll_up:
         ; each iteration maintaining the loop
         ;
         ldy # 39                ; as always, loop backwards for speed
--       lda $0400+( 8 * 40), y
+-       ; row 9 -> row ...
+        lda read_screen_row9, y
         sta read_scroll_temp1_char, y
-        lda $d800+( 8 * 40), y
+        lda read_colour_row9, y
         sta read_scroll_temp1_color, y
-
-        lda $0400+( 7 * 40), y
-        sta $0400+( 8 * 40), y
-        lda $d800+( 7 * 40), y
-        sta $d800+( 8 * 40), y
-
-        lda $0400+( 6 * 40), y
-        sta $0400+( 7 * 40), y
-        lda $d800+( 6 * 40), y
-        sta $d800+( 7 * 40), y
-        
-        lda $0400+( 5 * 40), y
-        sta $0400+( 6 * 40), y
-        lda $d800+( 5 * 40), y
-        sta $d800+( 6 * 40), y
-        
-        lda $0400+( 4 * 40), y
-        sta $0400+( 5 * 40), y
-        lda $d800+( 4 * 40), y
-        sta $d800+( 5 * 40), y
-        
-        lda $0400+( 3 * 40), y
-        sta $0400+( 4 * 40), y
-        lda $d800+( 3 * 40), y
-        sta $d800+( 4 * 40), y
-        
-        lda $0400+( 2 * 40), y
-        sta $0400+( 3 * 40), y
-        lda $d800+( 2 * 40), y
-        sta $d800+( 3 * 40), y
-        
-        lda $0400+( 1 * 40), y
-        sta $0400+( 2 * 40), y
-        lda $d800+( 1 * 40), y
-        sta $d800+( 2 * 40), y
-        
-        lda $0400+( 0 * 40), y
-        sta $0400+( 1 * 40), y
-        lda $d800+( 0 * 40), y
-        sta $d800+( 1 * 40), y
-        
-        ; copy the off-screen line into view
-        lda $0400-( 1 * 40), y
-        sta $0400+( 0 * 40), y
+        ; row 8 -> row 9
+        lda read_screen_row8, y
+        sta read_screen_row9, y
+        lda read_colour_row8, y
+        sta read_colour_row9, y
+        ; row 7 -> row 8
+        lda read_screen_row7, y
+        sta read_screen_row8, y
+        lda read_colour_row7, y
+        sta read_colour_row8, y
+        ; row 6 -> row 7
+        lda read_screen_row6, y
+        sta read_screen_row7, y
+        lda read_colour_row6, y
+        sta read_colour_row7, y
+        ; row 5 -> row 6
+        lda read_screen_row5, y
+        sta read_screen_row6, y
+        lda read_colour_row5, y
+        sta read_colour_row6, y
+        ; row 4 -> row 5
+        lda read_screen_row4, y
+        sta read_screen_row5, y
+        lda read_colour_row4, y
+        sta read_colour_row5, y
+        ; row 3 -> row 4
+        lda read_screen_row3, y
+        sta read_screen_row4, y
+        lda read_colour_row3, y
+        sta read_colour_row4, y
+        ; row 2 -> row 3
+        lda read_screen_row2, y
+        sta read_screen_row3, y
+        lda read_colour_row2, y
+        sta read_colour_row3, y
+        ; row 1 -> row 2
+        lda read_screen_row1, y
+        sta read_screen_row2, y
+        lda read_colour_row1, y
+        sta read_colour_row2, y
+        ; row 0 -> row 1
+        ; (copy the off-screen line into view)
+        lda read_screen_row0, y
+        sta read_screen_row1, y
         ; the color for the off-screen line is stored at a different
         ; place as we cannot store data at $D800-40 when I/O is on!
-        lda read_color_addr_before, y
-        sta $d800+( 0 * 40), y
+        lda read_colour_row0, y ; (offscreen colour-RAM buffer, outside $D800)
+        sta read_colour_row1, y ; (=$D800)
         dey
         bpl -
 
         ldy # 39
--       lda $0400+(17 * 40), y
+-       ; row 18 -> row ...
+        lda read_screen_row18, y
         sta read_scroll_temp2_char, y
-        lda $d800+(17 * 40), y
+        lda read_colour_row18, y
         sta read_scroll_temp2_color, y
-
-        lda $0400+(16 * 40), y
-        sta $0400+(17 * 40), y
-        lda $d800+(16 * 40), y
-        sta $d800+(17 * 40), y
-        
-        lda $0400+(15 * 40), y
-        sta $0400+(16 * 40), y
-        lda $d800+(15 * 40), y
-        sta $d800+(16 * 40), y
-        
-        lda $0400+(14 * 40), y
-        sta $0400+(15 * 40), y
-        lda $d800+(14 * 40), y
-        sta $d800+(15 * 40), y
-        
-        lda $0400+(13 * 40), y
-        sta $0400+(14 * 40), y
-        lda $d800+(13 * 40), y
-        sta $d800+(14 * 40), y
-        
-        lda $0400+(12 * 40), y
-        sta $0400+(13 * 40), y
-        lda $d800+(12 * 40), y
-        sta $d800+(13 * 40), y
-        
-        lda $0400+(11 * 40), y
-        sta $0400+(12 * 40), y
-        lda $d800+(11 * 40), y
-        sta $d800+(12 * 40), y
-        
-        lda $0400+(10 * 40), y
-        sta $0400+(11 * 40), y
-        lda $d800+(10 * 40), y
-        sta $d800+(11 * 40), y
-        
-        lda $0400+( 9 * 40), y
-        sta $0400+(10 * 40), y
-        lda $d800+( 9 * 40), y
-        sta $d800+(10 * 40), y
-        
+        ; row 17 -> row 18
+        lda read_screen_row17, y
+        sta read_screen_row18, y
+        lda read_colour_row17, y
+        sta read_colour_row18, y
+        ; row 16 -> row 17
+        lda read_screen_row16, y
+        sta read_screen_row17, y
+        lda read_colour_row16, y
+        sta read_colour_row17, y
+        ; row 15 -> row 16
+        lda read_screen_row15, y
+        sta read_screen_row16, y
+        lda read_colour_row15, y
+        sta read_colour_row16, y
+        ; row 14 -> row 15
+        lda read_screen_row14, y
+        sta read_screen_row15, y
+        lda read_colour_row14, y
+        sta read_colour_row15, y
+        ; row 13 -> row 14
+        lda read_screen_row13, y
+        sta read_screen_row14, y
+        lda read_colour_row13, y
+        sta read_colour_row14, y
+        ; row 12 -> row 13
+        lda read_screen_row12, y
+        sta read_screen_row13, y
+        lda read_colour_row12, y
+        sta read_colour_row13, y
+        ; row 11 -> row 12
+        lda read_screen_row11, y
+        sta read_screen_row12, y
+        lda read_colour_row11, y
+        sta read_colour_row12, y
+        ; row 10 -> row 11
+        lda read_screen_row10, y
+        sta read_screen_row11, y
+        lda read_colour_row10, y
+        sta read_colour_row11, y
+        ; row ... -> row 10
         lda read_scroll_temp1_char, y
-        sta $0400+( 9 * 40), y
+        sta read_screen_row10, y
         lda read_scroll_temp1_color, y
-        sta $d800+( 9 * 40), y
+        sta read_colour_row10, y
         dey
         bpl -
 
         ldy # 40
--       ; the bottom line moves into the off-screen
+-       ; row 25 -> row 26
+        ; the bottom line moves into the off-screen
         ; buffer ready for if the user scrolls down
-        lda $0400+(24 * 40)-1, y
-        sta $0400+(25 * 40)-1, y
+        lda read_screen_row25-1, y
+        sta read_screen_row26-1, y
         ; the color for the off-screen line is stored at a different
         ; place as we cannot store data at $DC00 when I/O is on!
-        lda $d800+(24 * 40)-1, y
-        sta read_color_addr_after-1, y
-
-        lda $0400+(23 * 40)-1, y
-        sta $0400+(24 * 40)-1, y
-        lda $d800+(23 * 40)-1, y
-        sta $d800+(24 * 40)-1, y
-        
-        lda $0400+(22 * 40)-1, y
-        sta $0400+(23 * 40)-1, y
-        lda $d800+(22 * 40)-1, y
-        sta $d800+(23 * 40)-1, y
-        
-        lda $0400+(21 * 40)-1, y
-        sta $0400+(22 * 40)-1, y
-        lda $d800+(21 * 40)-1, y
-        sta $d800+(22 * 40)-1, y
-        
-        lda $0400+(20 * 40)-1, y
-        sta $0400+(21 * 40)-1, y
-        lda $d800+(20 * 40)-1, y
-        sta $d800+(21 * 40)-1, y
-        
-        lda $0400+(19 * 40)-1, y
-        sta $0400+(20 * 40)-1, y
-        lda $d800+(19 * 40)-1, y
-        sta $d800+(20 * 40)-1, y
-        
-        lda $0400+(18 * 40)-1, y
-        sta $0400+(19 * 40)-1, y
-        lda $d800+(18 * 40)-1, y
-        sta $d800+(19 * 40)-1, y
-        
+        lda read_colour_row25-1, y
+        sta read_colour_row26-1, y
+        ; row 24 -> row 25
+        lda read_screen_row24-1, y
+        sta read_screen_row25-1, y
+        lda read_colour_row24-1, y
+        sta read_colour_row25-1, y
+        ; row 23 -> row 24
+        lda read_screen_row23-1, y
+        sta read_screen_row24-1, y
+        lda read_colour_row23-1, y
+        sta read_colour_row24-1, y
+        ; row 22 -> row 23
+        lda read_screen_row22-1, y
+        sta read_screen_row23-1, y
+        lda read_colour_row22-1, y
+        sta read_colour_row23-1, y
+        ; row 21 -> row 22
+        lda read_screen_row21-1, y
+        sta read_screen_row22-1, y
+        lda read_colour_row21-1, y
+        sta read_colour_row22-1, y
+        ; row 20 -> row 21
+        lda read_screen_row20-1, y
+        sta read_screen_row21-1, y
+        lda read_colour_row20-1, y
+        sta read_colour_row21-1, y
+        ; row 19 -> row 20
+        lda read_screen_row19-1, y
+        sta read_screen_row20-1, y
+        lda read_colour_row19-1, y
+        sta read_colour_row20-1, y
+        ; row ... -> row 19
         lda read_scroll_temp2_char-1, y
-        sta $0400+(18 * 40)-1, y
+        sta read_screen_row19-1, y
         lda read_scroll_temp2_color-1, y
-        sta $d800+(18 * 40)-1, y
+        sta read_colour_row19-1, y
         dey
         bne -                   ; stop when Y = 0 (important for later!)
 
@@ -1031,7 +1102,7 @@ read_lines:
         
 @out    sta read_screen_addr, x ; print the character
         ;;lda # READ_FORE         ; get text-colour ('random' for now)
-@color  sta read_color_addr, x  ; set character colour
+@color  sta read_colour_addr, x ; set character colour
         inx
         dey
         bne @char
@@ -1081,8 +1152,8 @@ read_set_row:
         lda read_screen_rows_hi, y
         sta READ_OUT_HI
         ; get the colour RAM address from the row number
-        lda read_color_rows_lo, y
+        lda read_colour_rows_lo, y
         sta READ_COLOR_LO
-        lda read_color_rows_hi, y
+        lda read_colour_rows_hi, y
         sta READ_COLOR_HI
         rts
