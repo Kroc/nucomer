@@ -3,6 +3,7 @@
 
 arg = {...}
 
+-- include C64 interoperibility functions
 require "issues.c64"
 
 infile  = arg[1]    -- input file?
@@ -43,22 +44,24 @@ f_in:close()
 --
 text = "\n"..string.gsub(text, "^\\[\\s\\n\\r]+|[\\s\\n\\r]+$", "").."\n"
 
--- walk through the string
-index       = 0
-line_len    = 0
+-- walk through the string:
+--
+index       = 0     -- source text string index
+line_num    = 1     -- current line-number, 1-based
+line_len    = 0     -- length of current line, in bytes
 prev_len    = 0     -- length in bytes of the previous line
 line_bin    = ""    -- current output line (binary)
 
 word_bin    = ""    -- current word (for word-wrapping)
-word_len    = 0     -- character length of current word
+word_len    = 0     -- character length of current word (not byte-length!)
 
 lines_len   = {}    -- table of each line length
 lines_bin   = {}    -- table of all lines generated (before output)
 
-function add_char()
+function add_char(i_char)
     ----------------------------------------------------------------------------
     -- add the character to the word
-    word_bin = word_bin .. string.char(scr64)
+    word_bin = word_bin .. string.char(i_char)
     word_len = word_len + 1
 end
 
@@ -80,6 +83,15 @@ end
 
 function add_line ()
     ----------------------------------------------------------------------------
+    if line_len > 0 and line_num % 2 == 0 then
+        -- set the high-bit to indicate colour data present
+        -- TODO: why does `& 0x80` not work at all here!?
+        line_len = line_len + 0x80
+        -- add the colour-data: full-line colour, style class 1
+        line_len = line_len + 1
+        line_bin = string.char(0x80 + 1) .. line_bin
+    end
+    line_num = line_num + 1
     -- add the line-length to the array of line-lengths
     table.insert(lines_len, line_len)
     -- add the line to the binary:
@@ -145,7 +157,7 @@ if scr64 == nil then scr64 = 0xbf; end  -- reverse "?"
 
 -- add to the current word
 -- (and handle word-wrap)
-add_char()
+add_char(scr64)
 
 -- process next character
 goto next
@@ -157,9 +169,9 @@ add_word()
 -- and the final line
 add_line()
 
--- the lines-length table is suffixed with $FF
+-- the lines-length table is suffixed with $80
 -- to indicate when to stop scrolling downards
-table.insert(lines_len, 255)
+table.insert(lines_len, 80)
 
 -- how long the line-lengths list is (2-bytes)
 f_out:write(string.pack("<I2", #lines_len+1))
@@ -175,4 +187,3 @@ for _, v in ipairs(lines_bin) do
 end
 
 f_out:close()
---os.exit(true)
