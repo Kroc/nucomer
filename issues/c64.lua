@@ -4,6 +4,7 @@
 -- table to convert ASCII codes to C64 screen codes
 -- (not to be confused with PETSCII)
 -- assumes lower-case character set
+--
 local str2scr_low = {
     ["@"] = 0x00,
     ["a"] = 0x01,
