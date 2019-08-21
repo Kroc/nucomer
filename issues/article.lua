@@ -58,6 +58,11 @@ word_len    = 0     -- character length of current word (not byte-length!)
 lines_len   = {}    -- table of each line length
 lines_bin   = {}    -- table of all lines generated (before output)
 
+is_colour   = false -- does the line have colour?
+colour_bin  = ""    -- binary packed colour data for the line
+
+is_title    = false -- to indicate a line is a title
+
 function add_char(i_char)
     ----------------------------------------------------------------------------
     -- add the character to the word
@@ -83,15 +88,22 @@ end
 
 function add_line ()
     ----------------------------------------------------------------------------
-    if line_len > 0 and line_num % 2 == 0 then
-        -- set the high-bit to indicate colour data present
-        -- TODO: why does `& 0x80` not work at all here!?
-        line_len = line_len + 0x80
-        -- add the colour-data: full-line colour, style class 1
-        line_len = line_len + 1
-        line_bin = string.char(0x80 + 1) .. line_bin
-    end
+    --if line_len > 0 and line_num % 2 == 0 then
+    --    -- set the high-bit to indicate colour data present
+    --    -- TODO: why does `& 0x80` not work at all here!?
+    --    line_len = line_len + 0x80
+    --    -- add the colour-data: full-line colour, style class 1
+    --    line_len = line_len + 1
+    --    line_bin = string.char(0x80 + 1) .. line_bin
+    --end
     line_num = line_num + 1
+    -- is there any colour data to add?
+    if is_colour == true then
+        line_bin = colour_bin .. line_bin
+        line_len = line_len + #colour_bin
+        -- set the high-bit on the line-length to indicate packed colour-data
+        line_len = line_len + 0x80
+    end
     -- add the line-length to the array of line-lengths
     table.insert(lines_len, line_len)
     -- add the line to the binary:
@@ -104,9 +116,13 @@ function add_line ()
     end
     -- erase the line
     line_bin = ""
+    colour_bin = ""
     -- set the new "previous line" length
     prev_len = line_len
     line_len = 0
+    -- clear line semantics
+    is_title = false
+    is_colour = false
 end
 
 ::next::
@@ -148,6 +164,29 @@ if ascii == " " then
     end
     goto next
 end
+
+-- check for markup at the beginning of a line
+-- title?
+if text:match("^::", index) ~= nil then
+    -- set line semantics
+    is_title = true
+    is_colour = true
+    -- add the binary colour data
+    colour_bin = colour_bin .. string.char(0x80 + 1)
+    -- move the index forward over the marker
+    index = index + 1
+    goto next
+end
+-- bar?
+--#if text:match("^====", index) ~= nil then
+--#        -- set line semantics
+--#        is_colour = true
+--#        -- add the binary colour data
+--#        colour_bin = colour_bin .. string.char(0x80 + 1)
+--#        -- add the bar PETSCII
+--#        line_bin = line_bin .. string.rep(string.char(0xe3), 40)
+--#        line_len = line_len + 40
+--#end
 
 -- convert to screen code
 scr64 = c64_asc2scr(ascii)

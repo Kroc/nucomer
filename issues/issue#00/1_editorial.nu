@@ -1,10 +1,10 @@
-# Editorial
+:: Editorial
 
 by Kroc Camen / Camen Design
 
 Welcome, Newcomer.
 
-Why would anybody want to spend any time using, let alone programming, 30 or 40-year old computers some 5000 times more limited than their own PC or phone if they've never seen or heard of them before -- if nostalgia played no part?
+Why would anybody want to spend any time using, let alone programming, 30 or 40-year old computers thousands, even millions, of times more limited than their own PC or phone if they've never seen or heard of them before -- if nostalgia played no part?
 
 Those who grew up with 8-bit computers in their youth have a fond connection with these systems, based on a measure that exceeds technical capability alone -- memories! But the scene faces a cliff-edge into a void of forgotten human memory. As each of us falls into this void, who will there be left to remember the C64, to keep bearing the torch?
 
@@ -23,6 +23,8 @@ This publication exists to emplore, educate and demonstrate the satisfaction tha
 Elitist arguments about "original hardware" must be pushed back. Those with a nostalgic connection to the C64 must give willingly their knowledge to a future world in which there is no original hardware, only defacto standards.
 
 In reality, modern hardware and the Internet are where people are productive today and Nucomer will never communicate in ignorance of this fact. There are plenty of tutorials and resources out there on setting up a PC development environment and writing your first lines of code for an 8-bit system, I cannot do that within the confines of the C64's RAM + storage! Instead, Nucomer explores the "why"; why you should solve a programming problem in a certain way; why 8-bit systems are the way they are; why you should care.
+
+:: In This Issue:
 
 In this, the 0th issue -- zero because it can't be a true magazine until its had feedback and outside input -- we look at the code & design of the magazine outfit itself; the challenges of even getting some text on the screen.
 
