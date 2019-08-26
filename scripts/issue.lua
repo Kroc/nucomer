@@ -445,7 +445,7 @@ function Article:read_line(s_text)
         -- change the line's default style class
         line.default = 1
         -- move the index forward over the marker
-        index = 2
+        index = 3
     end
 
 ::next::
