@@ -122,9 +122,8 @@ function c64_str2scr(s_in)
 
     for i = 1, #s_in do
         local c = c64_asc2scr(s_in:byte(i))
-        if c ~= nil then
-            s_out = s_out..string.char(c)
-        end
+        if c == nil then c = 0xbf; end -- reverse "?"
+        s_out = s_out .. string.char(c)
     end
 
     return s_out

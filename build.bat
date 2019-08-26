@@ -3,7 +3,7 @@ CLS & TITLE Building Nucomer...
 CD %~dp0
 
 SET LUA="bin\lua\lua53.exe"
-SET LUA_ARTICLE=%LUA% "issues\article.lua"
+SET LUA_ARTICLE=%LUA% "scripts\article.lua"
 
 SET ACME=bin\acme\acme.exe -I "src"
 SET EXOMIZER="bin\exomizer.exe"
@@ -16,6 +16,8 @@ ECHO BSOD64
 ECHO ----------------------------------------
 PUSHD src\bsod64
 
+REM # assemble BSOD64 into its own folder as its a sub-project
+
 ..\..\%ACME% -v1 ^
      --format cbm ^
      -Wtype-mismatch ^
@@ -27,7 +29,7 @@ POPD
 REM # convert the article text into C64 text codes
 REM ============================================================================
 
-%LUA% "issues\issue.lua"
+%LUA% "scripts\issue.lua"
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
 REM # assemble the outfit
@@ -35,6 +37,7 @@ REM ============================================================================
 ECHO ----------------------------------------
 <NUL (SET /P "$=Assemble Outfit...                  ")
 
+REM # assemble the ASCII map used to embed the nücomer logo
 %ACME% ^
      --format plain ^
           "src\petscii_font.acme"

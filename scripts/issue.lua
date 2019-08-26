@@ -5,12 +5,61 @@
 -- # read issue meta-data
 -- # process articles:
 --   # split to lines
+--   # word-wrap & hyphenate
 --   # convert text to screen codes
---   # word-wrap & hyphenate(TODO?)
 --   # remove and bit-pack spaces(TODO?)
 -- # analyse symbols across whole issue(TODO?)
 
-require "issues.c64"
+require "scripts.c64"
+
+hyphenate = require "scripts.hyphenate"
+for _, s_exception in pairs({
+    "pri-vate",
+    "every-thing",
+    "mag-azine",
+    "to-day"
+}) do
+    hyphenate:insertException("en-gb", s_exception)
+end
+
+-- do a mono-spaced word-break:
+--
+-- given a word and a remaining number of characters representing the space
+-- within which to fit the word, hyphenate the word such that as much of it
+-- as possible fits within the given space and return the remainder of the
+-- word that will move to the next line of text
+--------------------------------------------------------------------------------
+function hyphenate:breakWord(s_locale, s_word, s_len)
+    ----------------------------------------------------------------------------
+    -- split the word into hyphenation boundaries
+    t_pieces = self:hyphenate(s_locale, s_word)
+    -- if the word cannot be split, wrap the whole word
+    if #t_pieces == 1 then
+        return "", s_word
+    end
+
+    local left = ""     -- the part of the word to the left of the hyphen
+    local right = ""    -- the part of the word to the right of the hyphen
+    local broken = false
+
+    -- add word pieces until we can't fit any more on the line...
+    for _, piece in ipairs(t_pieces) do
+        -- if a word-piece can fit (including a trailing hyphen!)
+        -- then add it (sans-hyphen) and try the next piece
+        if broken == false and #left + #piece + 1 <= s_len then
+            left = left .. piece
+        else
+            -- the word-piece does not fit!
+            -- add it to the right-hand side instead
+            right = right .. piece
+            broken = true
+        end
+    end
+    -- add the hyphen to the left-hand side
+    if #left > 0 then left = left .. "-"; end
+    -- return the left & right sides
+    return left, right
+end
 
 -- include the JSON library
 -- <https://github.com/rxi/json.lua>
@@ -312,15 +361,16 @@ function Article:read_line(s_text)
     -- create line-object to hold line meta-data
     local line      = Line:new()
     local index     = 0         -- current byte index in the line
-    local word_bin  = ""        -- current word (for word-wrapping)
+    local word_str  = ""        -- current word (for word-wrapping)
     local word_len  = 0         -- character length of word (not byte-length!)
+    local word_spc  = 0         -- number of pending spaces once word ends
 
     -- (private) add C64 character-code to the current line
     ----------------------------------------------------------------------------
     function add_char(i_char)
         ------------------------------------------------------------------------
         -- add the character to the word
-        word_bin = word_bin .. string.char(i_char)
+        word_str = word_str .. string.char(i_char)
         word_len = word_len + 1
     end
 
@@ -328,16 +378,53 @@ function Article:read_line(s_text)
     ----------------------------------------------------------------------------
     function add_word()
         ------------------------------------------------------------------------
-        -- if the word will not fit on the line, word-wrap
-        if line.length + word_len >= 40 then
-            -- TODO: attempt hyphenation
-            -- dispatch the current line as-is
+        -- we do not want to leave trailing spaces on lines, so when a word
+        -- begins, we hold on to the space until the word ends and decide
+        -- where it goes based on the word-wrapping
+
+        -- if the word will not fit on the line, hyphenate & word-wrap
+        if line.length + word_len + word_spc > 40 then
+            -- hyphenate the word splitting into as much as can fit
+            -- on the current line and the remainder for the next line
+            -- TODO: strip pre & post-fix punctuation when hyphenating
+            local left, right = hyphenate:breakWord(
+                -- split the word according to how much line space remains
+                "en-gb", word_str, (40 - line.length) - word_spc
+            )
+            --#print(left, right)
+            -- add the part of the word that fits (if any)
+            if #left > 0 then
+                -- add the pending spaces from before the word started
+                if word_spc > 0 then
+                    line:addString(string.rep(" ", word_spc))
+                end
+                -- add the hyphenated portion of the word
+                line:addString(left)
+                -- the pending spaces have been handled,
+                -- don't add them again on the next line
+                word_spc = 0
+            end
+            -- dispatch the current line
             add_line()
+            -- begin the new line with the remainder of the word, if any
+            if #right > 0 then
+                line:addString(right)
+                -- add a pending space for when the next word,
+                -- technically the first word of a source line,
+                -- gets added
+                word_spc = 1
+            end
+        else
+            -- add the pending spaces from before the word started
+            if word_spc > 0 then line:addString(string.rep(" ", word_spc)); end
+            -- the word fits the line, add as is
+            if word_len > 0 then line:addString(word_str); end
+            -- the pending spaces have been handled,
+            -- don't add them again on the next line
+            word_spc = 0
         end
-        -- add the word to the line
-        if word_len > 0 then line:addBin(word_bin, word_len); end
         -- reset the current word
-        word_bin = ""
+        word_str = ""
         word_len = 0
     end
 
@@ -363,37 +450,28 @@ function Article:read_line(s_text)
 
 ::next::
     ----------------------------------------------------------------------------
+    local i_ascii
+
     -- move to the next character
     index = index + 1
     -- hit end of the line?
     if index > #s_text then goto eol; end
 
     -- read a single byte
-    s_ascii = string.char(s_text:byte(index))
+    i_ascii = s_text:byte(index)
 
-    -- word-break
-    if s_ascii == " " then
+    -- space = word-break
+    if i_ascii == 0x20 then
         -- the current word is complete, add it to the line
-        -- before we handle the space
+        -- and handle the pending space according to word-wrap
         add_word()
-        -- if an exact word-wrap occured, the space is not needed!
-        if line.length > 0 then
-            -- append the space to the line directly
-            -- TODO: trailing space on lines
-            line:addByte(0x20)
-        end
-        goto next
+        -- queue another space
+        word_spc = 1
+    else
+        -- add to the current word
+        -- (and handle word-wrap)
+        add_char(i_ascii)
     end
-
-    -- convert character to C64 screen code
-    i_scr64 = c64_asc2scr(s_ascii)
-    -- for non-ASCII characters insert a warning marker
-    if i_scr64 == nil then i_scr64 = 0xbf; end  -- reverse "?"
-
-    -- add to the current word
-    -- (and handle word-wrap)
-    add_char(i_scr64)
-
     goto next
 
 ::eol::
@@ -434,18 +512,13 @@ function Article:write()
     for _, line in ipairs(self.lines) do
         -- do not output empty lines; on the C64, when a line-length of 0
         -- is encountered, the line-data pointer is not moved forward
-        if line.length > 0 then
-            -- note that lines are written into the binary backwards!
-            -- this is so that the line length can be used as a count-down
-            -- index which is faster for 6502s to process
-            f_out:write(line:getBin())
-        end
+        if line.length > 0 then f_out:write(line:getBin()); end
     end
 end
 
 --------------------------------------------------------------------------------
 Line = {
-    binary      = "",       -- the converted line (text)
+    ascii       = "",       -- original ASCII line representation
     colour      = "",       -- binary colour data for the line
     length      = 0,        -- length of line in *bytes*
     default     = 0,        -- default colour class
@@ -457,29 +530,28 @@ function Line:new()
     ----------------------------------------------------------------------------
     -- crate new, empty, instance
     local line = {
-        binary      = "",       -- the converted line (text)
+        ascii       = "",       -- the original ASCII line representation
         colour      = "",       -- binary colour data for the line
         length      = 0,        -- length of line in *bytes*
+        default     = 0         -- default colour class
     }
     setmetatable(line, self)    -- set new instance to inherit from prototype
     self.__index = self         -- bind "self"
     return line                 -- return the new instance
 end
 
--- add a single byte to the binary line data
+-- add an ASCII character to the ASCII representation of the line
 --------------------------------------------------------------------------------
-function Line:addByte(i_byte)
-    ----------------------------------------------------------------------------
-    self.binary = self.binary .. string.char(i_byte)
+function Line:addChar(i_byte)
+    self.ascii = self.ascii .. string.char(i_byte)
     self.length = self.length + 1
 end
 
--- add binary data to the line
 --------------------------------------------------------------------------------
-function Line:addBin(s_text, i_length)
+function Line:addString(s_text)
     ----------------------------------------------------------------------------
-    self.binary = self.binary .. s_text
-    self.length = self.length + i_length
+    self.ascii = self.ascii .. s_text
+    self.length = self.length + #s_text
 end
 
 -- returns the final binary form of the line
@@ -493,16 +565,17 @@ function Line:getBin()
         bin = string.char(0x80 + self.default) .. bin
     end
     -- add the text
-    bin = bin .. self.binary
+    bin = bin .. c64_str2scr(self.ascii)
     -- note that lines are written into the binary backwards!
     -- this is so that the line length can be used as a count-down
     -- index which is faster for 6502s to process
     return bin:reverse()
 end
 
+-- length of the binary line, including colour-data (if present)
+--------------------------------------------------------------------------------
 function Line:getLen()
-    local bin = self:getBin()
-    return #bin
+    return string.len(self:getBin())
 end
 
 print()
@@ -510,3 +583,5 @@ print("Issue#00")
 print("========================================")
 
 Issue:build(0)
+
+print(hyphenate:testWord("en-gb", "disciplined"))

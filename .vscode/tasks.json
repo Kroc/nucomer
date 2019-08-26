@@ -53,6 +53,30 @@
                     "message": 1
                 }
             }
+        },
+        {
+            "label": "Build Only",
+            "type": "shell",
+            "windows": {
+                "command": "build.bat"
+            },
+            "group": "build",
+            "presentation": {
+                "clear": true
+            },
+            "problemMatcher": {
+                "owner": "acme",
+                "fileLocation": [
+                    "relative",
+                    "${workspaceFolder}"
+                ],
+                "pattern": {
+                    "regexp": "^(Error - File\\s+(.*), line (\\d+) (\\(Zone .*\\))?:\\s+(.*))$",
+                    "file": 2,
+                    "location": 3,
+                    "message": 1
+                }
+            }
         }
     ],
 }
