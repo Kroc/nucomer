@@ -161,27 +161,33 @@ function Hyphenate:hyphenate(s_locale, s_word)
     -- cannot hyphenate short words
     if #s_word <= 4 then return {prfx..s_word..sufx}; end
 
-    -- having stripped leading / trailing punctuation, does the word contain
-    -- any unsupported symbols? we cannot hyphenate a word that contains
-    -- numbers, for example
-    if s_word:find("%W") then return {prfx..s_word..sufx}; end
-
     -- the hyphenation dictionary is lower-case, and we pin the beginning
-    -- and end of our source word so that we don't end up searching for
-    -- our word in the middle of another word!
+    -- and end of our source word so that we correctly apply hyphenation
+    -- patterns that are dependent on the start and/or end of a word
     local s_work = "."..string.lower(s_word).."."
 
     -- is this word already in the exceptions list?
+    -- TODO: how does this handle hyphens already in the word?
     local t_points = self.langs[s_locale].exceptions[string.lower(s_word)]
     if t_points ~= nil then goto output; end
 
-    --#-- if our source word contains hyphens, we can use those
-    --#if s_word:match("-") then
-    --#    -- (TODO: assumes word does not contain numbers!)
-    --#    self:insertPattern(s_locale, s_work:gsub("-", "5"))
-    --#    s_work = s_work:gsub("-", "")
-    --#    s_word = s_word:gsub("-", "")
+    --#-- if the word already contains hyphens, split using those
+    --#-- and do not automatically hyphenate
+    --#if s_word:match("-") ~= nil then
+    --#    t_points = {prfx}
+    --#    for _, s_piece in pairs(s_word:split("-", nil, true)) do
+    --#        table.insert(t_points, s_piece)
+    --#    end
+    --#    table.insert(t_points, sufx)
+    --#    return t_points
     --#end
+
+    -- having stripped leading / trailing punctuation, does the word
+    -- contain any unsupported symbols? we cannot hyphenate a word
+    -- that contains numbers, for example
+    if s_word:find("%W") then return {prfx..s_word..sufx}; end
+
+    ----------------------------------------------------------------------------
     -- create a points list to match our source word
     t_points = {}
     for i = 1, #s_work+1 do t_points[i] = 0; end
