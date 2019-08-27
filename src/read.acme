@@ -1,7 +1,7 @@
 ; the screen used when reading articles
 
 ; theme colours
-READ_BORDER             = DKGREY
+READ_BORDER             = GREY
 READ_FORE               = DKGREY
 READ_BACK               = GREY
 

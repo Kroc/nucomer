@@ -98,10 +98,8 @@ function Hyphenate:insertPattern(s_locale, s_pattern)
     for c = 1, #s_chars do
         local s_char = s_chars:sub(c, c)
         -- does this branch have this character yet?
-        if type(node[s_char]) == "nil" then
-            -- no, create another branch
-            node[s_char] = {}
-        end
+        -- if not, create another branch
+        if type(node[s_char]) == "nil" then node[s_char] = {}; end
         -- move down the branch to the next level
         node = node[s_char]
     end
@@ -136,8 +134,37 @@ end
 --------------------------------------------------------------------------------
 function Hyphenate:hyphenate(s_locale, s_word)
     ----------------------------------------------------------------------------
+    -- strip leading and trailing punctuation:
+    --
+    -- the dictionary tree containing the hyphenation patterns only consists
+    -- of A-Z letters and a period to mark start/end-of-word -- ergo we cannot
+    -- hyphenate a word if it has leading / trailing punctuation
+    --
+    local prfx = ""     -- once stripped, the leading symbols from the word
+    local sufx = ""     -- once stripped, the trailing symbols from the word
+    local s, e          -- "start" & "end" character positions
+
+    s, e = s_word:find("^%W+")
+    if s ~= nil then
+        prfx = s_word:sub(s, e)
+        -- strip the leading symbols from the word
+        s_word = s_word:sub(e+1)
+    end
+
+    s, e = s_word:find("%W+$")
+    if s ~= nil then
+        sufx = s_word:sub(s, e)
+        -- strip the trailing symbols from the word
+        s_word = s_word:sub(1, s-1)
+    end
+
     -- cannot hyphenate short words
-    if #s_word <= 4 then return {s_word}; end
+    if #s_word <= 4 then return {prfx..s_word..sufx}; end
+
+    -- having stripped leading / trailing punctuation, does the word contain
+    -- any unsupported symbols? we cannot hyphenate a word that contains
+    -- numbers, for example
+    if s_word:find("%W") then return {prfx..s_word..sufx}; end
 
     -- the hyphenation dictionary is lower-case, and we pin the beginning
     -- and end of our source word so that we don't end up searching for
@@ -188,11 +215,11 @@ function Hyphenate:hyphenate(s_locale, s_word)
     ----------------------------------------------------------------------------
     -- a hyphen cannot occur in the first or last two characters
     -- (set the weighting score for these positions to zero)
-    t_points[2] = 0; t_points[#t_points-2] = 0
-    t_points[3] = 0; t_points[#t_points-3] = 0
+    t_points[2] = 0; t_points[#t_points-1] = 0
+    t_points[3] = 0; t_points[#t_points-2] = 0
 
     -- build a table containing the word, split between hyphenation points
-    local t_pieces = {""}
+    local t_pieces = {prfx}
     for i = 1, #s_word do
         -- add the letter to the current slice
         t_pieces[#t_pieces] = t_pieces[#t_pieces] .. s_word:sub(i, i)
@@ -202,6 +229,7 @@ function Hyphenate:hyphenate(s_locale, s_word)
             table.insert(t_pieces, "")
         end
     end
+    t_pieces[#t_pieces] = t_pieces[#t_pieces] .. sufx
 
     return t_pieces
 end

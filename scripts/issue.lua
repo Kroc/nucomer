@@ -583,5 +583,3 @@ print("Issue#00")
 print("========================================")
 
 Issue:build(0)
-
-print(hyphenate:testWord("en-gb", "disciplined"))
