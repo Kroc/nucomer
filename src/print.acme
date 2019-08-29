@@ -6,7 +6,7 @@
 ;       A = text colour
 ;
 clear_screen:
-
+        ;-----------------------------------------------------------------------
         ldx # $00
 
         ; write four 256-byte strips simultaneously
@@ -19,10 +19,10 @@ clear_screen:
         bne -
 
         lda # ' '               ; clear with space char
--       sta $0400 + $000, x
-        sta $0400 + $100, x
-        sta $0400 + $200, x
-        sta $0400 + $300, x
+-       sta nu_screen + $000, x
+        sta nu_screen + $100, x
+        sta nu_screen + $200, x
+        sta nu_screen + $300, x
         dex
         bne -
 
@@ -37,9 +37,9 @@ clear_screen:
 ;       preserves Y
 ;
 print_str_pos:
-
-        ; read the row & col:
         ;-----------------------------------------------------------------------
+        ; read the row & col:
+        ;
         sty @y+1                ; preserve Y
         tay                     ; put aside hi-byte
         txa                     ; begin with lo-byte
@@ -68,7 +68,7 @@ print_str_pos:
         adc # 0                 ; add the carry if the col caused overflow
         sta @to+2               ; write addr hi-byte into the print routine!
 
-        adc # $d8 - >$0400      ; offset from screen RAM to colour RAM
+        adc # $d8 - >nu_screen  ; offset from screen RAM to colour RAM
         sta @color+2            ; write the hi-byte into the print routine!
         tya                     ; retrieve our addr lo-byte
         sta @color+1            ; write the lo-byte into the print routine!
@@ -78,7 +78,7 @@ print_str_pos:
         ldy # 0
 @from   lda .invalid, y
         beq +                   ; terminator? exit!
-@to     sta $0400, y
+@to     sta nu_screen, y
         iny
         ; if the string reaches 256 length (the increment rolls
         ; over from $FF to $00), then it will stop printing
@@ -127,7 +127,7 @@ print_str:
         ;-----------------------------------------------------------------------
 @from   lda .invalid, y
         beq +                   ; exit if null-terminator ($00)
-@to     sta $0400, y
+@to     sta nu_screen, y
         iny
         bne @from
 
@@ -166,7 +166,7 @@ print_set_crsr:
         lda screen_rows_hi, y   ; get the screen address hi-byte
         adc # 0                 ; ripple the column add
         sta print_str__to+2     ; to mirror this in the colour RAM, add the
-        adc # >($d800 - $0400)  ; distance between screen RAM & colour RAM
+        adc #>($d800-nu_screen) ; distance between screen RAM & colour RAM
         sta print_str__color+2  ; e.g. $0508 -> $D908
         
         rts
@@ -226,10 +226,10 @@ screen_rows:
 screen_rows_lo:
 ;-------------------------------------------------------------------------------
 !for    row, 0, 24 {
-        !byte   <($0400 + (row * 40))
+        !byte   <(nu_screen + (row * 40))
 }
 screen_rows_hi:
 ;-------------------------------------------------------------------------------
 !for    row, 0, 24 {
-        !byte   >($0400 + (row * 40))
+        !byte   >(nu_screen + (row * 40))
 }
