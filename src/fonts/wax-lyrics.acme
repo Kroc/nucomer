@@ -1,0 +1,4 @@
+!to     "build/wax-lyrics.prg", cbm
+*=$e000
+
+!binary "src/fonts/bin/wax-lyrics.bin", 2048, 2048

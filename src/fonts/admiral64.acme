@@ -1,0 +1,4 @@
+!to     "build/admiral64.prg", cbm
+*=$e000
+
+!binary "src/fonts/bin/admiral64.bin", 2048, 2048

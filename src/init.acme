@@ -4,8 +4,6 @@
 
 init:
 ;===============================================================================
-        ; set screen at $0400,
-        ; character set at +$1800 (lower-case)
         lda # %00010111
         sta VIC_LAYOUT
 
@@ -16,7 +14,8 @@ init:
         dec CPU_CONTROL
         dec CPU_CONTROL
 
-        ;;jsr logo_screen
+        jsr logo_screen
+        
         jsr menu_screen         ; from here, there is no going back...
         
         ; halt and catch fire

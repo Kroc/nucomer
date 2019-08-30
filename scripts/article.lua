@@ -72,26 +72,8 @@ function hyphenate:breakWord(s_locale, s_word, s_len)
     end
     -- we can now add the hyphen at the word-break point
     if #before > 0 then before = before .. "-"; end
-    
-    return before, after
 
---#    -- add word pieces until we can't fit any more on the line...
---#    for _, piece in ipairs(t_pieces) do
---#        -- if a word-piece can fit (including a trailing hyphen!)
---#        -- then add it (sans-hyphen) and try the next piece
---#        if broken == false and #left + #piece + 1 <= s_len then
---#            left = left .. piece
---#        else
---#            -- the word-piece does not fit!
---#            -- add it to the right-hand side instead
---#            right = right .. piece
---#            broken = true
---#        end
---#    end
---#    -- add the hyphen to the left-hand side
---#    if #left > 0 then left = left .. "-"; end
---#    -- return the left & right sides
---#    return left, right
+    return before, after
 end
 
 Article = {

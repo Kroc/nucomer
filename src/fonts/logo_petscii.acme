@@ -1,5 +1,5 @@
 ; no load address
-!to "build/petscii_font.ct", plain
+!to "build/logo_petscii.ct", plain
 
 ; pc = table index
 * = 0

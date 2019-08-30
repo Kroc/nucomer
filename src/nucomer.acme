@@ -1,6 +1,10 @@
 
 !source "c64/c64.acme"
 
+!addr   NU_VIC_BANK     = 3     ; the VIC bank used by the outfit
+!addr   nu_font         = $e000 ; location of the custom font; 2 KB
+!addr   nu_screen       = $ec00 ; text-screen location; 1 KB
+
 ; BASIC bootstrap, to the get the machine-code program running
 !source "boot_basic.acme"
 

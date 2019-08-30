@@ -105,6 +105,24 @@ menu_screen:
         lda # %00001000
         sta VIC_SCREEN_CTL1
         
+        ; set screen colour
+        lda # MENU_BORDER
+        sta VIC_BORDER
+        lda # MENU_BACK
+        sta VIC_BACKGROUND
+
+        ; change the VIC bank to $C000-$FFFF.
+        ; note that BSOD64 will occupy $C000-$DFFF
+        lda # %00000111         ; we only want to write to the low 3-bits
+        sta CIA2_PORTA_DDR      ; set the port's read/write state
+        lda # (! NU_VIC_BANK) & %111
+        sta CIA2_PORTA
+
+        ; change the VIC memory layout to position the text-screen & font
+        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
+        sta VIC_LAYOUT
+
+        ;-----------------------------------------------------------------------
         ; set our own interrupt handlers
         ; A = address of IRQ table, lo-byte
         ; X = address of IRQ table, hi-byte
@@ -114,12 +132,6 @@ menu_screen:
         ldx #> menu_irqs
         ldy # MENU_IRQS_COUNT
         jsr irqs_load
-
-        ; set screen colour
-        lda # MENU_BORDER
-        sta VIC_BORDER
-        lda # MENU_BACK
-        sta VIC_BACKGROUND
 
         ; erase the text-screen
         lda # MENU_FORE
@@ -136,17 +148,17 @@ menu_screen:
         ; begin at the end of the logo and work backwards
         ; (easier for loop management to count toward 0)
         ldy # (3 * 40)
-        ldx # BLUE      ; colour of letters
+        ldx # BLUE              ; colour of letters
 
 -       dey
-        bmi +           ; finished?
+        bmi +                   ; finished?
 
-        lda $0400, y    ; read a character from the logo
-        cmp # $64       ; is the character a background-line?
-        beq -           ; yes, skip it and don't change the colour
+        lda nu_screen, y        ; read a character from the logo
+        cmp # $64               ; is the character a background-line?
+        beq -                   ; yes, skip it and don't change the colour
         txa
         sta $d800, y
-        bpl -           ; (always branches)
+        bpl -                   ; (always branches)
 
 +       lda # BLACK
         sta ZP_PRINT_COLOR
@@ -154,7 +166,7 @@ menu_screen:
         ldx # 40
         lda # $63
 -       dex
-        sta $0400 + (3 * 40), x
+        sta nu_screen + (3 * 40), x
         bne -
 
        +print_str_pos   menu_subline
@@ -275,7 +287,7 @@ menu_refresh:
         stx @color+1            ; mirror this in the screen RAM
         sta @scr+2              ; set screen address hi-byte
         clc                     ; to mirror this in the colour RAM, add the
-        adc # >($d800 - $0400)  ; distance between screen RAM & colour RAM
+        adc #>($d800-nu_screen) ; distance between screen RAM & colour RAM
         sta @color+2            ; e.g. $0508 -> $D908
 
         lda # $db               ; screen code for marker symbol
@@ -346,13 +358,13 @@ menu_load:
         
         ; switch to the reading screen...
         jsr read_screen
-        ; upon return, restart the screen
+        ; upon return, restart the menu screen
         jmp menu_screen
 
 menu_petscii_logo:
 ;===============================================================================
         !byte   0, 0
-!ct "build/petscii_font.ct" {
+!ct "build/logo_petscii.ct" {
         !text   " ---- =  = ---- ---- ----- ---- ----    "
         !text   " #  # #  # #    #  # # # # #___ #       "
         !text   " #  # #__# #___ #__# # # # #___ #       ", 0

@@ -38,9 +38,21 @@ ECHO ----------------------------------------
 <NUL (SET /P "$=Assemble Outfit...                  ")
 
 REM # assemble the ASCII map used to embed the nücomer logo
+REM ----------------------------------------------------------------------------
 %ACME% ^
      --format plain ^
-          "src\petscii_font.acme"
+          "src\fonts\logo_petscii.acme"
+
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+
+REM # assemble fonts
+REM ----------------------------------------------------------------------------
+%ACME% "src\fonts\admiral64.acme"
+%ACME% "src\fonts\wax-lyrics.acme"
+
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
@@ -66,7 +78,8 @@ REM ============================================================================
 %EXOMIZER% sfx "sys" -n -q ^
      -o "build\nucomer-exo.prg" ^
      -- "build\nucomer.prg" ^
-        "src\bsod64\bsod64.prg"
+        "src\bsod64\bsod64.prg" ^
+        "build\admiral64.prg"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
@@ -86,6 +99,8 @@ REM # prepare the disk image
      -format "nucomer,00" d64 "build\nucomer.d64" ^
      -write "build\nucomer-exo.prg"     "nucomer" ^
      -write "src\bsod64\bsod64.prg"     "bsod64" ^
+     -write "build\admiral64.prg"       "admiral64.fon" ^
+     -write "build\wax-lyrics.prg"      "wax-lyrics.fon" ^
      1>NUL
 
 IF ERRORLEVEL 1 (
