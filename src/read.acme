@@ -228,17 +228,6 @@ read_screen:
         lda # READ_BACK
         sta VIC_BACKGROUND
 
-        ; change the VIC bank to $C000-$FFFF.
-        ; note that BSOD64 will occupy $C000-$DFFF
-        lda # %00000111         ; we only want to write to the low 3-bits
-        sta CIA2_PORTA_DDR      ; set the port's read/write state
-        lda # (! NU_VIC_BANK) & %111
-        sta CIA2_PORTA
-
-        ; change the VIC memory layout to position the text-screen & font
-        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
-        sta VIC_LAYOUT
-
         ; erase the text-screen
         lda # READ_FORE
         sta ZP_PRINT_COLOR

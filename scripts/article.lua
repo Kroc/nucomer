@@ -2,7 +2,7 @@
 
 require "scripts.c64"
 
-hyphenate = require "scripts.hyphenate"
+local hyphenate = require "scripts.hyphenate"
 
 for _, s_exception in pairs({
     "pri-vate", "every-thing", "mag-azine", "to-day"
@@ -28,20 +28,23 @@ function hyphenate:breakWord(s_locale, s_word, s_len)
 
     local before = ""       -- the part of the word(s) before the line-break
     local after  = ""       -- the part of the word(s) after the line-break
-    local broken = false
+    local broken = false    -- if word-break has occurred
 
     for i, word in ipairs(words) do
-        -- once the line-break has occurred, all remaining words are added
+        -- once the word-break has occurred, all remaining words are added
         -- after the line-break with no further hyphenation required
         if broken then
+            -- include the explicit hyphen between words;
+            -- e.g. "cul-de-sac", which would not hyphenate as separate words
             after = after .. "-" .. word
         else
             -- split the word into hyphenation boundaries
             t_pieces = self:hyphenate(s_locale, word)
-            -- with multiple words, we need to account for the explicit-hypehn
+
+            -- with multiple words, we need to account for the explicit-hyphen
             -- that must be preserved between words (e.g. "cul-de-sac"). when
             -- one word has already been added to the line and wrapping has
-            -- not yet occurred we have to add the explicit hyphen
+            -- not yet occurred we have to include the explicit hyphen
             if i > 1 then
                 -- will the explicit-hyphen, first word-piece
                 -- and trailing hyphen fit on to the line?

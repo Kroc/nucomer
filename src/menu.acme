@@ -113,10 +113,18 @@ menu_screen:
 
         ; change the VIC bank to $C000-$FFFF.
         ; note that BSOD64 will occupy $C000-$DFFF
+        ;
+        ldx CIA2_PORTA_DDR      ; (backup current value)
         lda # %00000111         ; we only want to write to the low 3-bits
         sta CIA2_PORTA_DDR      ; set the port's read/write state
+        ;
+        ; the bit value is the inverse of the bank number 0-3
         lda # (! NU_VIC_BANK) & %111
-        sta CIA2_PORTA
+        sta CIA2_PORTA          ; change VIC bank
+
+        ; we must restore the read/write state of the port
+        ; or disk I/O will break!
+        stx CIA2_PORTA_DDR
 
         ; change the VIC memory layout to position the text-screen & font
         lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
@@ -124,14 +132,11 @@ menu_screen:
 
         ;-----------------------------------------------------------------------
         ; set our own interrupt handlers
-        ; A = address of IRQ table, lo-byte
-        ; X = address of IRQ table, hi-byte
-        ; Y = number of entries in the table (1-based)
         ;
-        lda #< menu_irqs
-        ldx #> menu_irqs
-        ldy # MENU_IRQS_COUNT
-        jsr irqs_load
+        lda #< menu_irqs        ; address of IRQ table, lo-byte
+        ldx #> menu_irqs        ; address of IRQ table, hi-byte
+        ldy # MENU_IRQS_COUNT   ; number of entries in the table (1-based)
+        jsr irqs_load           ; (this will enable interrupts)
 
         ; erase the text-screen
         lda # MENU_FORE
@@ -321,7 +326,7 @@ menu_load:
 +       ldy # $00               ; use custom load address
         tya                     ; logical file number
         jsr KERNAL_SETLFS
-        
+
         ; read the address of the filename:
         ldy ZP_MENU_INDEX       ; currently selected menu item
         lda menu_db_prg_lens, y ; get string length from the menu database
@@ -343,7 +348,7 @@ menu_load:
         tay                     ; program name address hi-byte in Y
         pla                     ; A is string-length
         jsr KERNAL_SETNAM       ; set KERNAL file name
-
+        
         lda # 0                 ; load, not verify
         ldx #< $1ffe
         ldy #> $1ffe
@@ -351,7 +356,7 @@ menu_load:
 
         ; TODO: error handling, fastloader et al
         bcc +
-        jsr bsod64_jsr
+        brk                     ; BSOD!
         
 +       dec CPU_CONTROL         ; turn KERNAL off
         cli
