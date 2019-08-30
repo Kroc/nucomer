@@ -2,6 +2,45 @@
 
 require "scripts.c64"
 
+-- do a mono-spaced word-break:
+--
+-- given a word and a remaining number of characters representing the space
+-- within which to fit the word, hyphenate the word such that as much of it
+-- as possible fits within the given space and return the remainder of the
+-- word that will move to the next line of text
+--------------------------------------------------------------------------------
+function hyphenate:breakWord(s_locale, s_word, s_len)
+    ----------------------------------------------------------------------------
+    -- split the word into hyphenation boundaries
+    t_pieces = self:hyphenate(s_locale, s_word)
+    -- if the word cannot be split, wrap the whole word
+    if #t_pieces == 1 then
+        return "", s_word
+    end
+
+    local left = ""     -- the part of the word to the left of the hyphen
+    local right = ""    -- the part of the word to the right of the hyphen
+    local broken = false
+
+    -- add word pieces until we can't fit any more on the line...
+    for _, piece in ipairs(t_pieces) do
+        -- if a word-piece can fit (including a trailing hyphen!)
+        -- then add it (sans-hyphen) and try the next piece
+        if broken == false and #left + #piece + 1 <= s_len then
+            left = left .. piece
+        else
+            -- the word-piece does not fit!
+            -- add it to the right-hand side instead
+            right = right .. piece
+            broken = true
+        end
+    end
+    -- add the hyphen to the left-hand side
+    if #left > 0 then left = left .. "-"; end
+    -- return the left & right sides
+    return left, right
+end
+
 Article = {
     infile      = "",
     outfile     = "",
