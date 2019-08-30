@@ -1,6 +1,6 @@
 {
     "editor.insertSpaces": true,
-    "editor.wordWrap": "off",
+    "editor.wordWrap": "wordWrapColumn",
     "editor.wordWrapColumn": 80,
     "editor.rulers": [
         80
@@ -9,12 +9,9 @@
         "editor.tabSize": 8
     },
     "[markdown]": {
-        "editor.wordWrap": "wordWrapColumn",
-        "editor.wordWrapColumn": 60,
-        "editor.rulers": [
-            40,
-            60
-        ]
+        "editor.tabSize" : 4,
+        "editor.insertSpaces": true,
+        "editor.wordWrap": "wordWrapColumn"
     },
     "search.exclude": {
         "bin": true,

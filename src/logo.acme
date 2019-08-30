@@ -31,7 +31,24 @@ logo_screen:
 
         ; erase the text-screen, colouring all text orange,
         ; i.e. ensure text is effectively invsible by default
-        jsr clear_screen
+        ldx # $00
+
+        ; write four 256-byte strips simultaneously
+        ; so we don't have to deal with nested loops
+-       sta $d800 + $000, x
+        sta $d800 + $100, x
+        sta $d800 + $200, x
+        sta $d800 + $300, x
+        dex
+        bne -
+
+        lda # ' '               ; clear with space char
+-       sta $0400 + $000, x
+        sta $0400 + $100, x
+        sta $0400 + $200, x
+        sta $0400 + $300, x
+        dex
+        bne -
 
         ; configure sprites:
         ;-----------------------------------------------------------------------
