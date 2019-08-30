@@ -2,6 +2,98 @@
 
 require "scripts.c64"
 
+hyphenate = require "scripts.hyphenate"
+
+for _, s_exception in pairs({
+    "pri-vate", "every-thing", "mag-azine", "to-day"
+}) do
+    hyphenate:insertException("en-gb", s_exception)
+end
+
+-- do a mono-spaced word-break:
+--
+-- given a word and a remaining number of characters representing the space
+-- within which to fit the word, hyphenate the word such that as much of it
+-- as possible fits within the given space and return the remainder of the
+-- word that will move to the next line of text
+--------------------------------------------------------------------------------
+function hyphenate:breakWord(s_locale, s_word, s_len)
+    ----------------------------------------------------------------------------
+    -- if the word already contains hyphens, then treat as multiple separate
+    -- words for hyphenation; this allows us to resolve word-breaking for
+    -- double-barreled words, such as... "double-barreled"... which must be
+    -- hyphenated *and* retain their explicit hyphen, i.e. "dou-ble-bar-reled"
+    --
+    local words = s_word:split("-")
+
+    local before = ""       -- the part of the word(s) before the line-break
+    local after  = ""       -- the part of the word(s) after the line-break
+    local broken = false
+
+    for i, word in ipairs(words) do
+        -- once the line-break has occurred, all remaining words are added
+        -- after the line-break with no further hyphenation required
+        if broken then
+            after = after .. "-" .. word
+        else
+            -- split the word into hyphenation boundaries
+            t_pieces = self:hyphenate(s_locale, word)
+            -- with multiple words, we need to account for the explicit-hypehn
+            -- that must be preserved between words (e.g. "cul-de-sac"). when
+            -- one word has already been added to the line and wrapping has
+            -- not yet occurred we have to add the explicit hyphen
+            if i > 1 then
+                -- will the explicit-hyphen, first word-piece
+                -- and trailing hyphen fit on to the line?
+                if #before + 1 + #t_pieces[1] + 1 <= s_len then
+                    -- yes, the explicit hyphen can be included
+                    before = before .. "-"
+                end
+                -- in the case where the explicit-hyphen does not fit,
+                -- the line-break will convert it into an implicit hyphen
+                -- avoiding it being added twice
+            end
+            -- add word pieces until we can't fit any more on the line...
+            for _, piece in ipairs(t_pieces) do
+                -- if a word-piece could fit (including a trailing hyphen!)
+                -- then add it (sans-hyphen) and try the next piece
+                if broken == false and #before + #piece + 1 <= s_len then
+                    before = before .. piece
+                else
+                    -- the word-piece does not fit!
+                    -- add it after the line-break!
+                    after = after .. piece
+                    -- mark the line as broken so that all further pieces
+                    -- will now be placed after the line-break
+                    broken = true
+                end
+            end
+        end
+    end
+    -- we can now add the hyphen at the word-break point
+    if #before > 0 then before = before .. "-"; end
+    
+    return before, after
+
+--#    -- add word pieces until we can't fit any more on the line...
+--#    for _, piece in ipairs(t_pieces) do
+--#        -- if a word-piece can fit (including a trailing hyphen!)
+--#        -- then add it (sans-hyphen) and try the next piece
+--#        if broken == false and #left + #piece + 1 <= s_len then
+--#            left = left .. piece
+--#        else
+--#            -- the word-piece does not fit!
+--#            -- add it to the right-hand side instead
+--#            right = right .. piece
+--#            broken = true
+--#        end
+--#    end
+--#    -- add the hyphen to the left-hand side
+--#    if #left > 0 then left = left .. "-"; end
+--#    -- return the left & right sides
+--#    return left, right
+end
+
 Article = {
     infile      = "",
     outfile     = "",
