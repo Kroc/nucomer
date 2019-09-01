@@ -90,6 +90,9 @@ REM # package disks
 REM ============================================================================
 <NUL (SET /P "$=Create D64...                       ")
 
+REM # TODO: build the disk commands in the Lua scripts,
+REM #       i.e. c1541 < commands.txt
+
 IF EXIST "build\nucomer.d64" DEL "build\nucomer.d64"
 
 REM # prepare the disk image

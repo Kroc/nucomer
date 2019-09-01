@@ -5,27 +5,27 @@
             "title" : "Editorial: Why 8-Bit?",
             "scr"   : "Editorial: Why 8-Bit?",
             "file"  : "1_editorial.nu",
-            "prg"   : "editorial"
+            "prg"   : "01.editorial"
         },{
             "title" : "The Outfit: Putting TXT2SCR",
             "scr"   : "The Outfit: Putting TXT2SCR",
             "file"  : "2_the-outfit.nu",
-            "prg"   : "the outfit"
+            "prg"   : "02.the outfit"
         },{
             "title" : "Help! My Interrupt Crashed!",
             "scr"   : "Help! My Interrupt Crashed!",
             "file"  : "3_interrupt-crashed.nu",
-            "prg"   : "help!interrupt!"
+            "prg"   : "03.interrupts"
         },{
             "title" : "BSOD64: BRK Dancing",
             "scr"   : "BSOD64: BRK Dancing",
             "file"  : "4_brk-dancing.nu",
-            "prg"   : "brk dancing"
+            "prg"   : "04.brk dancing"
         },{
             "title" : "Next Issue...",
             "scr"   : "Next Issue...",
             "file"  : "next-issue.nu",
-            "prg"   : "next issue..."
+            "prg"   : "05.next issue..."
         }
     ]
 }

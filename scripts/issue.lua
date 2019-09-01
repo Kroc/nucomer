@@ -113,6 +113,7 @@ function Issue:build(i_issue)
         -- (the currently selected menu marker)
         local s_scr = c64_str2scr("  "..j_article["scr"])
         local s_len = #s_scr
+
         -- add the menu entry to the table of contents
         table.insert(self.toc, {
             off = self.offset,

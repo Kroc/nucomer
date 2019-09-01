@@ -1,0 +1,900 @@
+; COVERT BITOPS Autoconfiguring Loader/Depacker V2.28
+; with 1541/1571/1581/CMD FD/CMD HD/IDE64/Fastdrive-emu autodetection & support
+;===============================================================================
+;
+; LOADFILE_EXOMIZER
+;
+; Loads a file packed with EXOMIZER1/2/3
+;
+; Parameters: X (low),Y (high): Address of null-terminated filename
+; Returns: C=0 OK, C=1 error (A holds errorcode)
+; Modifies: A,X,Y
+;-------------------------------------------------------------------------------
+
+tabl_bi         = depackbuffer
+tabl_lo         = depackbuffer+52
+tabl_hi         = depackbuffer+104
+
+zp_len_lo       = zpbase+0
+zp_src_lo       = zpbase+1
+zp_src_hi       = zpbase+2
+zp_bits_lo      = zpbase+3
+zp_bits_hi      = zpbase+4
+zp_bitbuf       = zpbase+5
+zp_dest_lo      = zpbase+6
+zp_dest_hi      = zpbase+7
+
+exomizer_error:
+        rts
+loadfile_exomizer:
+        jsr openfile
+
+!if EXOMIZER_VERSION_3 = 0 {
+;///////////////////////////////////////////////////////////////////////////////
+;
+; Exomizer 1/2
+;
+; This source code is altered and is not the original version found on
+; the Exomizer homepage.
+; It contains modifications made by Krill/Plush to depack a packed file
+; crunched forward and to work with his loader.
+;
+; Further modification (error handling, loading under IO area) &
+; bugfixing of the forward decruncher by Lasse Öörni
+; -------------------------------------------------------------------
+;
+; Copyright (c) 2002 - 2005 Magnus Lind.
+;
+; This software is provided 'as-is', without any express or implied warranty.
+; In no event will the authors be held liable for any damages arising from
+; the use of this software.
+;
+; Permission is granted to anyone to use this software for any purpose,
+; including commercial applications, and to alter it and redistribute it
+; freely, subject to the following restrictions:
+;
+;   1. The origin of this software must not be misrepresented; you must not
+;   claim that you wrote the original software. If you use this software in a
+;   product, an acknowledgment in the product documentation would be
+;   appreciated but is not required.
+;
+;   2. Altered source versions must be plainly marked as such, and must not
+;   be misrepresented as being the original software.
+;
+;   3. This notice may not be removed or altered from any distribution.
+;
+;   4. The names of this software and/or it's copyright holders may not be
+;   used to endorse or promote products derived from this software without
+;   specific prior written permission.
+;
+; -------------------------------------------------------------------
+; no code below this comment has to be modified in order to generate
+; a working decruncher of this source file.
+; However, you may want to relocate the tables last in the file to a
+; more suitable address.
+; -------------------------------------------------------------------
+
+; -------------------------------------------------------------------
+; jsr this label to decrunch, it will in turn init the tables and
+; call the decruncher
+; no constraints on register content, however the
+; decimal flag has to be #0 (it almost always is, otherwise do a cld)
+exomizer:
+
+!if FORWARD_DECRUNCHING > 0 {
+
+; -------------------------------------------------------------------
+; init zeropage, x and y regs.
+;
+        ldx #3
+        ldy #0
+init_zp:
+        jsr getbyte
+        bcs exomizer_error ;File not found error, only checked in the beginning
+        sta zp_bitbuf-1,x
+        dex
+        bne init_zp
+
+; -------------------------------------------------------------------
+; calculate tables (50 bytes)
+; x and y must be #0 when entering
+;
+nextone:
+        inx
+        tya
+        and # $0f
+        beq shortcut    ; start with new sequence
+
+        txa          ; this clears reg a
+        lsr          ; and sets the carry flag
+        ldx tabl_bi-1,y
+rolle:
+        rol
+        rol zp_bits_hi
+        dex
+        bpl rolle    ; c = 0 after this (rol zp_bits_hi)
+
+        adc tabl_lo-1,y
+        tax
+
+        lda zp_bits_hi
+        adc tabl_hi-1,y
+shortcut:
+        sta tabl_hi,y
+        txa
+        sta tabl_lo,y
+
+        ldx # 4
+        jsr get_bits    ; clears x-reg.
+        sta tabl_bi,y
+        iny
+        cpy # 52
+        bne nextone
+        beq begin
+
+; -------------------------------------------------------------------
+; get bits (29 bytes)
+;
+; args:
+;   x = number of bits to get
+; returns:
+;   a = #bits_lo
+;   x = #0
+;   c = 0
+;   z = 1
+;   zp_bits_hi = #bits_hi
+; notes:
+;   y is untouched
+; -------------------------------------------------------------------
+get_bits:
+        lda # $00
+        sta zp_bits_hi
+        cpx # $01
+        bcc bits_done
+bits_next:
+        lsr zp_bitbuf
+        bne bits_ok
+        pha
+        jsr getbyte
+        sec
+        ror
+        sta zp_bitbuf
+        pla
+bits_ok:
+        rol
+        rol zp_bits_hi
+        dex
+        bne bits_next
+bits_done:
+        rts
+
+exomizer_ok:
+        clc
+        rts
+
+; -------------------------------------------------------------------
+; literal sequence handling
+;
+!if LITERAL_SEQUENCES_NOT_USED=0 {
+
+literal_start:
+        ldx # $10    ; these 16 bits
+        jsr get_bits; tell the length of the sequence
+        ldx zp_bits_hi
+}
+literal_start1: ; if literal byte, a = 1, zp_bits_hi = 0
+        sta zp_len_lo
+
+; -------------------------------------------------------------------
+; main copy loop
+; x = length hi
+; y = length lo
+;
+copy_start:
+        ldy #$00
+copy_next:
+        bcs copy_noliteral
+        jsr getbyte
+copy_noliteral:
+!if LOAD_UNDER_IO > 0 {
+        jsr disableio
+}       bcc copy_store
+        lda (zp_src_lo),y
+copy_store:
+        sta (zp_dest_lo),y
+!if LOAD_UNDER_IO > 0 {
+        jsr enableio
+}       iny
+        bne copy_skiphi
+        dex
+        inc zp_dest_hi
+        inc zp_src_hi
+copy_skiphi:
+        tya
+        eor zp_len_lo
+        bne copy_next
+        txa
+        bne copy_next
+        tya
+        clc
+        adc zp_dest_lo
+        sta zp_dest_lo
+        bcc copy_skiphi2
+        inc zp_dest_hi
+copy_skiphi2:
+
+; -------------------------------------------------------------------
+; decruncher entry point, needs calculated tables (21(13) bytes)
+; x and y must be #0 when entering
+;
+begin:
+        inx
+        jsr get_bits
+        tay
+        bne literal_start1; if bit set, get a literal byte
+getgamma:
+        inx
+        jsr bits_next
+        lsr
+        iny
+        bcc getgamma
+        cpy # $11
+        beq exomizer_ok   ; gamma = 17   : end of file
+!if LITERAL_SEQUENCES_NOT_USED=0 {
+        bcs literal_start ; gamma = 18   : literal sequence
+}
+        ; gamma = 1..16: sequence
+
+; -------------------------------------------------------------------
+; calulate length of sequence (zp_len) (11 bytes)
+;
+        ldx tabl_bi-1,y
+        jsr get_bits
+        adc tabl_lo-1,y  ; we have now calculated zp_len_lo
+        sta zp_len_lo
+; -------------------------------------------------------------------
+; now do the hibyte of the sequence length calculation (6 bytes)
+        lda zp_bits_hi
+        adc tabl_hi-1,y  ; c = 0 after this.
+        pha
+; -------------------------------------------------------------------
+; here we decide what offset table to use (20 bytes)
+; x is 0 here
+;
+        bne nots123
+        ldy zp_len_lo
+        cpy # $04
+        bcc size123
+nots123:
+        ldy # $03
+size123:
+        ldx tabl_bit-1,y
+        jsr get_bits
+        adc tabl_off-1,y  ; c = 0 after this.
+        tay      ; 1 <= y <= 52 here
+
+; -------------------------------------------------------------------
+; calulate absolute offset (zp_src)
+;
+        ldx tabl_bi,y
+        jsr get_bits
+        adc tabl_lo,y
+        bcc skipcarry
+        inc zp_bits_hi
+skipcarry:
+        sec
+        eor # $ff
+        adc zp_dest_lo
+        sta zp_src_lo
+        lda zp_dest_hi
+        sbc zp_bits_hi
+        sbc tabl_hi,y
+        sta zp_src_hi
+
+; -------------------------------------------------------------------
+; prepare for copy loop (8(6) bytes)
+;
+        pla
+        tax
+        sec
+        jmp copy_start
+
+} else {
+
+; -------------------------------------------------------------------
+; init zeropage, x and y regs. (12 bytes)
+;
+        ldy #0
+        ldx #3
+init_zp:
+        jsr getbyte
+        bcs exomizer_error ;File not found error, checked only in the beginning
+        sta zp_bitbuf-1,x
+        dex
+        bne init_zp
+
+; -------------------------------------------------------------------
+; calculate tables (50 bytes)
+; x and y must be #0 when entering
+;
+nextone:
+        inx
+        tya
+        and # $0f
+        beq shortcut              ; starta på ny sekvens
+        txa                       ; this clears reg a
+        lsr                       ; and sets the carry flag
+        ldx tabl_bi-1,y
+rolle:
+        rol
+        rol zp_bits_hi
+        dex
+        bpl rolle                 ; c = 0 after this (rol zp_bits_hi)
+        adc tabl_lo-1,y
+        tax
+        lda zp_bits_hi
+        adc tabl_hi-1,y
+shortcut:
+        sta tabl_hi,y
+        txa
+        sta tabl_lo,y
+        ldx #4
+        jsr get_bits              ; clears x-reg.
+        sta tabl_bi,y
+        iny
+        cpy #52
+        bne nextone
+        ldy #0
+        beq begin
+
+; -------------------------------------------------------------------
+; get bits (29 bytes)
+;
+; args:
+;   x = number of bits to get
+; returns:
+;   a = #bits_lo
+;   x = #0
+;   c = 0
+;   z = 1
+;   zp_bits_hi = #bits_hi
+; notes:
+;   y is untouched
+; -------------------------------------------------------------------
+get_bits:
+        lda # $00
+        sta zp_bits_hi
+        cpx # $01
+        bcc bits_done
+bits_next:
+        lsr zp_bitbuf
+        bne bits_ok
+        pha
+literal_get_byte:
+        php
+        jsr getbyte
+        plp
+        bcc literal_byte_gotten
+        ror
+        sta zp_bitbuf
+        pla
+bits_ok:
+        rol
+        rol zp_bits_hi
+        dex
+        bne bits_next
+bits_done:
+        rts
+
+exomizer_ok:
+        clc
+        rts
+
+; -------------------------------------------------------------------
+; main copy loop (18(16) bytes)
+;
+copy_next_hi:
+        dex
+        dec zp_dest_hi
+        dec zp_src_hi
+copy_next:
+        dey
+!if LITERAL_SEQUENCES_NOT_USED = 0 {
+        bcc literal_get_byte
+}
+literal_byte_gotten:
+!if LOAD_UNDER_IO > 0 {
+        jsr disableio
+}       bcc copy_store
+        lda (zp_src_lo),y
+copy_store:
+        sta (zp_dest_lo),y
+!if LOAD_UNDER_IO > 0 {
+        jsr enableio
+}
+copy_start:
+        tya
+        bne copy_next
+begin:
+        txa
+        bne copy_next_hi
+; -------------------------------------------------------------------
+; decruncher entry point, needs calculated tables (21(13) bytes)
+; x and y must be #0 when entering
+;
+!if LITERAL_SEQUENCES_NOT_USED = 0 {
+        inx
+        jsr get_bits
+        tay
+        bne literal_start1
+} else {
+        dey
+}
+begin2:
+        inx
+        jsr bits_next
+        lsr
+        iny
+        bcc begin2
+!if LITERAL_SEQUENCES_NOT_USED > 0 {
+        beq literal_start
+}       cpy # $11
+!if LITERAL_SEQUENCES_NOT_USED = 0 {
+        bcc sequence_start
+        beq exomizer_ok
+; -------------------------------------------------------------------
+; literal sequence handling (13(2) bytes)
+;
+        ldx # $10
+        jsr get_bits
+literal_start1: 
+        sta zp_len_lo
+        ldx zp_bits_hi
+        ldy # 0
+        bcc literal_start
+sequence_start:
+} else {
+        bcs exomizer_ok
+}
+; -------------------------------------------------------------------
+; calulate length of sequence (zp_len) (11 bytes)
+;
+        ldx tabl_bi-1,y
+        jsr get_bits
+        adc tabl_lo-1,y         ; we have now calculated zp_len_lo
+        sta zp_len_lo
+; -------------------------------------------------------------------
+; now do the hibyte of the sequence length calculation (6 bytes)
+        lda zp_bits_hi
+        adc tabl_hi-1,y         ; c = 0 after this.
+        pha
+; -------------------------------------------------------------------
+; here we decide what offset table to use (20 bytes)
+; x is 0 here
+;
+        bne nots123
+        ldy zp_len_lo
+        cpy # $04
+        bcc size123
+nots123:
+        ldy # $03
+size123:        
+        ldx tabl_bit-1,y
+        jsr get_bits
+        adc tabl_off-1,y          ; c = 0 after this.
+        tay                       ; 1 <= y <= 52 here
+; -------------------------------------------------------------------
+; Here we do the dest_lo -= len_lo subtraction to prepare zp_dest
+; but we do it backwards:                a - b == (b - a - 1) ^ ~0 (C-syntax)
+; (16(16) bytes)
+        lda zp_len_lo
+literal_start:  
+        sbc zp_dest_lo            ; literal enters here with y = 0, c = 1
+        bcc noborrow
+        dec zp_dest_hi
+noborrow:
+        eor # $ff
+        sta zp_dest_lo
+        cpy # $01                  ; y < 1 then literal
+!if LITERAL_SEQUENCES_NOT_USED = 0 {
+        bcc pre_copy
+} else {
+        bcc literal_get_byte
+}
+; -------------------------------------------------------------------
+; calulate absolute offset (zp_src) (27 bytes)
+;
+        ldx tabl_bi,y
+        jsr get_bits
+        adc tabl_lo,y
+        bcc skipcarry
+        inc zp_bits_hi
+        clc
+skipcarry:
+        adc zp_dest_lo
+        sta zp_src_lo
+        lda zp_bits_hi
+        adc tabl_hi,y
+        adc zp_dest_hi
+        sta zp_src_hi
+; -------------------------------------------------------------------
+; prepare for copy loop (8(6) bytes)
+;
+        pla
+        tax
+        sec
+!if LITERAL_SEQUENCES_NOT_USED = 0 {
+pre_copy:
+        ldy zp_len_lo
+        jmp copy_start
+} else {
+  ldy zp_len_lo
+  bcs copy_start
+}
+}
+
+; -------------------------------------------------------------------
+; two small static tables (6(6) bytes)
+;
+tabl_bit:
+	!byte 2, 4, 4
+tabl_off:
+	!byte 48, 32, 16
+; -------------------------------------------------------------------
+; end of decruncher
+; -------------------------------------------------------------------
+
+} else {
+
+zp_len_hi       = zp_bits_lo
+
+; -------------------------------------------------------------------
+; Exomizer 3
+;
+; This source code is altered and is not the original version found on
+; the Exomizer homepage.
+; -------------------------------------------------------------------
+;
+; Copyright (c) 2002 - 2018 Magnus Lind.
+;
+; This software is provided 'as-is', without any express or implied warranty.
+; In no event will the authors be held liable for any damages arising from
+; the use of this software.
+;
+; Permission is granted to anyone to use this software for any purpose,
+; including commercial applications, and to alter it and redistribute it
+; freely, subject to the following restrictions:
+;
+;   1. The origin of this software must not be misrepresented; you must not
+;   claim that you wrote the original software. If you use this software in a
+;   product, an acknowledgment in the product documentation would be
+;   appreciated but is not required.
+;
+;   2. Altered source versions must be plainly marked as such, and must not
+;   be misrepresented as being the original software.
+;
+;   3. This notice may not be removed or altered from any distribution.
+;
+;   4. The names of this software and/or it's copyright holders may not be
+;   used to endorse or promote products derived from this software without
+;   specific prior written permission.
+;
+; -------------------------------------------------------------------
+; no code below this comment has to be modified in order to generate
+; a working decruncher of this source file.
+; However, you may want to relocate the tables last in the file to a
+; more suitable address.
+; -------------------------------------------------------------------
+
+; -------------------------------------------------------------------
+; jsr this label to decrunch, it will in turn init the tables and
+; call the decruncher
+; no constraints on register content, however the
+; decimal flag has to be #0 (it almost always is, otherwise do a cld)
+exomizer:
+; init zeropage, x and y regs. (12 bytes)
+;
+        ldy #0
+        ldx #3
+init_zp:
+        jsr getbyte         ; preserve flags, exit on error
+        bcs exomizer_error  ; File not found error, only checked in the beginning
+        sta zp_bitbuf-1, x
+        dex
+        bne init_zp
+; -------------------------------------------------------------------
+; calculate tables (62 bytes) + get_bits macro
+; x and y must be #0 when entering
+;
+table_gen:
+        tax
+        tya
+        and # $0f
+        sta tabl_lo, y
+        beq shortcut            ; start a new sequence
+; -------------------------------------------------------------------
+        txa
+        adc tabl_lo - 1, y
+        sta tabl_lo,y
+        lda zp_len_hi
+        adc tabl_hi - 1, y
+shortcut:
+        sta tabl_hi, y
+; -------------------------------------------------------------------
+        lda # $01
+        sta zp_len_hi
+        lda # $78                ; %01111000
+        jsr get_bits
+; -------------------------------------------------------------------
+        lsr
+        tax
+        beq rolled
+        php
+rolle:
+        asl zp_len_hi
+        sec
+        ror
+        dex
+        bne rolle
+        plp
+rolled:
+        ror
+        sta tabl_bi, y
+        bmi no_fixup_lohi
+        lda zp_len_hi
+        stx zp_len_hi
+        !byte $24
+no_fixup_lohi:
+        txa
+; -------------------------------------------------------------------
+        iny
+        cpy # 52
+        bne table_gen
+; -------------------------------------------------------------------
+; prepare for main decruncher
+        ldy zp_dest_lo
+        stx zp_dest_lo
+        stx zp_bits_hi
+
+; -------------------------------------------------------------------
+; copy one literal byte to destination (11 bytes)
+;
+literal_start1:
+!if FORWARD_DECRUNCHING = 0 {
+        tya
+        bne no_hi_decr
+        dec zp_dest_hi
+no_hi_decr:
+        dey
+}
+        jsr getbyte
+!if LOAD_UNDER_IO > 0 {
+        jsr disableio
+}
+        sta (zp_dest_lo), y
+!if LOAD_UNDER_IO > 0 {
+        jsr enableio
+}
+!if FORWARD_DECRUNCHING > 0 {
+        iny
+        bne no_hi_incr
+        inc zp_dest_hi
+no_hi_incr:
+}
+; -------------------------------------------------------------------
+; fetch sequence length index (15 bytes)
+; x must be #0 when entering and contains the length index + 1
+; when exiting or 0 for literal byte
+next_round:
+        dex
+        lda zp_bitbuf
+no_literal1:
+        asl
+        bne nofetch8
+        php
+        jsr getbyte
+        plp
+        rol
+nofetch8:
+        inx
+        bcc no_literal1
+        sta zp_bitbuf
+; -------------------------------------------------------------------
+; check for literal byte (2 bytes)
+;
+        beq literal_start1
+; -------------------------------------------------------------------
+; check for decrunch done and literal sequences (4 bytes)
+;
+        cpx # $11
+        bcs exit_or_lit_seq
+
+; -------------------------------------------------------------------
+; calulate length of sequence (zp_len) (18(11) bytes) + get_bits macro
+;
+        lda tabl_bi - 1, x
+        jsr get_bits
+        adc tabl_lo - 1, x       ; we have now calculated zp_len_lo
+        sta zp_len_lo
+!if MAX_SEQUENCE_LENGTH_256 = 0 {
+        lda zp_bits_hi
+        adc tabl_hi - 1,x       ; c = 0 after this.
+        sta zp_len_hi
+; -------------------------------------------------------------------
+; here we decide what offset table to use (27(26) bytes) + get_bits_nc macro
+; z-flag reflects zp_len_hi here
+;
+        ldx zp_len_lo
+} else {
+        tax
+}
+        lda # $e1
+        cpx # $03
+        bcs gbnc2_next
+        lda tabl_bit, x
+gbnc2_next:
+        asl zp_bitbuf
+        bne gbnc2_ok
+        tax
+        php
+        jsr getbyte
+        plp
+        rol
+        sta zp_bitbuf
+        txa
+gbnc2_ok:
+        rol
+        bcs gbnc2_next
+        tax
+; -------------------------------------------------------------------
+; calulate absolute offset (zp_src) (21 bytes) + get_bits macro
+;
+!if MAX_SEQUENCE_LENGTH_256 = 0 {
+        lda #0
+        sta zp_bits_hi
+}
+!if FORWARD_DECRUNCHING = 0 {
+        lda tabl_bi, x
+        jsr get_bits
+        adc tabl_lo, x
+        sta zp_src_lo
+        lda zp_bits_hi
+        adc tabl_hi, x
+        adc zp_dest_hi
+        sta zp_src_hi
+} else {
+        lda tabl_bi, x
+        jsr get_bits
+        adc tabl_lo, x
+        bcc skipcarry
+        inc zp_bits_hi
+        clc
+skipcarry:
+        eor # $ff
+        adc # $01
+        sta zp_src_lo
+        lda zp_dest_hi
+        sbc zp_bits_hi
+        sbc tabl_hi, x
+        sta zp_src_hi
+        clc
+}
+
+; -------------------------------------------------------------------
+; prepare for copy loop (2 bytes)
+;
+pre_copy:
+        ldx zp_len_lo
+; -------------------------------------------------------------------
+; main copy loop (30 bytes)
+;
+copy_next:
+!if FORWARD_DECRUNCHING = 0 {
+        tya
+        bne copy_skip_hi
+        dec zp_dest_hi
+        dec zp_src_hi
+copy_skip_hi:
+        dey
+}
+!if LITERAL_SEQUENCES_NOT_USED = 0 {
+        bcs get_literal_byte
+}
+!if LOAD_UNDER_IO > 0 {
+        jsr disableio
+}
+        lda (zp_src_lo),y
+literal_byte_gotten:
+        sta (zp_dest_lo),y
+!if LOAD_UNDER_IO > 0 {
+        jsr enableio
+}
+!if FORWARD_DECRUNCHING > 0 {
+        iny
+        bne copy_skip_hi
+        inc zp_dest_hi
+        inc zp_src_hi
+copy_skip_hi:
+}
+        dex
+        bne copy_next
+!if MAX_SEQUENCE_LENGTH_256 = 0 {
+        lda zp_len_hi
+}
+begin_stx:
+        stx zp_bits_hi
+!if (FORWARD_DECRUNCHING > 0 & MAX_SEQUENCE_LENGTH_256 = 0 & LITERAL_SEQUENCES_NOT_USED = 0) | LOAD_UNDER_IO > 0 {
+        bne no_next_round
+        jmp next_round
+no_next_round:
+} else {
+        beq next_round
+}
+!if MAX_SEQUENCE_LENGTH_256 = 0 {
+copy_next_hi:
+        dec zp_len_hi
+        jmp copy_next
+}
+!if LITERAL_SEQUENCES_NOT_USED = 0 {
+get_literal_byte:
+        jsr getbyte
+!if LOAD_UNDER_IO > 0 {
+        jsr disableio
+}
+        sec
+        bcs literal_byte_gotten
+}
+; -------------------------------------------------------------------
+; exit or literal sequence handling (16(12) bytes)
+;
+exit_or_lit_seq:
+!if LITERAL_SEQUENCES_NOT_USED = 0 {
+        beq decr_exit
+        jsr getbyte
+!if MAX_SEQUENCE_LENGTH_256 = 0 {
+        sta zp_len_hi
+}
+        jsr getbyte
+        tax
+        sec
+        bcs copy_next
+decr_exit:
+}
+        clc
+        rts
+
+get_bits:
+        adc # $80                ; needs c=0, affects v
+        asl
+        bpl gb_skip
+gb_next:
+        asl zp_bitbuf
+        bne gb_ok
+        pha
+        php
+        jsr getbyte
+        plp
+        rol
+        sta zp_bitbuf
+        pla
+gb_ok:
+        rol
+        bmi gb_next
+gb_skip:
+        bvs gb_get_hi
+        rts
+gb_get_hi:
+        sta zp_bits_hi
+        jsr getbyte
+        sec
+        rts
+
+; -------------------------------------------------------------------
+; the static stable used for bits+offset for lengths 3, 1 and 2 (3 bytes)
+; bits 4, 2, 4 and offsets 16, 48, 32
+tabl_bit:
+        !byte %11100001, %10001100, %11100010
+; -------------------------------------------------------------------
+; end of decruncher
+; -------------------------------------------------------------------
+}
