@@ -1,0 +1,79 @@
+; nücomer magazine (c) copyright Kroc Camen 2019. unless otherwise noted,
+; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
+; licence; you may reuse and modify this code how you please as long as you:
+;
+; - retain the copyright notice
+; - use the same licence for your derived code
+; - do not use it for commercial purposes
+;   (contact the author for a commercial licence)
+;
+;===============================================================================
+; prg_boot.acme
+;
+; this is a BASIC bootstrap for auto-starting a machine-language program
+; from disk or tape. it's a simple 1-line BASIC program that automatically
+; jumps to the machine language code immediately after the BASIC program
+
+!source "c64/c64.acme"
+
+* = $0801
+
+boot_basic:
+;===============================================================================
+        !word @end              ; pointer to next BASIC line
+
+        !word 64                ; line-number
+        !byte $9e               ; `SYS`
+
+        ; address of machine-code address in decimal:
+        !byte '0' + boot_init % 10000 / 1000
+        !byte '0' + boot_init %  1000 /  100
+        !byte '0' + boot_init %   100 /   10
+        !byte '0' + boot_init %    10
+        
+        !byte 0                 ; end-of-line
+
+@end:   !word $0000             ; end of BASIC program
+
+;===============================================================================
+; load the intro:
+;
+; the purpose of this bootstrap is to swtich from BASIC to machine-language
+; control and load the intro
+;
+boot_init:
+        ; disable interrupts during load
+        sei
+        ; turn the screen off
+        lda # $00
+        sta VIC_SCREEN_VERT
+
+        ; load intro:
+        ;-----------------------------------------------------------------------
+        ; TODO: replace this with a fast-loader
+        ;
+        ldx ZP_KERNAL_DEV       ; last-used KERNAL device number
+        bne +                   ; not 0? good
+        ldx # DEV_DRV8          ; default to drive 8
++       ldy # $00               ; use manual load-address
+        tya                     ; logical file number
+        jsr KERNAL_SETLFS
+
+        ldx #< boot_filename
+        ldy #> boot_filename
+        lda # 5                 ; A is string-length
+        jsr KERNAL_SETNAM       ; set KERNAL file name
+
+        lda # 0                 ; load, not verify
+        ldx #< $c000
+        ldy #> $c000
+        jsr KERNAL_LOAD
+
+        ; jump to the intro
+        jmp $c000
+
+boot_filename:
+        ;-----------------------------------------------------------------------
+        !pet    "intro"
+
+

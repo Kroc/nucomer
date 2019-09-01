@@ -1,3 +1,13 @@
+-- nücomer magazine (c) copyright Kroc Camen 2019. unless otherwise noted,
+-- licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
+-- licence; you may reuse and modify this code how you please as long as you:
+--
+-- # retain the copyright notice
+-- # use the same licence for your derived code
+-- # do not use it for commercial purposes
+--   (contact the author for a commercial licence)
+--
+
 -- issua.lua : produces the build artefacts for an issue
 
 -- theory of operation: (WIP)

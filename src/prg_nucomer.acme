@@ -1,0 +1,50 @@
+; nücomer magazine (c) copyright Kroc Camen 2019. unless otherwise noted,
+; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
+; licence; you may reuse and modify this code how you please as long as you:
+;
+; - retain the copyright notice
+; - use the same licence for your derived code
+; - do not use it for commercial purposes
+;   (contact the author for a commercial licence)
+;
+;===============================================================================
+!source "c64/c64.acme"
+
+!addr   NU_VIC_BANK     = 3     ; the VIC bank used by the outfit
+!addr   nu_font         = $e000 ; location of the custom font; 2 KB
+!addr   nu_screen       = $ec00 ; text-screen location; 1 KB
+
+!source "bsod64.acme"           ; BSOD64 integration
+
+* = $0801
+
+;===============================================================================
+; NOTE: exomizer includes BSOD64 in the payload, so we don't need to
+;       manually load it from the outfit. TODO: load an exomized BSOD64
+;       file using the IRQ fast-loader during some off-time (menu-screen?)
+;
+init:
+        lda # %00010111
+        sta VIC_LAYOUT
+
+        ;-----------------------------------------------------------------------
+        jsr irqs_init
+
+        ; turn off BASIC & KERNAL ROM
+        dec CPU_CONTROL
+        dec CPU_CONTROL
+        
+        jsr menu_screen         ; from here, there is no going back...
+        
+        ; halt and catch fire
+        jmp *
+
+;===============================================================================
+!source "interrupts.acme"
+
+!source "print.acme"            ; global string-printing routines
+!source "keyboard.acme"
+
+!source "menu.acme"
+!source "read.acme"
+

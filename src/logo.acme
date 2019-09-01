@@ -1,24 +1,40 @@
+; nücomer magazine (c) copyright Kroc Camen 2019. unless otherwise noted,
+; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
+; licence; you may reuse and modify this code how you please as long as you:
+;
+; - retain the copyright notice
+; - use the same licence for your derived code
+; - do not use it for commercial purposes
+;   (contact the author for a commercial licence)
+;
+;===============================================================================
+; logo.acme : the splash screen used during boot
+;
+
 ; screen row where the logo text should appear
-LOGO_TEXT_ROW   = 12
+LOGO_TEXT_ROW           = 12
 
 ; 'final' X-positions of the logo halves
-EYE_LEFT_XPOS   = 8 + (320 / 2) - (21 / 2) - 3
-EYE_RIGHT_XPOS  = 8 + (320 / 2) + (21 / 2) + 2
+LOGO_EYE_LEFT_XPOS      = 8 + (320 / 2) - (21 / 2) - 3
+LOGO_EYE_RIGHT_XPOS     = 8 + (320 / 2) + (21 / 2) + 2
 
 ; 'final' Y-positions of the logo halves
-EYE_LEFT_YPOS   = (256 - 24) / 2
-EYE_RIGHT_YPOS  = ((256 - 24) / 2) - 1
+LOGO_EYE_LEFT_YPOS      = (256 - 24) / 2
+LOGO_EYE_RIGHT_YPOS     = ((256 - 24) / 2) - 1
 
 ; starting position of the eye-lid.
 ; note that it's a double-wide sprite
-EYE_LID1_XPOS   = EYE_LEFT_XPOS
-EYE_LID1_YPOS   = EYE_LEFT_YPOS - 24
-EYE_LID2_XPOS   = EYE_LEFT_XPOS
-EYE_LID2_YPOS   = EYE_LEFT_YPOS - 24 - 21
+LOGO_EYE_LID1_XPOS      = LOGO_EYE_LEFT_XPOS
+LOGO_EYE_LID1_YPOS      = LOGO_EYE_LEFT_YPOS - 24
+LOGO_EYE_LID2_XPOS      = LOGO_EYE_LEFT_XPOS
+LOGO_EYE_LID2_YPOS      = LOGO_EYE_LEFT_YPOS - 24 - 21
 
 ;===============================================================================
 logo_screen:
         ;-----------------------------------------------------------------------
+        lda # %00010111
+        sta VIC_LAYOUT
+        
         ; clear screen:
         ; turn the screen off whilst we clear it
         lda # %00001000
@@ -123,27 +139,27 @@ logo_screen:
 
         ; wait a moment
         ldx # 30
-        jsr wait_frames
+        jsr logo_wait_frames
 
         ; blink the eye:
         ; (note X is 0 due to above count-down)
 -       jsr logo_draw_eyelid    ; position the eye-lid (begins with frame 0)
-        jsr wait_frame
+        jsr logo_wait_frame
         inx
         cpx # 9                 ; reached max. number of frames?
         bcc -                   ; no, keep going
 
         ; now open the eye-lid
 -       jsr logo_draw_eyelid
-        jsr wait_frame
-        jsr wait_frame
+        jsr logo_wait_frame
+        jsr logo_wait_frame
         dex
         bpl -
         jsr logo_draw_eyelid    ; update for frame 0 at the drop-out
 
         ; wait a moment
         ldx # 25
-        jsr wait_frames
+        jsr logo_wait_frames
 
         ; fade out
         ;-----------------------------------------------------------------------
@@ -160,7 +176,7 @@ logo_screen:
         bpl -
 
         ldx # 3
-        jsr wait_frames
+        jsr logo_wait_frames
 
         dey
         bpl @fade
@@ -184,7 +200,7 @@ logo_animate:
         jsr logo_draw
         
         ldx # 3
-        jsr wait_frames
+        jsr logo_wait_frames
         
         pla
         rts
@@ -247,14 +263,14 @@ logo_draw:
         txa
         tay                     ; (put aside the original separation distance)
         clc
-        adc # EYE_LEFT_YPOS
+        adc # LOGO_EYE_LEFT_YPOS
         sta VIC_SPRITE2_Y
 
         ; the right-hand eye moves the opposite direction so we have to
         ; subtract the separation distance from the 'final' Y-position,
         ; we write this distance into the subtract instruction below
         stx @ypos+1
-        lda # EYE_RIGHT_YPOS
+        lda # LOGO_EYE_RIGHT_YPOS
         sec
 @ypos   sbc # $88
         sta VIC_SPRITE3_Y
@@ -301,13 +317,15 @@ logo_draw:
         ; write this into the subtract instruction below
         sta @xpos+1
         clc
-        lda # EYE_LEFT_XPOS     ; the intended final position
+        ; the intended final position
+        lda # LOGO_EYE_LEFT_XPOS
 @xpos   sbc # $88               ; subtract the offset
         sta VIC_SPRITE2_X       ; position the left-eye
 
         txa
         clc
-        adc # EYE_RIGHT_XPOS    ; only need to add the indent for the right eye
+        ; only need to add the indent for the right eye
+        adc # LOGO_EYE_RIGHT_XPOS
         sta VIC_SPRITE3_X       ; position the right-eye
 
         rts
@@ -322,18 +340,18 @@ logo_draw_eyelid:
         lda @frames, x
         tay
         clc
-        adc # EYE_LID1_YPOS
+        adc # LOGO_EYE_LID1_YPOS
         sta VIC_SPRITE0_Y
         tya
         clc
-        adc # EYE_LID2_YPOS
+        adc # LOGO_EYE_LID2_YPOS
         sta VIC_SPRITE1_Y
 
         ; set X-positions
         ; (needed during initialisation)
-        lda # EYE_LID1_XPOS
+        lda # LOGO_EYE_LID1_XPOS
         sta VIC_SPRITE0_X
-        lda # EYE_LID2_XPOS
+        lda # LOGO_EYE_LID2_XPOS
         sta VIC_SPRITE1_X
         
         rts
@@ -341,6 +359,43 @@ logo_draw_eyelid:
 @frames:
         ;-----------------------------------------------------------------------
         !byte   0, 1, 2, 4, 7, 11, 16, 22, 29, 32
+
+;===============================================================================
+; wait for a given number of frames to pass:
+;
+;       X = number of frames to wait (1-based)
+;
+logo_wait_frames:
+        ;-----------------------------------------------------------------------
+-       jsr logo_wait_frame
+        dex
+        bne -
+        
+        rts
+
+logo_wait_frame:
+        ;-----------------------------------------------------------------------
+        ; wait for a full cycle of the raster beam:
+        ;
+        ; bit 7 of $D011 is the upper-most bit of the current raster line,
+        ; i.e. when it is 0 the beam is on lines 0-255 and when it's 1 the
+        ; beam is on lines 256+ -- PAL has 312 lines, NTSC has 262 lines
+        ; but some very early NTSC machines have 263 lines
+        ;
+        ; first, we wait for the beam to enter the top of the screen
+        ; (lines 0-255), this is so that if the beam is currently within the
+        ; bottom of the screen (lines 256+), we wait for it to go back around
+        ; and don't trigger early
+        ;
+-       bit VIC_SCREEN_VERT
+        bmi -                   ; wait until bit 7 is 0
+
+        ; now wait for the addressible screen to pass and the vblank
+        ; to begin again, this syncronises the main thread with the vblank
+-       bit VIC_SCREEN_VERT
+        bpl -                   ; wait until bit 7 is 1
+
+        rts
 
 logo_sprites:
 ;===============================================================================

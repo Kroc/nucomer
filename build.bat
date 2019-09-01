@@ -37,6 +37,16 @@ REM ============================================================================
 ECHO ----------------------------------------
 <NUL (SET /P "$=Assemble Outfit...                  ")
 
+REM # assemble fonts
+REM ----------------------------------------------------------------------------
+%ACME% "src\fonts\admiral64.acme"
+%ACME% "src\fonts\wax-lyrics.acme"
+
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+
 REM # assemble the ASCII map used to embed the nücomer logo
 REM ----------------------------------------------------------------------------
 %ACME% ^
@@ -48,21 +58,37 @@ IF ERRORLEVEL 1 (
      EXIT /B %ERRORLEVEL%
 )
 
-REM # assemble fonts
+REM # assemble the disk bootstrap
 REM ----------------------------------------------------------------------------
-%ACME% "src\fonts\admiral64.acme"
-%ACME% "src\fonts\wax-lyrics.acme"
+%ACME% ^
+     --format cbm ^
+     --outfile "build\boot.prg" ^
+          "src\prg_boot.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
      EXIT /B %ERRORLEVEL%
 )
 
+REM # assemble the intro
+REM ----------------------------------------------------------------------------
+%ACME% ^
+     --format cbm ^
+     --outfile "build\intro.prg" ^
+          "src\prg_intro.acme"
+
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+
+REM # assemble the main outfit
+REM ----------------------------------------------------------------------------
 %ACME% ^
      --format cbm ^
      --report "build\nucomer.txt" ^
      --outfile "build\nucomer.prg" ^
-          "src\nucomer.acme"
+          "src\prg_nucomer.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
@@ -74,7 +100,7 @@ REM # exomize content:
 REM ============================================================================
 <NUL (SET /P "$=Exomize...                          ")
 
-%EXOMIZER% sfx "sys" -n -q ^
+%EXOMIZER% sfx $0801 -n -q ^
      -o "build\nucomer-exo.prg" ^
      -- "build\nucomer.prg" ^
         "src\bsod64\bsod64.prg" ^
@@ -99,6 +125,8 @@ REM # prepare the disk image
 %C1541% ^
      -silent -verbose off ^
      -format "nucomer,00" d64 "build\nucomer.d64" ^
+     -write "build\boot.prg"            "boot" ^
+     -write "build\intro.prg"           "intro" ^
      -write "build\nucomer-exo.prg"     "nucomer" ^
      -write "src\bsod64\bsod64.prg"     "bsod64" ^
      -write "build\admiral64.prg"       "admiral64.fon" ^

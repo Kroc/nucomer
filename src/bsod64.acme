@@ -1,5 +1,15 @@
-; BSOD64 integration; not the actual BSOD64 code as that is added
-; to the disk-image
+; nücomer magazine (c) copyright Kroc Camen 2019. unless otherwise noted,
+; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
+; licence; you may reuse and modify this code how you please as long as you:
+;
+; - retain the copyright notice
+; - use the same licence for your derived code
+; - do not use it for commercial purposes
+;   (contact the author for a commercial licence)
+;
+;===============================================================================
+; BSOD64 integration; not the actual BSOD64 code
+; as that is added to the disk-image
 
 !addr   bsod64_jsr      = $c003
 !addr   bsod64_irq      = $c006
