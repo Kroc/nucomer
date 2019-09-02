@@ -9,28 +9,46 @@
 ;
 ;===============================================================================
 !source "c64/c64.acme"
+!source "config.acme"           ; nucomer constants for memory layout
 
-!addr   NU_VIC_BANK     = 3     ; the VIC bank used by the outfit
-!addr   nu_font         = $e000 ; location of the custom font; 2 KB
-!addr   nu_screen       = $ec00 ; text-screen location; 1 KB
-
-!source "bsod64.acme"           ; BSOD64 integration
-
-* = $0801
+* = nu_main
 
 ;===============================================================================
 ; NOTE: exomizer includes BSOD64 in the payload, so we don't need to
 ;       manually load it from the outfit. TODO: load an exomized BSOD64
 ;       file using the IRQ fast-loader during some off-time (menu-screen?)
 ;
-init:
-        lda # %00010111
+init:   ; setup screen:
+        ;-----------------------------------------------------------------------
+        ; turn the screen off whilst we fiddle with the VIC settings
+        lda # %00000000
+        sta VIC_SCREEN_CTL1
+
+        ; change the VIC bank to $C000-$FFFF.
+        ; note that BSOD64 will occupy $C000-$DFFF
+        ;
+        ldx CIA2_PORTA_DDR      ; (backup current value)
+        lda # %00000111         ; we only want to write to the low 3-bits
+        sta CIA2_PORTA_DDR      ; set the port's read/write state
+        ;
+        ; the bit value is the inverse of the bank number 0-3
+        lda # (! NU_VIC_BANK) & %111
+        sta CIA2_PORTA          ; change VIC bank
+
+        ; we must restore the read/write state of the port
+        ; or disk I/O will break!
+        stx CIA2_PORTA_DDR
+
+        ; change the VIC memory layout to position the text-screen & font
+        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
         sta VIC_LAYOUT
 
+        ; start menu screen:
         ;-----------------------------------------------------------------------
         jsr irqs_init
 
-        ; turn off BASIC & KERNAL ROM
+        ; turn off BASIC & KERNAL ROM,
+        ; leave I/O on (BSOD64 will be under there)
         dec CPU_CONTROL
         dec CPU_CONTROL
         

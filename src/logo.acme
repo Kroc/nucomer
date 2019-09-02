@@ -32,14 +32,6 @@ LOGO_EYE_LID2_YPOS      = LOGO_EYE_LEFT_YPOS - 24 - 21
 ;===============================================================================
 logo_screen:
         ;-----------------------------------------------------------------------
-        lda # %00010111
-        sta VIC_LAYOUT
-        
-        ; clear screen:
-        ; turn the screen off whilst we clear it
-        lda # %00001000
-        sta VIC_SCREEN_CTL1
-
         ; set screen colour
         lda # ORANGE
         sta VIC_BORDER
@@ -47,10 +39,11 @@ logo_screen:
 
         ; erase the text-screen, colouring all text orange,
         ; i.e. ensure text is effectively invsible by default
-        ldx # $00
-
+        ;
         ; write four 256-byte strips simultaneously
         ; so we don't have to deal with nested loops
+        ; (note that X = 0 from above)
+        ;
 -       sta $d800 + $000, x
         sta $d800 + $100, x
         sta $d800 + $200, x
@@ -59,25 +52,16 @@ logo_screen:
         bne -
 
         lda # ' '               ; clear with space char
--       sta $0400 + $000, x
-        sta $0400 + $100, x
-        sta $0400 + $200, x
-        sta $0400 + $300, x
+-       sta nu_intro_screen + $000, x
+        sta nu_intro_screen + $100, x
+        sta nu_intro_screen + $200, x
+        sta nu_intro_screen + $300, x
         dex
         bne -
 
         ; configure sprites:
         ;-----------------------------------------------------------------------
-        ; copy the 4 sprites to $2000-$20FF. since the logo screen is only used
-        ; once, this space will be overwritten by the article data later
-        ;
-        ldx # $00
--       lda logo_sprites, x
-        sta $2000, x
-        dex
-        bne - 
-
-        ; set colours
+        ; set sprite colours
         lda # ORANGE            ; the eye-lid masks the eye,
         sta VIC_SPRITE0_COLOR   ; so has to match the background colour
         STA VIC_SPRITE1_COLOR
@@ -86,21 +70,21 @@ logo_screen:
         sta VIC_SPRITE3_COLOR
 
         ; select which sprite images to show
-        lda # ($2000 / 64) + 2
-        sta $0400 + VIC_SPRITE0_PTR
-        lda # ($2000 / 64) + 3
-        sta $0400 + VIC_SPRITE1_PTR
-        lda # ($2000 / 64) + 0
-        sta $0400 + VIC_SPRITE2_PTR
-        lda # ($2000 / 64) + 1
-        sta $0400 + VIC_SPRITE3_PTR
+        lda # (logo_eye_lid1 % $4000) / 64
+        sta nu_intro_screen + VIC_SPRITE0_PTR
+        lda # (logo_eye_lid2 % $4000) / 64
+        sta nu_intro_screen + VIC_SPRITE1_PTR
+        lda # (logo_eye_left % $4000) / 64
+        sta nu_intro_screen + VIC_SPRITE2_PTR
+        lda # (logo_eye_right % $4000) / 64
+        sta nu_intro_screen + VIC_SPRITE3_PTR
         
         ; set sprites to appear behind text
         lda # %11111111
         sta VIC_SPRITE_PRIORITY
         
         ; set sprite stretching;
-        ; the eye-lid sprites are double-width
+        ; (the eye-lid sprites are double-width)
         lda # %00000011
         sta VIC_SPRITE_DBLWIDTH
 
@@ -172,7 +156,7 @@ logo_screen:
         sta VIC_SPRITE3_COLOR
         ldx # 12
 -       dex
-        sta $D800 + (LOGO_TEXT_ROW * 40) + 14, x
+        sta $d800 + (LOGO_TEXT_ROW * 40) + 14, x
         bpl -
 
         ldx # 3
@@ -183,9 +167,9 @@ logo_screen:
 
         ; logo screen complete
         ;-----------------------------------------------------------------------
-        ; hide the sprites
         lda # %00000000
-        sta VIC_SPRITE_ENABLE
+        sta VIC_SPRITE_ENABLE   ; hide the sprites
+        sta VIC_SCREEN_VERT     ; turn the screen off
 
         rts
 
@@ -236,7 +220,7 @@ logo_draw:
         ; get left-behind characters from previous frames
         ldy # 39
         lda # ' '
--       sta $0400 + (LOGO_TEXT_ROW * 40), y
+-       sta nu_intro_screen + (LOGO_TEXT_ROW * 40), y
         dey
         bpl -
 
@@ -245,17 +229,17 @@ logo_draw:
         ; (note: use screen codes for these values)
 !ct scr {
         lda # 'd'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 20, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 20, x
         lda # 'e'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 21, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 21, x
         lda # 's'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 22, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 22, x
         lda # 'i'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 23, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 23, x
         lda # 'g'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 24, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 24, x
         lda # 'n'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 25, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 25, x
 }
         ; for the logo halves, there is a lesser amount of separation on the
         ; Y-axis than the X-axis so we set the left-eye's Y-position here based
@@ -285,15 +269,15 @@ logo_draw:
         ; (note: use screen codes for these values)
 !ct scr {
         lda # 'c'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 2, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 2, x
         lda # 'a'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 3, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 3, x
         lda # 'm'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 4, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 4, x
         lda # 'e'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 5, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 5, x
         lda # 'n'
-        sta $0400 + (LOGO_TEXT_ROW * 40) + 6, x
+        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 6, x
 }
         ; and apply the colour:
         ; first, retrieve colour value
@@ -402,6 +386,8 @@ logo_sprites:
 !macro  spriteBits .v {
         !byte .v >> 16, (.v >> 8) & 255, .v & 255
 }
+
+!align  63, 0
 
 ; the camen design logo
 ; copyright (c) Kroc Camen

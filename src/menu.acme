@@ -112,7 +112,7 @@ menu_screen:
         ;-----------------------------------------------------------------------
         ; setup the screen:
         ; turn the screen off whilst we clear it
-        lda # %00001000
+        lda # %00000000
         sta VIC_SCREEN_CTL1
         
         ; set screen colour
@@ -120,25 +120,6 @@ menu_screen:
         sta VIC_BORDER
         lda # MENU_BACK
         sta VIC_BACKGROUND
-
-        ; change the VIC bank to $C000-$FFFF.
-        ; note that BSOD64 will occupy $C000-$DFFF
-        ;
-        ldx CIA2_PORTA_DDR      ; (backup current value)
-        lda # %00000111         ; we only want to write to the low 3-bits
-        sta CIA2_PORTA_DDR      ; set the port's read/write state
-        ;
-        ; the bit value is the inverse of the bank number 0-3
-        lda # (! NU_VIC_BANK) & %111
-        sta CIA2_PORTA          ; change VIC bank
-
-        ; we must restore the read/write state of the port
-        ; or disk I/O will break!
-        stx CIA2_PORTA_DDR
-
-        ; change the VIC memory layout to position the text-screen & font
-        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
-        sta VIC_LAYOUT
 
         ;-----------------------------------------------------------------------
         ; set our own interrupt handlers

@@ -1,0 +1,33 @@
+; nücomer magazine (c) copyright Kroc Camen 2019. unless otherwise noted,
+; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
+; licence; you may reuse and modify this code how you please as long as you:
+;
+; - retain the copyright notice
+; - use the same licence for your derived code
+; - do not use it for commercial purposes
+;   (contact the author for a commercial licence)
+;
+;===============================================================================
+!addr {
+
+nu_intro                = $8000 ; address of the intro code
+nu_intro_screen         = $a000 ; address of the intro screen
+
+nu_main                 = $0800 ; address of the main outfit code
+
+NU_VIC_BANK             = 3     ; the VIC bank used by the outfit
+
+nu_font                 = $e000 ; location of the custom font; 2 KB
+nu_sprites              = $e800 ; sprite gfx
+nu_screen               = $ec00 ; text-screen location; 1 KB
+}
+
+;-------------------------------------------------------------------------------
+; BSOD64 integration; not the actual BSOD64 code
+; as that is added to the disk-image
+;
+!addr {
+
+bsod64_jsr              = $c003
+bsod64_irq              = $c006
+}

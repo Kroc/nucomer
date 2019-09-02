@@ -13,8 +13,9 @@
 ; this is a BASIC bootstrap for auto-starting a machine-language program
 ; from disk or tape. it's a simple 1-line BASIC program that automatically
 ; jumps to the machine language code immediately after the BASIC program
-
+;
 !source "c64/c64.acme"
+!source "config.acme"           ; nucomer constants for memory layout
 
 * = $0801
 
@@ -65,12 +66,12 @@ boot_init:
         jsr KERNAL_SETNAM       ; set KERNAL file name
 
         lda # 0                 ; load, not verify
-        ldx #< $c000
-        ldy #> $c000
+        ldx #< nu_intro
+        ldy #> nu_intro
         jsr KERNAL_LOAD
 
         ; jump to the intro
-        jmp $c000
+        jmp nu_intro
 
 boot_filename:
         ;-----------------------------------------------------------------------

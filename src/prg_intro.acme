@@ -9,10 +9,41 @@
 ;
 ;===============================================================================
 !source "c64/c64.acme"
+!source "config.acme"           ; nucomer constants for memory layout
 
-* = $c000
+* = nu_intro
 
+; TODO: fast-load the outfit, whilst the intro plays
+;
 intro:
+        ;-----------------------------------------------------------------------
+        ; setup the screen:
+        ; turn the screen off whilst we clear it
+        lda # %00000000
+        sta VIC_SCREEN_CTL1
+
+        ; the intro runs in VIC bank 2 ($8000-$BFFF), specifically so that we
+        ; can load the main outfit into $0400+ without garabge appearing on the
+        ; screen. we don't use VIC bank 3, as the outfit does, because that
+        ; would require loading a font
+        ;
+        ldx CIA2_PORTA_DDR      ; (backup current value)
+        lda # %00000111         ; we only want to write to the low 3-bits
+        sta CIA2_PORTA_DDR      ; set the port's read/write state
+        ;
+        ; the bit value is the inverse of the bank number 0-3
+        lda # (! 2) & %111
+        sta CIA2_PORTA          ; change VIC bank
+
+        ; we must restore the read/write state of the port
+        ; or disk I/O will break!
+        stx CIA2_PORTA_DDR
+
+        ; change the VIC memory layout to position the text-screen & font
+        lda # ((>nu_intro_screen & %00111100) << 2) | ((>$9800 & %00111000) >> 2)
+        sta VIC_LAYOUT
+
+        ;-----------------------------------------------------------------------
         jsr logo_screen
         
         ; load the main outfit
@@ -22,7 +53,7 @@ intro:
         ldx ZP_KERNAL_DEV       ; last-used KERNAL device number
         bne +                   ; not 0? good
         ldx # DEV_DRV8          ; default to drive 8
-+       ldy # $00               ; use manual load-address
++       ldy # $01               ; use PRG load-address
         tya                     ; logical file number
         jsr KERNAL_SETLFS
 
@@ -32,18 +63,19 @@ intro:
         jsr KERNAL_SETNAM       ; set KERNAL file name
 
         lda # 0                 ; load, not verify
-        ldx #< $0801
-        ldy #> $0801
+        ;;ldx #< nu_main
+        ;;ldy #> nu_main
         jsr KERNAL_LOAD
         bcc +
         
         jam
 
         ; jump to the main outfit
-+       jmp $080d
++       jmp nu_main + 13
 
 @filename:
         ;-----------------------------------------------------------------------
         !pet    "nucomer"
 
+;===============================================================================
 !source "logo.acme"

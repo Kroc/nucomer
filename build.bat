@@ -100,7 +100,7 @@ REM # exomize content:
 REM ============================================================================
 <NUL (SET /P "$=Exomize...                          ")
 
-%EXOMIZER% sfx $0801 -n -q ^
+%EXOMIZER% sfx $0800 -n -q ^
      -o "build\nucomer-exo.prg" ^
      -- "build\nucomer.prg" ^
         "src\bsod64\bsod64.prg" ^
