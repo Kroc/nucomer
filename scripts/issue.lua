@@ -108,11 +108,11 @@ function Issue:build(i_issue)
         article = Article:new()
         article.outfile = s_out
         article:read(s_in)
-        -- add to the table of articles for whole-issue analysis
-        -- and compression later on
+        -- add to the table of articles for whole-issue
+        -- analysis and compression later on
         table.insert(self.articles, article)
 
-        -- add the output filepath to the article
+        -- add the output file-path to the article
         j_article["bin"] = s_out
         -- and to the list file used for packing onto 1541
         table.insert(self.list, s_out..";"..j_article["prg"])

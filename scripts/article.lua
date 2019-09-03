@@ -143,6 +143,7 @@ function Article:read_line(s_text)
     -- create line-object to hold line meta-data
     local line      = Line:new()
     local index     = 0         -- current byte index in the line
+    local i_ascii   = 0         -- current character
     local word_str  = ""        -- current word (for word-wrapping)
     local word_len  = 0         -- character length of word (not byte-length!)
 
@@ -168,7 +169,6 @@ function Article:read_line(s_text)
         if line.length + word_len + word_spc > 40 then
             -- hyphenate the word splitting into as much as can fit
             -- on the current line and the remainder for the next line
-            -- TODO: strip pre & post-fix punctuation when hyphenating
             local left, right = hyphenate:breakWord(
                 -- split the word according to how much line space remains
                 "en-gb", word_str, (40 - line.length) - word_spc
@@ -222,18 +222,29 @@ function Article:read_line(s_text)
 
     -- look for special markup at the beginning of the line
     ----------------------------------------------------------------------------
-    -- title?
+    -- :: title
+    --
     if s_text:match("^::") ~= nil then
         -- change the line's default style class
         line.default = 1
         -- move the index forward over the marker
         index = 3
+
+    -- horizontal bar?
+    -- ---------------
+    elseif s_text:match("^%-%-%-%-") ~= nil then
+        -- change the line's default style class
+        line.default = 1
+        -- build a PETSCII line
+        line:addString(string.rep(string.char(0x63), 40))
+        line.is_petscii = true
+       -- no need to process any more of the source line
+       -- just add the PETSCII bar we've given and exit
+        goto eol
     end
 
 ::next::
     ----------------------------------------------------------------------------
-    local i_ascii
-
     -- move to the next character
     index = index + 1
     -- hit end of the line?
@@ -280,6 +291,7 @@ function Article:write()
     f_out:write(string.pack("<I2", #self.lines+2))
     -- the list of line-lengths
     for _, line in ipairs(self.lines) do
+        -- TODO: this should be provided by the Line class
         if line.default ~= 0 then
             f_out:write(string.pack("B", line:getLen() + 0x80))
         else
@@ -300,9 +312,10 @@ end
 
 --------------------------------------------------------------------------------
 Line = {
-    ascii       = "",       -- original ASCII line representation
-    colour      = "",       -- binary colour data for the line
-    length      = 0,        -- length of line in *bytes*
+    text        = "",       -- line text, nominally ASCII
+    is_petscii  = false,    -- is this a PETSCII line?
+    prefab      = 0,        -- if PETSCII, is it a prefab?
+    length      = 0,        -- length of line in characters, not bytes
     default     = 0,        -- default colour class
 }
 
@@ -312,9 +325,9 @@ function Line:new()
     ----------------------------------------------------------------------------
     -- crate new, empty, instance
     local line = {
-        ascii       = "",       -- the original ASCII line representation
-        colour      = "",       -- binary colour data for the line
-        length      = 0,        -- length of line in *bytes*
+        text        = "",       -- line text, nominally ASCII
+        is_petscii  = false,    -- is this a PETSCII line?
+        length      = 0,        -- length of line in characters, not bytes
         default     = 0         -- default colour class
     }
     setmetatable(line, self)    -- set new instance to inherit from prototype
@@ -325,14 +338,15 @@ end
 -- add an ASCII character to the ASCII representation of the line
 --------------------------------------------------------------------------------
 function Line:addChar(i_byte)
-    self.ascii = self.ascii .. string.char(i_byte)
+    ----------------------------------------------------------------------------
+    self.text = self.text .. string.char(i_byte)
     self.length = self.length + 1
 end
 
 --------------------------------------------------------------------------------
 function Line:addString(s_text)
     ----------------------------------------------------------------------------
-    self.ascii = self.ascii .. s_text
+    self.text = self.text .. s_text
     self.length = self.length + #s_text
 end
 
@@ -346,8 +360,15 @@ function Line:getBin()
         -- include the colour data
         bin = string.char(0x80 + self.default) .. bin
     end
-    -- add the text
-    bin = bin .. c64_str2scr(self.ascii)
+    -- is this a PETSCII line?
+    if self.is_petscii then
+        -- no conversion needed
+        -- TODO: RLE-compression
+        bin = bin .. self.text
+    else
+        -- convert the ASCII text
+        bin = bin .. c64_str2scr(self.text)
+    end
     -- note that lines are written into the binary backwards!
     -- this is so that the line length can be used as a count-down
     -- index which is faster for 6502s to process
