@@ -15,9 +15,9 @@ loadfile:
         jsr openfile
         jsr getbyte             ; get startaddress lowbyte
         bcs @fail               ; if EOF at first byte, error (file not found)
-        sta zp_destlo
+        sta .zp_destlo
         jsr getbyte             ; get startaddress highbyte
-        sta zp_desthi
+        sta .zp_desthi
 
         ldy # $00
 @loop:  jsr getbyte
@@ -27,7 +27,7 @@ loadfile:
                 ;///////////////////////////////////////////////////////////////
                 jsr disableio   ; allow loading under I/O area
         }       ;///////////////////////////////////////////////////////////////
-        sta (zp_destlo),y
+        sta (.zp_destlo),y
 
         !if LOAD_UNDER_IO > 0 {
                 ;///////////////////////////////////////////////////////////////
@@ -35,7 +35,7 @@ loadfile:
         }       ;///////////////////////////////////////////////////////////////
         iny
         bne @loop
-        inc zp_desthi
+        inc .zp_desthi
         jmp @loop
 
 @eof:   cmp # $01               ; returncode 0 = OK, others error

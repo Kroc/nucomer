@@ -7,9 +7,8 @@
 ; - do not use it for commercial purposes
 ;   (contact the author for a commercial licence)
 ;
-;===============================================================================
 ; logo.acme : the splash screen used during boot
-;
+;===============================================================================
 
 ; screen row where the logo text should appear
 LOGO_TEXT_ROW           = 12

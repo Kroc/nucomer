@@ -399,13 +399,16 @@ copy_next_hi:
         dec zp_src_hi
 copy_next:
         dey
-!if LITERAL_SEQUENCES_NOT_USED = 0 {
-        bcc literal_get_byte
-}
+        !if LITERAL_SEQUENCES_NOT_USED = 0 {
+                ;///////////////////////////////////////////////////////////////
+                bcc literal_get_byte
+        }
 literal_byte_gotten:
-!if LOAD_UNDER_IO > 0 {
-        jsr disableio
-}       bcc copy_store
+        !if LOAD_UNDER_IO > 0 {
+                ;///////////////////////////////////////////////////////////////
+                jsr disableio
+        }       ;///////////////////////////////////////////////////////////////
+        bcc copy_store
         lda (zp_src_lo),y
 copy_store:
         sta (zp_dest_lo),y
@@ -436,9 +439,11 @@ begin2:
         lsr
         iny
         bcc begin2
-!if LITERAL_SEQUENCES_NOT_USED > 0 {
-        beq literal_start
-}       cpy # $11
+        !if LITERAL_SEQUENCES_NOT_USED > 0 {
+                ;///////////////////////////////////////////////////////////////
+                beq literal_start
+        }       ;///////////////////////////////////////////////////////////////
+        cpy # $11
 !if LITERAL_SEQUENCES_NOT_USED = 0 {
         bcc sequence_start
         beq exomizer_ok

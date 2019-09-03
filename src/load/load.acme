@@ -17,64 +17,65 @@
 ; Include your loader configuration file at this point!
 ;-------------------------------------------------------------------------------
 
+!zone   fastloader {
 ;-------------------------------------------------------------------------------
 ; Defines derived from the compile options (need not be changed)
 ;-------------------------------------------------------------------------------
 
-zp_loadtempreg          = zpbase2+0     ; temp variables for the loader
-zp_bufferstatus         = zpbase2+1     ; bytes in fastload buffer
-zp_fileopen             = zpbase2+2     ; file open indicator
-zp_fastloadstatus       = zpbase2+3     ; fastloader active indicator
+.zp_loadtempreg         = zpbase2+0     ; temp variables for the loader
+.zp_bufferstatus        = zpbase2+1     ; bytes in fastload buffer
+.zp_fileopen            = zpbase2+2     ; file open indicator
+.zp_fastloadstatus      = zpbase2+3     ; fastloader active indicator
 
-zp_destlo               = zpbase+0
-zp_desthi               = zpbase+1
+.zp_destlo              = zpbase+0
+.zp_desthi              = zpbase+1
 
 ; other defines
 ;-------------------------------------------------------------------------------
-MW_LENGTH               = 32            ; no. bytes in one Memory-Write command
+.MW_LENGTH              = 32            ; no. bytes in one Memory-Write command
 
 !addr {
 
 ; KERNAL zero-page variables:
-status          = $90
-messages        = $9d
-fa              = $ba
+.zp_kernal_status       = $90
+.zp_kernal_messages     = $9d
+.zp_kernal_fa           = $ba
 
 ; disk-drive variables:
-acsbf           = $01           ; buffer 1 command
-trkbf           = $08           ; buffer 1 track
-sctbf           = $09           ; buffer 1 sector
-iddrv0          = $12           ; disk drive ID
-drvtemp         = $06           ; temp variable
-id              = $16           ; disk ID
+acsbf                   = $01           ; buffer 1 command
+trkbf                   = $08           ; buffer 1 track
+sctbf                   = $09           ; buffer 1 sector
+iddrv0                  = $12           ; disk drive ID
+drvtemp                 = $06           ; temp variable
+id                      = $16           ; disk ID
 
-buf             = $0400         ; sector data buffer
-drvstart        = $0500         ; start of drive-code
-drv_sendtblhigh = $0700         ; 256 byte table for 2-bit send optimization
-initialize      = $d005         ; initialize routine in 1541 ROM
+buf                     = $0400         ; sector data buffer
+drvstart                = $0500         ; start of drive-code
+drv_sendtblhigh         = $0700         ; 256-byte table for 2-bit send optimization
+initialize              = $d005         ; initialize routine in 1541 ROM
 
 ; KERNAL routines
-ciout           = $ffa8
-listen          = $ffb1
-second          = $ff93
-unlsn           = $ffae
-talk            = $ffb4
-tksa            = $ff96
-untlk           = $ffab
-acptr           = $ffa5
-chkin           = $ffc6
-chkout          = $ffc9
-chrin           = $ffcf
-chrout          = $ffd2
-close           = $ffc3
-open            = $ffc0
-setmsg          = $ff90
-setnam          = $ffbd
-setlfs          = $ffba
-clrchn          = $ffcc
-getin           = $ffe4
-load            = $ffd5
-save            = $ffd8
+.kernal_ciout           = $ffa8
+.kernal_listen          = $ffb1
+.kernal_second          = $ff93
+.kernal_unlsn           = $ffae
+.kernal_talk            = $ffb4
+.kernal_tksa            = $ff96
+.kernal_untlk           = $ffab
+.kernal_acptr           = $ffa5
+.kernal_chkin           = $ffc6
+.kernal_chkout          = $ffc9
+.kernal_chrin           = $ffcf
+.kernal_chrout          = $ffd2
+.kernal_close           = $ffc3
+.kernal_open            = $ffc0
+.kernal_setmsg          = $ff90
+.kernal_setnam          = $ffbd
+.kernal_setlfs          = $ffba
+.kernal_clrchn          = $ffcc
+.kernal_getin           = $ffe4
+.kernal_load            = $ffd5
+.kernal_save            = $ffd8
 }
 
 ;-------------------------------------------------------------------------------
@@ -105,21 +106,21 @@ save            = $ffd8
 ;
 openfile:
         ;-----------------------------------------------------------------------
-        lda zp_fileopen         ; a file already open?
+        lda .zp_fileopen        ; a file already open?
         beq +                   ; no, go ahead and open
         
         rts
 
 +       !if LONG_NAMES > 0 {
                 ;///////////////////////////////////////////////////////////////
-                stx zp_destlo
-                sty zp_desthi
+                stx .zp_destlo
+                sty .zp_desthi
         } else {;///////////////////////////////////////////////////////////////
                 ; two-letter file-name
-                stx filename+0
-                sty filename+1
+                stx .filename+0
+                sty .filename+1
         }       ;///////////////////////////////////////////////////////////////
-        inc zp_fileopen         ; "file opened"
+        inc .zp_fileopen        ; "file opened"
         lda usefastload
         bne fastopen
 
@@ -143,24 +144,24 @@ slowopen:
         !if LONG_NAMES > 0 {
                 ;///////////////////////////////////////////////////////////////
 -               iny
-                lda (zp_destlo), y
+                lda (.zp_destlo), y
                 bne -
                 tya
-                ldx zp_destlo
-                ldy zp_desthi
+                ldx .zp_destlo
+                ldy .zp_desthi
         } else {;///////////////////////////////////////////////////////////////
                 lda # $03
-                ldx #< filename
-                ldy #> filename
+                ldx #< .filename
+                ldy #> .filename
         }       ;///////////////////////////////////////////////////////////////
 
-        jsr setnam
+        jsr .kernal_setnam
         lda # $02
         ldy # $00
         jsr setlfsdevice
-        jsr open
+        jsr .kernal_open
         ldx # $02               ; file number
-        jsr chkin
+        jsr .kernal_chkin
         jmp kernaloff
 
 ;===============================================================================
@@ -180,8 +181,8 @@ fastopen:
                 ;///////////////////////////////////////////////////////////////
                 ldy # $00
 fastload_sendouter:
-                lda (zp_destlo), y
-                sta zp_loadtempreg
+                lda (.zp_destlo), y
+                sta .zp_loadtempreg
                 pha
                 ldx # $08       ; bit counter
         } else {;///////////////////////////////////////////////////////////////
@@ -196,21 +197,21 @@ fastload_sendinner:
         bvc fastload_sendinner
         !if LONG_NAMES = 0 {
                 ;///////////////////////////////////////////////////////////////
-                lsr filename, x
+                lsr .filename, x
         } else {;///////////////////////////////////////////////////////////////
-                lsr zp_loadtempreg
+                lsr .zp_loadtempreg
         }       ;///////////////////////////////////////////////////////////////
         lda # $10
         ora $dd00
-        bcc fastload_zerobit
+        bcc +
         eor # $30
-fastload_zerobit:
-        sta $dd00
-        lda # $c0                ;Wait for CLK & DATA low (answer from
-fastload_sendack:                       ;the diskdrive)
-        bit $dd00
-        bne fastload_sendack
-        lda # $ff-$30            ;Set DATA and CLK high
+        ; zero-bit:
++       sta $dd00               ; wait for CLK & DATA low
+        lda # $c0               ; (answer from disk-drive)
+        ; send-back:
+-       bit $dd00
+        bne -
+        lda # $ff-$30           ; set DATA and CLK high
         and $dd00
         sta $dd00
         !if LONG_NAMES > 0 {
@@ -226,13 +227,13 @@ fastload_sendack:                       ;the diskdrive)
                 dex
                 bpl fastload_sendouter
         }       ;///////////////////////////////////////////////////////////////
-        sta $d07a               ;SCPU to slow mode
-fastload_predelay:
-        dex                     ;Delay to make sure the 1541 has
-        bne fastload_predelay   ;set DATA high / CLK low before we continue
+        sta $d07a               ; SCPU to slow mode
+        ; pre-delay:
+-       dex                     ; delay to make sure the 1541 has set
+        bne -                   ; DATA high / CLK low before we continue
 
 fastload_fillbuffer:
-        ldx zp_fileopen
+        ldx .zp_fileopen
         beq fileclosed
         pha
         sta $d07a               ;SCPU to slow mode
@@ -241,12 +242,12 @@ fastload_fillbuffer:
                 ;///////////////////////////////////////////////////////////////
                 ldx # $00
                 lda # $03
-                sta zp_loadtempreg         ;And operand for NTSC delay
+                sta .zp_loadtempreg        ;And operand for NTSC delay
         }       ;///////////////////////////////////////////////////////////////
 
-fastload_fbwait:
-        bit $dd00               ;Wait for 1541 to signal data ready by
-        bvc fastload_fbwait     ;setting CLK high
+        ; fill-buffer wait:
+-       bit $dd00               ; wait for 1541 to signal
+        bvc -                   ; data ready by setting CLK high
 
         !if TWOBIT_PROTOCOL > 0 {
                 ;///////////////////////////////////////////////////////////////
@@ -316,13 +317,13 @@ fastload_store: ror loadbuffer
 
 fillbuffer_common:
         lda # $02                        ;Reset buffer read pos.
-        sta zp_bufferstatus
+        sta .zp_bufferstatus
         ldx # $ff
         lda loadbuffer                  ;Full 254 bytes?
         bne @fullbuffer
         ldx loadbuffer+1                ;End of load?
         bne @noloadend
-        stx zp_fileopen                    ;Clear fileopen indicator
+        stx .zp_fileopen                   ;Clear fileopen indicator
         lda loadbuffer+2                ;Read the return/error code
         sta fileclosed+1
 
@@ -357,22 +358,22 @@ getbyte_usefastload:
         lda # $00
         beq slowload_getbyte
 fastload_getbyte:
-        ldx zp_bufferstatus
+        ldx .zp_bufferstatus
         lda loadbuffer, x
 fastload_endcmp:
         cpx # $00                       ;Reach end of buffer?
         bcs fastload_fillbuffer
-        inc zp_bufferstatus
+        inc .zp_bufferstatus
 getbyte_restx:
         ldx # $00
         rts
 
 slowload_getbyte:
-        lda zp_fileopen
+        lda .zp_fileopen
         beq fileclosed
         jsr kernalon
-        jsr chrin
-        ldx status
+        jsr .kernal_chrin
+        ldx .zp_kernal_status
         bne slowload_eof
         jsr kernaloff
         clc
@@ -382,7 +383,7 @@ slowload_eof:
         txa
         and # $03
         sta fileclosed+1        ;EOF - store return code
-        dec zp_fileopen
+        dec .zp_fileopen
         sty getbyte_resty+1
         jsr close_kernaloff
 getbyte_resty:
@@ -448,8 +449,8 @@ enableio_01:
 ;
 setlfsdevice:
         ;-----------------------------------------------------------------------
-        ldx fa
-        jmp setlfs
+        ldx .zp_kernal_fa
+        jmp .kernal_setlfs
 
 ;===============================================================================
 ; KERNALON
@@ -481,8 +482,8 @@ kernalon:
 close_kernaloff:
         ;-----------------------------------------------------------------------
         lda # $02
-        jsr close
-        jsr clrchn
+        jsr .kernal_close
+        jsr .kernal_clrchn
 
 ;===============================================================================
 ; KERNALOFF
@@ -513,17 +514,17 @@ initfastload:
         ;-----------------------------------------------------------------------
         lda usefastload         ; if fastloader not needed, do nothing
         beq il_ok
-        lda zp_fastloadstatus   ; if fastloader already initted,
+        lda .zp_fastloadstatus  ; if fastloader already initted,
         bne il_ok               ; do nothing
-        inc zp_fastloadstatus
+        inc .zp_fastloadstatus
         lda #< drivecode
         ldx #> drivecode
-        ldy # (drvend-drvstart+MW_LENGTH-1) / MW_LENGTH
+        ldy # (drvend-drvstart+.MW_LENGTH-1) / .MW_LENGTH
 
 ifl_begin:
         sta ifl_senddata+1
         stx ifl_senddata+2
-        sty zp_loadtempreg      ; number of "packets" to send
+        sty .zp_loadtempreg      ; number of "packets" to send
         jsr kernalon
         lda #> drvstart
         sta ifl_mwstring+1
@@ -532,13 +533,13 @@ ifl_begin:
         beq ifl_nextpacket
 ifl_sendmw:
         lda ifl_mwstring, x      ;Send M-W command (backwards)
-        jsr ciout
+        jsr .kernal_ciout
         dex
         bpl ifl_sendmw
-        ldx # MW_LENGTH
+        ldx # .MW_LENGTH
 ifl_senddata:
         lda drivecode, y        ; send one byte of drivecode
-        jsr ciout
+        jsr .kernal_ciout
         iny
         bne ifl_notover
         inc ifl_senddata+2
@@ -549,24 +550,24 @@ ifl_notover:
 ifl_notover2:
         dex
         bne ifl_senddata
-        jsr unlsn               ; unlisten to perform the command
+        jsr .kernal_unlsn               ; unlisten to perform the command
 ifl_nextpacket:
-        lda fa                  ; set drive to listen
-        jsr listen
-        lda status
+        lda .zp_kernal_fa                  ; set drive to listen
+        jsr .kernal_listen
+        lda .zp_kernal_status
         cmp # $c0
         beq ifl_error           ; abort if serial error (IDE64!)
         lda # $6f
-        jsr second
+        jsr .kernal_second
         ldx # $05
-        dec zp_loadtempreg      ; all "packets" sent?
+        dec .zp_loadtempreg      ; all "packets" sent?
         bpl ifl_sendmw
 ifl_sendme:
         lda ifl_mestring-1, x    ; send M-E command (backwards)
-        jsr ciout
+        jsr .kernal_ciout
         dex
         bne ifl_sendme
-        jsr unlsn
+        jsr .kernal_unlsn
 ifl_error:
         jmp kernaloff
 
@@ -914,7 +915,7 @@ drvend:
 ;-------------------------------------------------------------------------------
 ifl_mwstring:
         ; "Write-Memory"
-        !byte   MW_LENGTH, $00, $00
+        !byte   .MW_LENGTH, $00, $00
         !pet    "W-M"
 
 ifl_mestring:
@@ -927,7 +928,7 @@ ifl_mestring:
 ;
 !if LONG_NAMES = 0 {
 ;///////////////////////////////////////////////////////////////////////////////
-filename:
+.filename:
         !byte   "00*"
 ;///////////////////////////////////////////////////////////////////////////////
 }
@@ -958,17 +959,17 @@ useserial:
 ;
 initloader:
         ;-----------------------------------------------------------------------
-        sta $d07f                       ;Disable SCPU hardware regs
+        sta $d07f               ; disable SCPU hardware regs
         lda # $00
-        sta messages                    ;Disable KERNAL messages
-        sta zp_fastloadstatus              ;Initial fastload status = off
-        sta zp_fileopen                    ;No file initially open
+        sta .zp_kernal_messages ; disable KERNAL messages
+        sta .zp_fastloadstatus  ; initial fastload status = off
+        sta .zp_fileopen        ; no file initially open
 
         !if TWOBIT_PROTOCOL>0 {
                 ;///////////////////////////////////////////////////////////////
                 sei
                 tax
-il_detectntsc1: lda $d012                       ;Detect PAL/NTSC/Drean
+il_detectntsc1: lda $d012               ; detect PAL/NTSC/Drean
 il_detectntsc2: cmp $d012
                 beq il_detectntsc2
                 bmi il_detectntsc1
@@ -981,10 +982,10 @@ il_countcycles: inx
                 cpx # $e8
                 bcc il_ispal
                 bcs il_isdrean
-il_isntsc:
-il_isdrean:     lda # $25                        ;Adjust 2-bit fastload transfer delay for NTSC / Drean
+il_isntsc:      ; adjust 2-bit fastload transfer delay for NTSC / Drean
+il_isdrean:     lda # $25
                 sta fastload_delay
-                lda # zp_loadtempreg
+                lda # .zp_loadtempreg
                 sta fastload_delay+1
 il_ispal:       cli
         }       ;///////////////////////////////////////////////////////////////
@@ -994,9 +995,9 @@ il_detectdrive:
         sta $a5
         lda #< il_drivecode
         ldx #> il_drivecode
-        ldy # (il_driveend-il_drivecode+MW_LENGTH-1)/MW_LENGTH
+        ldy # (il_driveend-il_drivecode+.MW_LENGTH-1)/.MW_LENGTH
         jsr ifl_begin                   ;Upload test-drivecode
-        lda status                      ;If serial error here, not a
+        lda .zp_kernal_status                      ;If serial error here, not a
         cmp # $c0                        ;serial device
         beq il_noserial
         ldx # $00
@@ -1006,27 +1007,27 @@ il_delay:
         bne il_delay                    ;drivecode executed to the end
         iny
         bpl il_delay
-        lda fa                          ;Set drive to listen
-        jsr listen
+        lda .zp_kernal_fa                          ;Set drive to listen
+        jsr .kernal_listen
         lda # $6f
-        jsr second
+        jsr .kernal_second
         ldx # $05
 il_ddsendmr:
-        lda il_mrstring, x               ;Send M-R command (backwards)
-        jsr ciout
+        lda .il_mrstring, x               ;Send M-R command (backwards)
+        jsr .kernal_ciout
         dex
         bpl il_ddsendmr
-        jsr unlsn
-        lda fa
-        jsr talk
+        jsr .kernal_unlsn
+        lda .zp_kernal_fa
+        jsr .kernal_talk
         lda # $6f
-        jsr tksa
+        jsr .kernal_tksa
         lda # $00
-        jsr acptr                       ;First byte: test value
+        jsr .kernal_acptr                       ;First byte: test value
         pha
-        jsr acptr                       ;Second byte: drive type
+        jsr .kernal_acptr                       ;Second byte: drive type
         tax
-        jsr untlk
+        jsr .kernal_untlk
         pla
         cmp # $aa                        ;Drive can execute code, so can
         beq il_fastloadok               ;use fastloader
@@ -1060,13 +1061,13 @@ il_2mhzdrive:
         stx drv_drivetype+1-drvstart+drivecode
         txa
         beq il_skippatch1800            ;$1800 patching not needed for 1541
-        lda il_1800lo-1, x               ;Perform patching of drivecode
+        lda .il_1800lo-1, x               ;Perform patching of drivecode
         sta il_patch1800lo+1
-        lda il_1800hi-1, x
+        lda .il_1800hi-1, x
         sta il_patch1800hi+1
         ldy #12
 il_patchloop:
-        ldx il_1800ofs, y
+        ldx .il_1800ofs, y
 il_patch1800lo:
         lda # $00                        ;Patch all $1800 accesses
         sta drvmain+1-drvstart+drivecode, x
@@ -1078,39 +1079,39 @@ il_patch1800hi:
 il_skippatch1800:
 il_drivetype:
         ldx # $00
-        lda il_dirtrklo, x               ;Patch directory
+        lda .il_dirtrklo, x               ;Patch directory
         sta drv_dirtrk+1-drvstart+drivecode
-        lda il_dirtrkhi, x
+        lda .il_dirtrkhi, x
         sta drv_dirtrk+2-drvstart+drivecode
-        lda il_dirsctlo, x
+        lda .il_dirsctlo, x
         sta drv_dirsct+1-drvstart+drivecode
-        lda il_dirscthi, x
+        lda .il_dirscthi, x
         sta drv_dirsct+2-drvstart+drivecode
-        lda il_execlo, x                 ;Patch job exec address
+        lda .il_execlo, x                 ;Patch job exec address
         sta drv_execjsr+1-drvstart+drivecode
-        lda il_exechi, x
+        lda .il_exechi, x
         sta drv_execjsr+2-drvstart+drivecode
-        lda il_jobtrklo, x               ;Patch job track/sector
+        lda .il_jobtrklo, x               ;Patch job track/sector
         sta drv_readtrk+1-drvstart+drivecode
         clc
         adc # $01
         sta drv_readsct+1-drvstart+drivecode
-        lda il_jobtrkhi, x
+        lda .il_jobtrkhi, x
         sta drv_readtrk+2-drvstart+drivecode
         adc # $00
         sta drv_readsct+2-drvstart+drivecode
         !if TWOBIT_PROTOCOL=0 {
                 ;///////////////////////////////////////////////////////////////
-                lda il_zp, x                     ;Patch zeropage temp usage
+                lda .il_zp, x                     ;Patch zeropage temp usage
                 sta drv_zpac1+1-drvstart+drivecode
                 sta drv_zpac2+1-drvstart+drivecode
                 sta drv_zpac3+1-drvstart+drivecode
         }
-        lda il_ledenabled, x             ;Patch LED flashing
+        lda .il_ledenabled, x             ;Patch LED flashing
         sta drv_led-drvstart+drivecode
-        lda il_ledbit, x
+        lda .il_ledbit, x
         sta drv_led+1-drvstart+drivecode
-        lda il_ledadrhi, x
+        lda .il_ledadrhi, x
         sta drv_ledac1+2-drvstart+drivecode
         sta drv_ledac2+2-drvstart+drivecode
         rts
@@ -1210,11 +1211,11 @@ drv_1mhzsenddone:
 ;///////////////////////////////////////////////////////////////////////////////
 }
 
-il_mrstring:
+.il_mrstring:
         !byte   2, >ild_return1, <ild_return1
         !pet    "R-M"
 
-il_1800ofs:
+.il_1800ofs:
         !byte   drv_1800ac0-drvmain
         !byte   drv_1800ac1-drvmain
         !byte   drv_1800ac2-drvmain
@@ -1229,39 +1230,42 @@ il_1800ofs:
         !byte   drv_1800ac11-drvmain
         !byte   drv_1800ac12-drvmain
 
-il_1800lo:
+.il_1800lo:
         !byte   <$4001, <$4001, <$8000
-il_1800hi:
+.il_1800hi:
         !byte   >$4001, >$4001, >$8000
 
-il_dirtrklo:
+.il_dirtrklo:
         !byte   <drv_1541dirtrk, <$022b, <$54, <$2ba7
-il_dirtrkhi:
+.il_dirtrkhi:
         !byte   >drv_1541dirtrk, >$022b, >$54, >$2ba7
-il_dirsctlo:
+.il_dirsctlo:
         !byte   <drv_1541dirsct, <drv_1581dirsct, <$56, <$2ba9
-il_dirscthi:
+.il_dirscthi:
         !byte   >drv_1541dirsct, >drv_1581dirsct, >$56, >$2ba9
 
-il_execlo:
+.il_execlo:
         !byte   <drv_1541exec, <$ff54, <drv_fdexec, <$ff4e
-il_exechi:
+.il_exechi:
         !byte   >drv_1541exec, >$ff54, >drv_fdexec, >$ff4e
 
-il_jobtrklo:
+.il_jobtrklo:
         !byte <$0008, <$000d, <$000d, <$2802
-il_jobtrkhi:
+.il_jobtrkhi:
         !byte >$0008, >$000d, >$000d, >$2802
 
 !if TWOBIT_PROTOCOL=0 {
-        ;///////////////////////////////////////////////////////////////////////
-il_zp:
+;///////////////////////////////////////////////////////////////////////////////
+.il_zp:
         !byte   $06, $0b, $0b, $06
-}       ;///////////////////////////////////////////////////////////////////////
 
-il_ledenabled:
+;///////////////////////////////////////////////////////////////////////////////
+}
+.il_ledenabled:
         !byte   $a9, $a9, $a9, $60
-il_ledbit:
+.il_ledbit:
         !byte   $08, $40, $40, $00
-il_ledadrhi:
+.il_ledadrhi:
         !byte   $1c, $40, $40, $40
+
+}

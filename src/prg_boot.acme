@@ -7,14 +7,13 @@
 ; - do not use it for commercial purposes
 ;   (contact the author for a commercial licence)
 ;
+; prg_boot.acme:
 ;===============================================================================
-; prg_boot.acme
-;
 ; this is a BASIC bootstrap for auto-starting a machine-language program
 ; from disk or tape. it's a simple 1-line BASIC program that automatically
 ; jumps to the machine language code immediately after the BASIC program
 ;
-!source "c64/c64.acme"
+!source "c64/c64.acme"          ; C64 hardware / software constants
 !source "config.acme"           ; nucomer constants for memory layout
 
 * = $0801

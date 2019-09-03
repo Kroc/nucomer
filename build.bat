@@ -72,6 +72,19 @@ IF ERRORLEVEL 1 (
 
 REM # assemble the intro
 REM ----------------------------------------------------------------------------
+
+REM # test build the fast-loader
+%ACME% ^
+     --format cbm ^ --setpc $0800 ^
+     --outfile "build\fload.prg" ^
+          "src\load\load_cfg_all.acme" ^
+          "src\load\load.acme"
+
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+
 %ACME% ^
      --format cbm ^
      --outfile "build\intro.prg" ^

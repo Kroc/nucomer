@@ -7,15 +7,14 @@
 ; - do not use it for commercial purposes
 ;   (contact the author for a commercial licence)
 ;
+; interrupts.acme:
 ;===============================================================================
-; interrupts.acme
-;
 ; since nücomer has multiple 'screens' (menu screen, reading screen etc.)
 ; and each may need its own custom raster interrupts, we reduce code size
 ; and manage the complexity by utilising a central interrupt handler that
 ; works through a queue of custom scanline handlers. this allows each screen
 ; to register a simple list of routines to run for any desired scanline
-;-------------------------------------------------------------------------------
+;
 !addr {
 
 ZP_IRQ                  = $ff   ; current index in the table
