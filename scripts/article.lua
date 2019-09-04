@@ -420,7 +420,7 @@ function Article:write()
     if err then print ("! error: " .. err); os.exit(false); end
 
     -- write the PRG header
-    f_out:write(string.pack("<I2", 0x1FFE))
+    f_out:write(string.pack("<I2", 0x3FFE))
 
     -- how long the line-lengths list is (2-bytes)
     f_out:write(string.pack("<I2", #self.lines+2))

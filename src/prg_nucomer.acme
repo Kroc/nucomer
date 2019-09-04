@@ -66,3 +66,8 @@ init:   ; setup screen:
 !source "menu.acme"
 !source "read.acme"
 
+!ifdef WARN_SID !eof
+!if * >= nu_song {
+        WARN_SID = 1
+        !warn "Outfit overflows into SID data! * = ", *
+}

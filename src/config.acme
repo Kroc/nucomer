@@ -8,18 +8,53 @@
 ;   (contact the author for a commercial licence)
 ;
 ;===============================================================================
+;
+; memory map:
+;
+;    $0400   $1000        $4000           $8000        $C000    $E000    $FFFF
+;        +---+------------+----------------------------+--------+--------+
+;        | * | SID        | TEXT                       | BSOD64 | GFX    |
+;        +---+------------+----------------------------+--------+--------+
+;          ^                              ^
+;          main code                      intro (temp)
+
 !addr {
 
 nu_intro                = $8000 ; address of the intro code
 nu_intro_screen         = $a000 ; address of the intro screen
 
+; TODO: decrunch-on-fastload will allow us to go down to $0400;
+;       right now it just crashes trying to unpack over itself
+;
 nu_main                 = $0800 ; address of the main outfit code
+nu_song                 = $1000 ; address of SID song
+nu_text                 = $4000 ; address of the article text
 
 NU_VIC_BANK             = 3     ; the VIC bank used by the outfit
 
 nu_font                 = $e000 ; location of the custom font; 2 KB
-nu_sprites              = $e800 ; sprite gfx
-nu_screen               = $ec00 ; text-screen location; 1 KB
+nu_screen               = $e800 ; text-screen location; 1 KB
+
+; in a case of "if it's stupid but it works, it's not stupid" we handle the
+; scrolling in of new lines by simply treating the screen as taller than it
+; actually is, filling new lines into 40 char buffers for above / below the
+; screen (these are assigned to high-RAM so that they do not occupy bytes in
+; the main code)
+;
+nu_screen_before        = $ec00
+nu_screen_temp          = $ec28
+nu_screen_after         = $ec50
+
+; we can't put data before / after the colour RAM when I/O is on,
+; and turning I/O on & off to use the RAM underneath is too slow
+; so the 'off-screen' colour rows are stored here
+;
+nu_colour_before        = $ec78
+nu_colour_temp          = $eca0
+nu_colour_after         = $ecc8
+
+nu_sprites              = $ed00 ; sprite gfx
+
 }
 
 ;-------------------------------------------------------------------------------

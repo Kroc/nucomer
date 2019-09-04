@@ -344,8 +344,8 @@ menu_load:
         jsr KERNAL_SETNAM       ; set KERNAL file name
         
         lda # 0                 ; load, not verify
-        ldx #< $1ffe
-        ldy #> $1ffe
+        ldx #< nu_text-2
+        ldy #> nu_text-2
         jsr KERNAL_LOAD
 
         ; TODO: error handling, fastloader et al
