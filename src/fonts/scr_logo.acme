@@ -10,7 +10,7 @@
 ;===============================================================================
 
 ; no load address
-!to "build/logo_petscii.ct", plain
+!to "build/scr_logo.ct", plain
 
 ; pc = table index
 * = 0

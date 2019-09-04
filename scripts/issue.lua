@@ -121,7 +121,7 @@ function Issue:build(i_issue)
         -- the article title for the menu page needs to be converted to C64
         -- screen codes. two spaces are prefixed to make way for the "thorne"
         -- (the currently selected menu marker)
-        local s_scr = c64_str2scr("  "..j_article["scr"])
+        local s_scr = string.toC64("  "..j_article["scr"])
         local s_len = #s_scr
 
         -- add the menu entry to the table of contents
@@ -180,6 +180,8 @@ function Issue:_writedb ()
 
     f_out:write("; auto-generated file, do not modify!\n")
     f_out:write("\n")
+    f_out:write("!ct \"build/scr_nucomer.ct\"")
+    f_out:write("\n")
     f_out:write("MENU_DB_COUNT                   = ")
     f_out:write(string.format("%i\n", #self.toc))
 
@@ -232,8 +234,8 @@ function Issue:_writedb ()
         for c = 1, #item.str do
             f_out:write(string.format("%02x", string.byte(item.str, c)))
         end
-        -- null terminator
-        f_out:write("00\n")
+        -- terminator
+        f_out:write("ff\n")
     end
 
     f_out:write("\n")

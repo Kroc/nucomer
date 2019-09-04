@@ -34,7 +34,8 @@
     ],
     "spellright.documentTypes": [
         "markdown",
-        "latex"
+        "latex",
+        "plaintext"
     ],
     "files.exclude": {
         "bin": true

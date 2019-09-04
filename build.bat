@@ -47,11 +47,20 @@ IF ERRORLEVEL 1 (
      EXIT /B %ERRORLEVEL%
 )
 
-REM # assemble the ASCII map used to embed the nücomer logo
+REM # assemble the ASCII maps
 REM ----------------------------------------------------------------------------
 %ACME% ^
      --format plain ^
-          "src\fonts\logo_petscii.acme"
+          "src\fonts\scr_nucomer.acme"
+
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+
+%ACME% ^
+     --format plain ^
+          "src\fonts\scr_logo.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL

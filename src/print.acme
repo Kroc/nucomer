@@ -8,6 +8,7 @@
 ;   (contact the author for a commercial licence)
 ;
 ;===============================================================================
+!ct "build/scr_nucomer.ct"
 
 !addr   ZP_PRINT_COLOR          = $02
 
@@ -29,7 +30,7 @@ clear_screen:
         dex
         bne -
 
-        lda # ' '               ; clear with space char
+        lda # " "               ; clear with space char
 -       sta nu_screen + $000, x
         sta nu_screen + $100, x
         sta nu_screen + $200, x
@@ -40,8 +41,8 @@ clear_screen:
         rts
 
 ;===============================================================================
-; print a null-terminated string, where the first two
-; bytes are the row & col at which to begin printing:
+; print a terminated string, where the first two bytes
+; are the row & col at which to begin printing:
 ;
 ;       X = string address, lo-byte
 ;       A = string address, hi-byte
@@ -88,6 +89,7 @@ print_str_pos:
         ;-----------------------------------------------------------------------
         ldy # 0
 @from   lda .invalid, y
+        cmp # $ff
         beq +                   ; terminator? exit!
 @to     sta nu_screen, y
         iny
@@ -112,10 +114,10 @@ print_str_pos:
         rts
 
 .invalid
-        !scr    "invalid string!", 0
+        !text   "invalid string!", 0
 
 ;===============================================================================
-; print a null-terminated string:
+; print a terminated string:
 ;
 ;       X = string address, lo-byte
 ;       A = string address, hi-byte
@@ -137,7 +139,8 @@ print_str:
         ldy # 0
         ;-----------------------------------------------------------------------
 @from   lda .invalid, y
-        beq +                   ; exit if null-terminator ($00)
+        cmp # $ff
+        beq +                   ; exit if terminator ($FF)
 @to     sta nu_screen, y
         iny
         bne @from

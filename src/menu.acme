@@ -11,6 +11,8 @@
 ;===============================================================================
 ; the main menu page, i.e. the front-page / directory of the magazine
 
+!ct "build/scr_nucomer.ct"
+
 ; theme colours
 MENU_BORDER     = BLACK
 MENU_FORE       = BLACK
@@ -361,14 +363,14 @@ menu_load:
 menu_petscii_logo:
 ;===============================================================================
         !byte   0, 0
-!ct "build/logo_petscii.ct" {
+!ct "build/scr_logo.ct" {
         !text   " ---- =  = ---- ---- ----- ---- ----    "
         !text   " #  # #  # #    #  # # # # #___ #       "
-        !text   " #  # #__# #___ #__# # # # #___ #       ", 0
+        !text   " #  # #__# #___ #__# # # # #___ #       ", $ff
 }
 menu_subline:
         !byte   4, 31
-        !scr    "issue #0", 0
+        !text   "issue #0", $ff
 
 menu_db:
 ;===============================================================================
