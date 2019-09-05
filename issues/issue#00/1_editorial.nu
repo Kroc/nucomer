@@ -14,7 +14,7 @@ For me, the Commodore 64 was my own private world. With just games and manuals I
 
 Mentorship is the critical difference between a consumer and a creator.
 
-30 years after I began my C64 journey, I am aware of my adeptness at learning whatever tool is necessary for the job and to retain detailed technical information. I have no doubt that had I had access to the scene at the time, and a mentor to guide me, I could be just as good a demo-coder as any other.
+30 years after I began my C64 journey, I'm aware of my adeptness at learning whatever tool is necessary for the job and to retain detailed technical information. I have no doubt that had I had access to the scene at the time, and a mentor to guide me, I could be just as good a demo-coder as any other.
 
 For every skill I've learned and every community I've discovered I have always appraised myself as the outsider looking in, bringing with myself the experience of a newcomer, but critically, determined to build up the path behind me so that others do not have as hard a time as I had finding the way.
 
@@ -22,7 +22,7 @@ This publication exists to implore, educate and demonstrate the satisfaction tha
 
 Elitist arguments about "original hardware" must be pushed back. Those with a nostalgic connection to the C64 must be willing to give their knowledge to a future world in which there is no original hardware, only de-facto standards.
 
-In reality, modern hardware and the Internet are where people are productive today and Nücomer will never communicate in ignorance of this fact. There are plenty of tutorials and resources out there on setting up a PC development environment and writing your first lines of code for an 8-bit system, I cannot do that within the confines of the C64's RAM + storage! Instead, Nücomer explores the "why"; why you should solve a programming problem in a certain way; why 8-bit systems are the way they are; why you should care.
+In reality, modern hardware and the Internet are where people are productive today and Nücomer will never communicate in ignorance of this fact. There are plenty of tutorials and resources out there on setting up a PC development environment and writing your first lines of code for an 8-bit system, I cannot do that within the confines of the C64's RAM & storage! Instead, Nücomer explores the "why"; why you should solve a programming problem in a certain way; why 8-bit systems are the way they are; why you should care.
 
 So why the Commodore 64, of all 8-bit systems?
 

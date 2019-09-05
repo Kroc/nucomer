@@ -151,8 +151,6 @@ REM # prepare the disk image
      -write "build\intro.prg"           "intro" ^
      -write "build\nucomer-exo.prg"     "nucomer" ^
      -write "src\bsod64\bsod64.prg"     "bsod64" ^
-     -write "build\admiral64.prg"       "admiral64.fon" ^
-     -write "build\wax-lyrics.prg"      "wax-lyrics.fon" ^
      1>NUL
 
 IF ERRORLEVEL 1 (

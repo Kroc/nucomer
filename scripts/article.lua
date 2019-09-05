@@ -122,35 +122,158 @@ local str2scr = {
     ["|"]  = 0x5c,
     ["}"]  = 0x5d,
     ["~"]  = 0x5e,
-    ["£"]  = 0x5e,  -- added where normally unused ASCII code 127 would be
 
-    ["ü"]  = 0x60
+    ["£"]  = 0x5f,  -- unicode, because Americans
+    ["•"]  = 0x60,  -- bullet point
+    ["–"]  = 0x61,  -- en-dash (hyphenation word-break / numerical-break)
+                    -- em-dash is handled separately as it is two chars
+    ["“"]  = 0x64,  -- left "smart-quotes"
+
+    ["ç"]  = 0x7a,  -- as in façade
+    ["è"]  = 0x7b,  -- as in "cafè"
+    ["é"]  = 0x7c,  -- as in "née"
+    ["ï"]  = 0x7d,  -- as in "naïve"
+    ["ü"]  = 0x7e,  -- as in "nücomer"
 }
 
 -- convert ASCII string to the screen codes used by Nucomer
 --------------------------------------------------------------------------------
 function string:toC64 ()
     ----------------------------------------------------------------------------
-    local s_out = ""
+    -- this happens
+    if string.len(self) == 0 then return ""; end
 
-    -- walk each utf-8 code-point
-    for _, code in utf8.codes(self) do
-        -- find the C64 screen code for the given utf-8 character
-        -- (converted to a string index, may be more than 1-byte!)
-        local scr = str2scr[utf8.char(code)]
-        -- if there is no conversion display an error mark
-        if scr == nil then scr = 0xbf; end -- reverse "?"
-        -- add to the C64 string
-        s_out = s_out .. string.char(scr)
-    end
+    -- we need to do multi-character conversions (such as contractions),
+    -- as well as the default character-to-screen-code conversion, so we
+    -- walk through the string byte-by-byte, matching utf-8 characters
+    -- forward
+    --
+    local s_out = ""
+    local i = 0
+
+    repeat
+        ------------------------------------------------------------------------
+        -- move to the next byte
+        i = i + 1
+
+        -- from the current position,
+        -- try match a multi-byte sequence:
+        --
+        -- opening "smart" quote
+        ------------------------------------------------------------------------
+        if self:match("^\"%w", i) ~= nil then
+            -- swap the quote for the other-way-around one
+            s_out = s_out .. string.char(0x64)
+
+        -- em-dash:
+        ------------------------------------------------------------------------
+        elseif self:match("^—", i) ~= nil then
+            -- add as two C64 screen-codes!
+            s_out = s_out .. string.char(0x62, 0x63)
+            -- skip the extra byte
+            i = i + 1
+
+        -- "*'d" contractions:
+        ------------------------------------------------------------------------
+        elseif self:match("^%w'd ?", i) ~= nil then
+            -- encode the character before the "'d"
+            s_out = s_out .. string.char(str2scr[self:sub(i, i)])
+            -- add the specialised "'d" character
+            s_out = s_out .. string.char(0x70)
+            -- move the index over the processed characters
+            i = i + 2
+
+        -- "I'm" contraction: (uses different character than "I'??")
+        ------------------------------------------------------------------------
+        elseif self:match("^I'm", i) ~= nil then
+            -- encode using the special "I'*" character
+            s_out = s_out .. string.char(0x71, 0x4d)
+            -- move the index over the processed characters
+            i = i + 2
+
+        -- "*'ll'"
+        ------------------------------------------------------------------------
+        elseif self:match("^'ll ?", i) ~= nil then
+            -- add the specialised "'l" character and a normal "l"
+            s_out = s_out .. string.char(0x72, 0x4c)
+            -- move the index over the processed characters
+            i = i + 2
+
+        -- "o'"
+        ------------------------------------------------------------------------
+        elseif self:match("^o'", i) ~= nil then
+            -- add the specialised "o'" character
+            s_out = s_out .. string.char(0x73)
+            -- skip a byte
+            i = i + 1
+
+        -- "*'r" contractions:
+        ------------------------------------------------------------------------
+        elseif self:match("^%w'r", i) ~= nil then
+            -- encode the character before the "'r"
+            s_out = s_out .. string.char(str2scr[self:sub(i, i)])
+            -- add the specialised "'r" character
+            s_out = s_out .. string.char(0x74)
+            -- move the index over the processed characters
+            i = i + 2
+
+        -- "*'s" contractions:
+        ------------------------------------------------------------------------
+        elseif self:match("^%w's", i) ~= nil then
+            -- encode the character before the "'s"
+            s_out = s_out .. string.char(str2scr[self:sub(i, i)])
+            -- add the specialised "'s" character
+            s_out = s_out .. string.char(0x75)
+            -- move the index over the processed characters
+            i = i + 2
+
+        -- "'t*" contractions:
+        ------------------------------------------------------------------------
+        elseif self:match("'t%w", i) ~= nil then
+            -- add the specialised "'t" character
+            s_out = s_out .. string.char(0x76)
+            -- skip a byte
+            i = i + 1
+
+        -- "*'ve" contractions:
+        ------------------------------------------------------------------------
+        elseif self:match("^%w've", i) ~= nil then
+            -- encode the character before the "'ve"
+            s_out = s_out .. string.char(str2scr[self:sub(i, i)])
+            -- add the specialised "'ve" characters!
+            s_out = s_out .. string.char(0x77, 0x78)
+            -- move the index over the processed characters
+            i = i + 3
+
+        -- utf-8 characters that map to one c64 screen-code:
+        ------------------------------------------------------------------------
+        elseif self:match("^"..utf8.charpattern, i) ~= nil then
+            -- capture the character; will be 1-4 bytes
+            local s_utf8 = self:match("^"..utf8.charpattern, i)
+            -- look up the C64 screen-code
+            local i_scr = str2scr[s_utf8]
+            -- if there is no conversion display an error mark
+            if i_scr == nil then i_scr = 0xbf; end -- reverse "?"
+            -- add to the C64 string
+            s_out = s_out .. string.char(i_scr)
+            -- skip over the excess bytes
+            i = i + (#s_utf8-1)
+
+        end
+
+    until i >= #self
 
     return s_out
 end
 
+--------------------------------------------------------------------------------
 local hyphenate = require "scripts.hyphenate"
 
 for _, s_exception in pairs({
-    "pri-vate", "every-thing", "mag-azine", "to-day"
+    -- where the hyphenation algorithm fails, I am referring to the
+    -- "Collins Gem Dictionary Of English Spelling", 1994 reprint,
+    -- ISBN: 0-00-458725-1
+    "every-thing", "pri-vate"
 }) do
     hyphenate:insertException("en-gb", s_exception)
 end
@@ -186,21 +309,11 @@ function hyphenate:breakWord(s_locale, s_word, s_len)
             -- split the word into hyphenation boundaries
             t_pieces = self:hyphenate(s_locale, word)
 
-            -- with multiple words, we need to account for the explicit-hyphen
+            -- with multiple words, we need to account for the explicit hyphen
             -- that must be preserved between words (e.g. "cul-de-sac"). when
             -- one word has already been added to the line and wrapping has
             -- not yet occurred we have to include the explicit hyphen
-            if i > 1 then
-                -- will the explicit-hyphen, first word-piece
-                -- and trailing hyphen fit on to the line?
-                if #before + 1 + #t_pieces[1] + 1 <= s_len then
-                    -- yes, the explicit hyphen can be included
-                    before = before .. "-"
-                end
-                -- in the case where the explicit-hyphen does not fit,
-                -- the line-break will convert it into an implicit hyphen
-                -- avoiding it being added twice
-            end
+            if i > 1 then before = before .. "-"; end
             -- add word pieces until we can't fit any more on the line...
             for _, piece in ipairs(t_pieces) do
                 -- if a word-piece could fit (including a trailing hyphen!)
@@ -218,12 +331,19 @@ function hyphenate:breakWord(s_locale, s_word, s_len)
             end
         end
     end
-    -- we can now add the hyphen at the word-break point
-    if #before > 0 then before = before .. "-"; end
+    -- we use a hyphen-dash "-" (minus) to mark hyphens between words, but when
+    -- a word is broken at a hyphenation point, an en-dash is used instead.
+    -- in the instance of the line-break occuring on the explicit hyphen in
+    -- double-barraled words, we must retain that style of hyphen and not
+    -- add the en-dash as well!
+    if #before > 0 and before:sub(-1) ~= "-" then
+        before = before .. "–" -- this is a utf-8 en-dash, not a minus-dash!
+    end
 
     return before, after
 end
 
+--------------------------------------------------------------------------------
 Article = {
     infile      = "",
     outfile     = "",
@@ -278,7 +398,7 @@ function Article:read_line(s_text)
     -- create line-object to hold line meta-data
     local line      = Line:new()
     local index     = 0         -- current byte index in the line
-    local i_ascii   = 0         -- current character
+    local ascii     = 0         -- current character
     local word_str  = ""        -- current word (for word-wrapping)
     local word_len  = 0         -- character length of word (not byte-length!)
 
@@ -287,11 +407,10 @@ function Article:read_line(s_text)
     -- based on the word-wrapping
     local word_spc  = 0         -- number of pending spaces once word ends
 
-    -- (private) add C64 character-code to the current line
+    -- (private) add character to the current word
     ----------------------------------------------------------------------------
     function add_char(i_char)
         ------------------------------------------------------------------------
-        -- add the character to the word
         word_str = word_str .. string.char(i_char)
         word_len = word_len + 1
     end
@@ -300,37 +419,35 @@ function Article:read_line(s_text)
     ----------------------------------------------------------------------------
     function add_word()
         ------------------------------------------------------------------------
+        -- convert the word to C64 codes, as this may affect its length
+        -- e.g. contractions using specialised single-characters
+        local s_c64 = word_str:toC64()
         -- if the word will not fit on the line, hyphenate & word-wrap
-        if line.length + word_len + word_spc > 40 then
+        if line.length + #s_c64 + word_spc > 40 then
             -- hyphenate the word splitting into as much as can fit
             -- on the current line and the remainder for the next line
-            local left, right = hyphenate:breakWord(
+            local before, after = hyphenate:breakWord(
                 -- split the word according to how much line space remains
                 "en-gb", word_str, (40 - line.length) - word_spc
             )
             --#print(left, right)
             -- add the part of the word that fits (if any)
-            if #left > 0 then
+            if #before > 0 then
                 -- add the pending spaces from before the word started
                 if word_spc > 0 then
                     line:addString(string.rep(" ", word_spc))
                 end
                 -- add the hyphenated portion of the word
-                line:addString(left)
+                line:addString(before)
                 -- the pending spaces have been handled,
                 -- don't add them again on the next line
                 word_spc = 0
             end
             -- dispatch the current line
             add_line()
-            -- begin the new line with the remainder of the word, if any
-            if #right > 0 then
-                line:addString(right)
-                -- add a pending space for when the next word,
-                -- technically the first word of a source line,
-                -- gets added
-                word_spc = 1
-            end
+            -- begin the new line with the remainder of the word, if any.
+            -- note that the unused pending space is carried forward
+            if #after > 0 then line:addString(after); end
         else
             -- add the pending spaces from before the word started
             if word_spc > 0 then line:addString(string.rep(" ", word_spc)); end
@@ -370,13 +487,15 @@ function Article:read_line(s_text)
     elseif s_text:match("^%-%-%-%-") ~= nil then
         -- change the line's default style class
         line.default = 1
-        -- build a PETSCII line
-        line:addString(string.rep(string.char(0x7f), 40))
-        line.is_petscii = true
+        -- build a horizontal bar directly out of screen-codes
+        line:addC64(string.rep(string.char(0x7f), 40))
        -- no need to process any more of the source line
-       -- just add the PETSCII bar we've given and exit
+       -- just add the bar we've given and exit
        goto eol
     end
+
+    -- convert em-dashes and consume optional spaces either side
+    s_text = s_text:gsub(" ?%-%- ?", "—") -- note that this is an em-dash!
 
 ::next::
     ----------------------------------------------------------------------------
@@ -386,19 +505,43 @@ function Article:read_line(s_text)
     if index > #s_text then goto eol; end
 
     -- read a single byte
-    i_ascii = s_text:byte(index)
+    ascii = s_text:byte(index)
 
     -- space = word-break
-    if i_ascii == 0x20 then
+    if ascii == 0x20 then
+        ------------------------------------------------------------------------
         -- the current word is complete, add it to the line
         -- and handle the pending space according to word-wrap
         add_word()
         -- queue another space
         word_spc = 1
+
+    --#-- punctuation that word-breaks after
+    --#-- (we remove spaces after commas!)
+    --#elseif s_text:match("^[%,] %l", index) then
+    --#    ------------------------------------------------------------------------
+    --#    add_char(ascii)     -- append the punctuation to the word
+    --#    add_word()          -- append the word with punctuation attached
+    --#    word_spc = 0        -- do not add a space before the next word
+    --#    index = index + 1   -- skip the space!
+
+    -- an em-dash is a word-break either side
+    elseif s_text:match("^—", index) then
+        ------------------------------------------------------------------------
+        -- add current word, treating the em-dash as a word-break
+        add_word()
+        -- add the em-dash as its own word
+        word_str = s_text:match("^—", index)
+        word_len = utf8.len(word_str)
+        add_word()
+        -- skip the extra byte
+        index = index + 1
+
     else
+        ------------------------------------------------------------------------
         -- add to the current word
         -- (and handle word-wrap)
-        add_char(i_ascii)
+        add_char(ascii)
     end
     goto next
 
@@ -426,12 +569,7 @@ function Article:write()
     f_out:write(string.pack("<I2", #self.lines+2))
     -- the list of line-lengths
     for _, line in ipairs(self.lines) do
-        -- TODO: this should be provided by the Line class
-        if line.default ~= 0 then
-            f_out:write(string.pack("B", line:getLen() + 0x80))
-        else
-            f_out:write(string.pack("B", line:getLen()))
-        end
+        f_out:write(string.pack("B", line:getBinLen()))
     end
     -- the lines-length table is suffixed with $80
     -- to indicate when to stop scrolling downards
@@ -447,9 +585,8 @@ end
 
 --------------------------------------------------------------------------------
 Line = {
-    text        = "",       -- line text, nominally ASCII
-    is_petscii  = false,    -- is this a PETSCII line?
-    prefab      = 0,        -- if PETSCII, is it a prefab?
+    text        = "",       -- line text, encoded for the C64
+    is_petscii  = false,    -- is this a PETSCII-only line?
     length      = 0,        -- length of line in characters, not bytes
     default     = 0,        -- default colour class
 }
@@ -460,8 +597,8 @@ function Line:new()
     ----------------------------------------------------------------------------
     -- crate new, empty, instance
     local line = {
-        text        = "",       -- line text, nominally ASCII
-        is_petscii  = false,    -- is this a PETSCII line?
+        text        = "",       -- line text, encoded for the C64
+        is_petscii  = false,    -- is this a PETSCII-only line?
         length      = 0,        -- length of line in characters, not bytes
         default     = 0         -- default colour class
     }
@@ -470,19 +607,28 @@ function Line:new()
     return line                 -- return the new instance
 end
 
--- add an ASCII character to the ASCII representation of the line
+-- add C64 screen-code(s) directly to the line, without conversion
 --------------------------------------------------------------------------------
-function Line:addChar(i_byte)
+function Line:addC64(s_c64)
     ----------------------------------------------------------------------------
-    self.text = self.text .. string.char(i_byte)
-    self.length = self.length + 1
+    self.text = self.text .. s_c64
+    self.length = self.length + #s_c64
 end
 
+-- encode a utf-8 code-point for the C64 and add it to the line
 --------------------------------------------------------------------------------
-function Line:addString(s_text)
+function Line:addChar(i_utf8)
     ----------------------------------------------------------------------------
-    self.text = self.text .. s_text
-    self.length = self.length + #s_text
+    -- the conversion to C64 screen codes may yield
+    -- more than 1 character, for example the em-dash
+    self:addString(utf8.char(i_utf8))
+end
+
+-- encode a utf-8 string for the C64 and add it to the line
+--------------------------------------------------------------------------------
+function Line:addString(s_utf8)
+    ----------------------------------------------------------------------------
+    self:addC64(string.toC64(s_utf8))
 end
 
 -- returns the final binary form of the line
@@ -495,15 +641,8 @@ function Line:getBin()
         -- include the colour data
         bin = string.char(0x80 + self.default) .. bin
     end
-    -- is this a PETSCII line?
-    if self.is_petscii then
-        -- no conversion needed
-        -- TODO: RLE-compression
-        bin = bin .. self.text
-    else
-        -- convert the ASCII text
-        bin = bin .. self.text:toC64()
-    end
+    -- TODO: PETSCII-only lines with RLE-compression
+    bin = bin .. self.text
     -- note that lines are written into the binary backwards!
     -- this is so that the line length can be used as a count-down
     -- index which is faster for 6502s to process
@@ -512,6 +651,12 @@ end
 
 -- length of the binary line, including colour-data (if present)
 --------------------------------------------------------------------------------
-function Line:getLen()
-    return string.len(self:getBin())
+function Line:getBinLen()
+    -- is there colour data?
+    if self.default ~= 0 then
+        -- mark line as having colour-data by setting the high-bit
+        return string.len(self:getBin()) + 0x80
+    else
+        return string.len(self:getBin())
+    end
 end

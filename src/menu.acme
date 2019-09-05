@@ -86,11 +86,16 @@ menu_irq_logo_end:
 
         ; now kill enough time for a whole line
         ; TODO: time this more accurately (~63-65 cycles)
-        ldx # 10
+        ldx # 8
 -       dex
         bne -
         ; go back to black
         stx VIC_BORDER
+        stx VIC_BACKGROUND
+
+        ; change to the custom font for the rest of the page
+        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font_lo & %00111000) >> 2)
+        sta VIC_LAYOUT
 
         ; kill enough time to get out of the left-hand border before we change
         ; the colour. TODO: time this more accurately
@@ -100,6 +105,7 @@ menu_irq_logo_end:
 
         lda # LTGREY
         sta VIC_BORDER
+        sta VIC_BACKGROUND
 
         rts
 
@@ -108,6 +114,11 @@ menu_irq_vblank:
         lda # MENU_BORDER
         sta VIC_BORDER
         sta VIC_BACKGROUND
+
+        ; change to the ROM PETSCII font for the logo...
+        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font_up & %00111000) >> 2)
+        sta VIC_LAYOUT
+
         rts
 
 ;===============================================================================
@@ -124,6 +135,10 @@ menu_screen:
         lda # MENU_BACK
         sta VIC_BACKGROUND
 
+        ; erase the text-screen
+        lda # MENU_FORE
+        jsr clear_screen
+
         ;-----------------------------------------------------------------------
         ; set our own interrupt handlers
         ;
@@ -131,10 +146,6 @@ menu_screen:
         ldx #> menu_irqs        ; address of IRQ table, hi-byte
         ldy # MENU_IRQS_COUNT   ; number of entries in the table (1-based)
         jsr irqs_load           ; (this will enable interrupts)
-
-        ; erase the text-screen
-        lda # MENU_FORE
-        jsr clear_screen
 
         ; print logo:
         ;-----------------------------------------------------------------------
@@ -161,12 +172,6 @@ menu_screen:
 
 +       lda # BLACK
         sta ZP_PRINT_COLOR
-        
-        ldx # 40
-        lda # $63
--       dex
-        sta nu_screen + (3 * 40), x
-        bne -
 
        +print_str_pos   menu_subline
 
@@ -307,7 +312,16 @@ menu_load:
         sta VIC_SCREEN_CTL1
         ; tear down the custom interrupt handlers
         jsr irqs_disable
+
+        lda # READ_BACK
+        sta VIC_BORDER
+        lda # READ_FORE
+        sta VIC_BACKGROUND
         
+        ; change to the custom font, don't remain on the ROM font!
+        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font_lo & %00111000) >> 2)
+        sta VIC_LAYOUT
+
         ; set the KERNAL load properties:
         sei                     ; disable interrupts
         inc CPU_CONTROL         ; enable the KERNAL

@@ -32,8 +32,11 @@ nu_text                 = $4000 ; address of the article text
 
 NU_VIC_BANK             = 3     ; the VIC bank used by the outfit
 
-nu_font                 = $e000 ; location of the custom font; 2 KB
-nu_screen               = $e800 ; text-screen location; 1 KB
+nu_font                 = $e000 ; location of the custom font; 4 KB
+nu_font_up              = $e000 ; upper-case half of the font; 2 KB
+nu_font_lo              = $e800 ; lower-case half of the font; 2 KB
+
+nu_screen               = $f000 ; text-screen location; 1 KB
 
 ; in a case of "if it's stupid but it works, it's not stupid" we handle the
 ; scrolling in of new lines by simply treating the screen as taller than it
@@ -41,19 +44,19 @@ nu_screen               = $e800 ; text-screen location; 1 KB
 ; screen (these are assigned to high-RAM so that they do not occupy bytes in
 ; the main code)
 ;
-nu_screen_before        = $ec00
-nu_screen_temp          = $ec28
-nu_screen_after         = $ec50
+nu_screen_before        = $f400
+nu_screen_temp          = $f428
+nu_screen_after         = $f450
 
 ; we can't put data before / after the colour RAM when I/O is on,
 ; and turning I/O on & off to use the RAM underneath is too slow
 ; so the 'off-screen' colour rows are stored here
 ;
-nu_colour_before        = $ec78
-nu_colour_temp          = $eca0
-nu_colour_after         = $ecc8
+nu_colour_before        = $f478
+nu_colour_temp          = $f4a0
+nu_colour_after         = $f4c8
 
-nu_sprites              = $ed00 ; sprite gfx
+nu_sprites              = $f500 ; sprite gfx
 
 }
 
