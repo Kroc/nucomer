@@ -634,6 +634,7 @@ end
 -- returns the final binary form of the line
 --------------------------------------------------------------------------------
 function Line:getBin()
+    ----------------------------------------------------------------------------
     -- binary string that will be returned
     local bin = ""
     -- non-default style class?
@@ -652,6 +653,7 @@ end
 -- length of the binary line, including colour-data (if present)
 --------------------------------------------------------------------------------
 function Line:getBinLen()
+    ----------------------------------------------------------------------------
     -- is there colour data?
     if self.default ~= 0 then
         -- mark line as having colour-data by setting the high-bit

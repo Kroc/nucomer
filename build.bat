@@ -71,6 +71,7 @@ REM # assemble the disk bootstrap
 REM ----------------------------------------------------------------------------
 %ACME% ^
      --format cbm ^
+     --report "build\boot.txt" ^
      --outfile "build\boot.prg" ^
           "src\prg_boot.acme"
 
@@ -81,21 +82,9 @@ IF ERRORLEVEL 1 (
 
 REM # assemble the intro
 REM ----------------------------------------------------------------------------
-
-REM # test build the fast-loader
-%ACME% ^
-     --format cbm ^ --setpc $0800 ^
-     --outfile "build\fload.prg" ^
-          "src\load\load_cfg_all.acme" ^
-          "src\load\load.acme"
-
-IF ERRORLEVEL 1 (
-     ECHO FAIL
-     EXIT /B %ERRORLEVEL%
-)
-
 %ACME% ^
      --format cbm ^
+     --report "build\intro.txt" ^
      --outfile "build\intro.prg" ^
           "src\prg_intro.acme"
 
@@ -121,6 +110,11 @@ ECHO [OK]
 REM # exomize content:
 REM ============================================================================
 <NUL (SET /P "$=Exomize...                          ")
+
+REM # TODO...
+%EXOMIZER% mem -l $0800 -q ^
+     -o "build\nucomer-exo.prg" ^
+     -- build\nucomer.prg
 
 %EXOMIZER% sfx $0800 -n -q ^
      -o "build\nucomer-exo.prg" ^

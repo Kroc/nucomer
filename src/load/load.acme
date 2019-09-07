@@ -21,14 +21,18 @@
 ;-------------------------------------------------------------------------------
 ; Defines derived from the compile options (need not be changed)
 ;-------------------------------------------------------------------------------
+!addr {
 
 .zp_loadtempreg         = zpbase2+0     ; temp variables for the loader
 .zp_bufferstatus        = zpbase2+1     ; bytes in fastload buffer
 .zp_fileopen            = zpbase2+2     ; file open indicator
 .zp_fastloadstatus      = zpbase2+3     ; fastloader active indicator
 
+fastloadstatus = .zp_fastloadstatus
+
 .zp_destlo              = zpbase+0
 .zp_desthi              = zpbase+1
+}
 
 ; other defines
 ;-------------------------------------------------------------------------------
