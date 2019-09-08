@@ -86,7 +86,7 @@ menu_irq_logo_end:
 
         ; now kill enough time for a whole line
         ; TODO: time this more accurately (~63-65 cycles)
-        ldx # 8
+        ldx # 9
 -       dex
         bne -
         ; go back to black
@@ -99,7 +99,7 @@ menu_irq_logo_end:
 
         ; kill enough time to get out of the left-hand border before we change
         ; the colour. TODO: time this more accurately
-        ldx # 3
+        ldx # 2
 -       dex
         bne -
 
@@ -173,7 +173,8 @@ menu_screen:
 +       lda # BLACK
         sta ZP_PRINT_COLOR
 
-       +print_str_pos   menu_subline
+       +print_str_pos   menu_str_subline
+       +print_str_pos   menu_str_help
 
         ; print menu items:
         ;-----------------------------------------------------------------------
@@ -294,7 +295,7 @@ menu_refresh:
         adc #>($d800-nu_screen) ; distance between screen RAM & colour RAM
         sta @color+2            ; e.g. $0508 -> $D908
 
-        lda # $db               ; screen code for marker symbol
+        lda # $f0               ; screen code for marker symbol
 @scr    sta $8888
         lda # BLACK
 @color  sta $8888
@@ -377,14 +378,29 @@ menu_load:
 menu_petscii_logo:
 ;===============================================================================
         !byte   0, 0
-!ct "build/scr_logo.ct" {
-        !text   " ---- =  = ---- ---- ----- ---- ----    "
-        !text   " #  # #  # #    #  # # # # #___ #       "
-        !text   " #  # #__# #___ #__# # # # #___ #       ", $ff
-}
-menu_subline:
+        !ct "build/scr_logo.ct" {
+                !text   " ---- =  = ---- ---- ----- ---- ----    "
+                !text   " #  # #  # #    #  # # # # #___ #       "
+                !text   " #  # #__# #___ #__# # # # #___ #       "
+                !byte   $ff
+        }
+menu_str_subline:
         !byte   4, 31
-        !text   "issue #0", $ff
+        !text   "issue #0"
+        !byte   $ff
+
+menu_str_help:
+        !byte   23, 0
+        !ct "build/scr_reverse.ct" {
+                !text   $da, $d4, "crsr", $d5, $d9
+        }
+        !text   "change-selection"
+        
+        !ct "build/scr_reverse.ct" {
+                !text   $da, "return", $d9
+        }
+        !text   "select"
+        !byte   $ff
 
 menu_db:
 ;===============================================================================

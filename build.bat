@@ -49,18 +49,21 @@ IF ERRORLEVEL 1 (
 
 REM # assemble the ASCII maps
 REM ----------------------------------------------------------------------------
-%ACME% ^
-     --format plain ^
-          "src\fonts\scr_nucomer.acme"
+%ACME% "src\fonts\scr_nucomer.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
      EXIT /B %ERRORLEVEL%
 )
 
-%ACME% ^
-     --format plain ^
-          "src\fonts\scr_logo.acme"
+%ACME% "src\fonts\scr_reverse.acme"
+
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+
+%ACME% "src\fonts\scr_logo.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL

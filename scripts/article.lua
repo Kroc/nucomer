@@ -170,7 +170,7 @@ function string:toC64 ()
         elseif self:match("^—", i) ~= nil then
             -- add as two C64 screen-codes!
             s_out = s_out .. string.char(0x62, 0x63)
-            -- skip the extra byte
+            -- skip the extra (utf-8) bytes
             i = i + 1
 
         -- "*'d" contractions:
@@ -245,6 +245,40 @@ function string:toC64 ()
             -- move the index over the processed characters
             i = i + 3
 
+        -- 1st ordinal
+        ------------------------------------------------------------------------
+        elseif self:match("^1st", i) ~= nil then
+            -- replace the "st" with the special character
+            s_out = s_out .. string.char(str2scr["1"], 0x6a)
+            -- skip the extra bytes
+            i = i + 2
+
+        -- 2nd ordinal
+        ------------------------------------------------------------------------
+        elseif self:match("^2nd", i) ~= nil then
+            -- replace the "nd" with the special character
+            s_out = s_out .. string.char(str2scr["2"], 0x6b)
+            -- skip the extra bytes
+            i = i + 2
+
+        -- 3rd ordinal
+        ------------------------------------------------------------------------
+        elseif self:match("^3rd", i) ~= nil then
+            -- replace the "rd" with the special character
+            s_out = s_out .. string.char(str2scr["3"], 0x6c)
+            -- skip the extra bytes
+            i = i + 2
+
+        -- "?th" ordinal:
+        ------------------------------------------------------------------------
+        elseif self:match("^[0456789]th", i) ~= nil then
+            -- encode the numeral before the "th"
+            s_out = s_out .. string.char(str2scr[self:sub(i, i)])
+            -- add the specialised "th" character
+            s_out = s_out .. string.char(0x6d)
+            -- skip the extra bytes
+            i = i + 2
+
         -- utf-8 characters that map to one c64 screen-code:
         ------------------------------------------------------------------------
         elseif self:match("^"..utf8.charpattern, i) ~= nil then
@@ -253,12 +287,14 @@ function string:toC64 ()
             -- look up the C64 screen-code
             local i_scr = str2scr[s_utf8]
             -- if there is no conversion display an error mark
-            if i_scr == nil then i_scr = 0xbf; end -- reverse "?"
+            if i_scr == nil then i_scr = 0xff; end -- warning sign "<!>"
             -- add to the C64 string
             s_out = s_out .. string.char(i_scr)
             -- skip over the excess bytes
             i = i + (#s_utf8-1)
-
+        else
+            -- "�"
+            --#s_out = s_out .. string.char(0xff)
         end
 
     until i >= #self
@@ -395,6 +431,9 @@ end
 --------------------------------------------------------------------------------
 function Article:read_line(s_text)
     ----------------------------------------------------------------------------
+    -- line-lenth we'll be breaking against
+    local scr_width = 40
+
     -- create line-object to hold line meta-data
     local line      = Line:new()
     local index     = 0         -- current byte index in the line
@@ -423,12 +462,12 @@ function Article:read_line(s_text)
         -- e.g. contractions using specialised single-characters
         local s_c64 = word_str:toC64()
         -- if the word will not fit on the line, hyphenate & word-wrap
-        if line.length + #s_c64 + word_spc > 40 then
+        if line.length + #s_c64 + word_spc > scr_width then
             -- hyphenate the word splitting into as much as can fit
             -- on the current line and the remainder for the next line
             local before, after = hyphenate:breakWord(
                 -- split the word according to how much line space remains
-                "en-gb", word_str, (40 - line.length) - word_spc
+                "en-gb", word_str, (scr_width - line.length) - word_spc
             )
             --#print(left, right)
             -- add the part of the word that fits (if any)
@@ -488,7 +527,7 @@ function Article:read_line(s_text)
         -- change the line's default style class
         line.default = 1
         -- build a horizontal bar directly out of screen-codes
-        line:addC64(string.rep(string.char(0x7f), 40))
+        line:addC64(string.rep(string.char(0x7f), scr_width))
        -- no need to process any more of the source line
        -- just add the bar we've given and exit
        goto eol

@@ -24,6 +24,8 @@ Elitist arguments about "original hardware" must be pushed back. Those with a no
 
 In reality, modern hardware and the Internet are where people are productive today and Nücomer will never communicate in ignorance of this fact. There are plenty of tutorials and resources out there on setting up a PC development environment and writing your first lines of code for an 8-bit system, I cannot do that within the confines of the C64's RAM & storage! Instead, Nücomer explores the "why"; why you should solve a programming problem in a certain way; why 8-bit systems are the way they are; why you should care.
 
+:: Why The Commodore 64?
+--------------------------------------------------------------------------------
 So why the Commodore 64, of all 8-bit systems?
 
 Unlike today's "flavours of x86" PC market, the 8-bit generation of home-microcomputers ran on a variety of wildly different processor architectures.

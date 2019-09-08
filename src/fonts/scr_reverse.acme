@@ -10,7 +10,7 @@
 ;===============================================================================
 
 ; no load address
-!to "build/scr_nucomer.ct", plain
+!to "build/scr_reverse.ct", plain
 
 ; pc = table index
 * = 0
@@ -21,10 +21,18 @@
         !byte   $ff
 }
 
-; the screen codes follow ASCII order but there are no control codes
-; so begin at 0, rather than 32
+; to begin with, we map ASCII to 128 ($80)
+; upwards where the inverse glyphs are
 * = 32, overlay
 
 !for i, 0, 95 {
-        !byte   i
+        !byte   i + 128
+}
+
+; however, there are no lower-case letters,
+; so remap those to the inverse upper-case letters
+* = 97, overlay
+
+!for i, 0, 25 {
+        !byte   i + $a1
 }
