@@ -6,7 +6,8 @@ SET LUA="bin\lua\lua53.exe"
 SET LUA_ARTICLE=%LUA% "scripts\article.lua"
 
 SET ACME=bin\acme\acme.exe -I "src"
-SET EXOMIZER="bin\exomizer.exe"
+SET EXOMIZER="bin\exomizer\exomizer.exe"
+SET PUCRUNCH="bin\pucrunch\pucrunch.exe"
 SET C1541="bin\vice\c1541.exe"
 
 REM # assemble BSOD64 debugger
@@ -121,11 +122,14 @@ REM # exomize content:
 REM ============================================================================
 <NUL (SET /P "$=Exomize...                          ")
 
-%EXOMIZER% sfx $b000 -n -q ^
+%EXOMIZER% mem -l $b000 -B -q ^
      -o "build\nucomer-exo.prg" ^
-     -- "build\nucomer.prg" ^
-        "src\bsod64\bsod64.prg" ^
-        "build\admiral64.prg"
+     -- "build\nucomer.prg"
+
+%PUCRUNCH% -f -c0 ^
+     "build\nucomer.prg" ^
+     "build\nucomer-pu.prg" ^
+     2>NUL
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
@@ -149,6 +153,8 @@ REM # prepare the disk image
      -write "build\boot.prg"            "boot" ^
      -write "build\intro.prg"           "intro" ^
      -write "build\nucomer.prg"         "nucomer" ^
+     -write "build\nucomer-exo.prg"     "nucomer-exo" ^
+     -write "build\nucomer-pu.prg"      "nucomer-pu" ^
      -write "src\bsod64\bsod64.prg"     "bsod64" ^
      -write "build\admiral64.prg"       "admiral64" ^
      1>NUL

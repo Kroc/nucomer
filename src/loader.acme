@@ -7,52 +7,62 @@
 ; - do not use it for commercial purposes
 ;   (contact the author for a commercial licence)
 ;
-; loader.acme
+; loader.acme:
 ;===============================================================================
 
-TWOBIT_PROTOCOL   = 0           ;Nonzero to use 2-bit protocol which may delay
-                                ;interrupts and does not allow sprites, but is
-                                ;faster. Zero to use 1-bit protocol which is
-                                ;the opposite.
-LONG_NAMES      = 1             ;Set to nonzero to use long names (pointer in
-                                ;X,Y) or zero to use 2-letter names (letters
-                                ;in X,Y)
-BORDER_FLASHING = 0             ;Set to nonzero to enable border flashing
-                                ;when fastloading :)
-LOAD_UNDER_IO   = 0             ;Set to nonzero to enable possibility to load
-                                ;under I/O areas.
-LOADFILE_UNPACKED = 1           ;Set to nonzero to include unpacked loading
-LOADFILE_EXOMIZER = 0           ;Set to nonzero to include EXOMIZER loading
-LOADFILE_PUCRUNCH = 0           ;Set to nonzero to include PUCRUNCH loading
+; non-zero to use 2-bit protocol which may delay interrupts and does not allow
+; sprites, but is faster. zero to use 1-bit protocol which is the opposite
+TWOBIT_PROTOCOL                 = 0
 
-LITERAL_SEQUENCES_NOT_USED = 0  ;(EXOMIZER only): set to nonzero for shorter
-                                ;depacker, if you use -c switch to disable 
-                                ;literal sequences in Exomizer 2, or if you 
-                                ;use Exomizer 1.
-FORWARD_DECRUNCHING = 0         ;(EXOMIZER only): set to nonzero if you use -f
-                                ;switch in Exomizer 2 or 3, zero for Exomizer 1.
-MAX_SEQUENCE_LENGTH_256 = 0     ;(EXOMIZER 3 only): set to nonzero if you use
-                                ;the -M256 switch in Exomizer 3. Reduces
-                                ;depack code size.
-EXOMIZER_VERSION_3 = 0          ;(EXOMIZER 3 only): set to nonzero if you use
-                                ;Exomizer 3 and its more optimal bytestream.
-                                ;Incompatible with Exomizer 1/2.
+; set to nonzero to use long names (pointer in X,Y) or zero to use 2-letter
+; names (letters in X,Y)
+LONG_NAMES                      = 1
 
-RETRIES         = 5             ;Retries when reading a sector
+; set to nonzero to enable border flashing when fast-loading :)
+BORDER_FLASHING                 = 0
+
+; set to nonzero to enable possibility to load under I/O areas
+LOAD_UNDER_IO                   = 0
+
+; set to nonzero to include unpacked loading
+LOADFILE_UNPACKED               = 1
+; set to nonzero to include EXOMIZER loading
+LOADFILE_EXOMIZER               = 0
+; set to nonzero to include PUCRUNCH loading
+LOADFILE_PUCRUNCH               = 1
+
+; (EXOMIZER only): set to non-zero for shorter depacker, if you use `-c`
+; switch to disable literal sequences in Exomizer 2, or if you use Exomizer 1
+LITERAL_SEQUENCES_NOT_USED      = 0
+
+; (EXOMIZER only): set to non-zero if you use `-f` switch
+; in Exomizer 2 or 3, zero for Exomizer 1
+FORWARD_DECRUNCHING             = 0
+
+; (EXOMIZER 3 only): set to non-zero if you use the `-M256` switch
+; in Exomizer 3. reduces depack code size
+MAX_SEQUENCE_LENGTH_256         = 0
+
+; (EXOMIZER 3 only): set to non-zero if you use Exomizer 3
+; and its more optimal bytestream. incompatible with Exomizer 1/2
+EXOMIZER_VERSION_3              = 0
+
+; retries when reading a sector
+RETRIES                         = 5
 
 !addr {
 
-loadbuffer      = $bf00         ;256 byte table used by fastloader.
-                                ;Must be page-aligned when using 1bit protocol.
+loadbuffer      = $af00         ; 256 byte table used by fast-loader.
+                                ; must be page-aligned when using 1bit protocol
 
-depackbuffer    = $be00         ;156 bytes for EXOMIZER tables, 31 for
-                                ;PUCRUNCH.
+depackbuffer    = $ae00         ; 156 bytes for EXOMIZER tables,
+                                ; 31 for PUCRUNCH
 
-zpbase          = $74           ;Zeropage base address. Loader needs 2
-                                ;addresses with unpacked, 3 with PUCRUNCH
-                                ;and 8 with EXOMIZER loading.
+zpbase          = $74           ; zero-page base address. loader needs 2
+                                ; addresses with unpacked, 3 with PUCRUNCH
+                                ; and 8 with EXOMIZER loading
 
-zpbase2         = $7c           ;Additional 4 required zeropage addresses.
+zpbase2         = $7c           ; additional 4 required zeropage addresses
 
 }
 !source "load/load.acme"

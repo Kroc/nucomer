@@ -196,15 +196,19 @@ copy_next:
         bcs copy_noliteral
         jsr getbyte
 copy_noliteral:
-!if LOAD_UNDER_IO > 0 {
-        jsr disableio
-}       bcc copy_store
+        !if LOAD_UNDER_IO > 0 {
+                ;///////////////////////////////////////////////////////////////
+                jsr disableio
+        }       ;///////////////////////////////////////////////////////////////
+        bcc copy_store
         lda (zp_src_lo),y
 copy_store:
         sta (zp_dest_lo),y
-!if LOAD_UNDER_IO > 0 {
-        jsr enableio
-}       iny
+        !if LOAD_UNDER_IO > 0 {
+                ;///////////////////////////////////////////////////////////////
+                jsr enableio
+        }       ;///////////////////////////////////////////////////////////////
+        iny
         bne copy_skiphi
         dex
         inc zp_dest_hi

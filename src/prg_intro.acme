@@ -101,9 +101,18 @@ intro_init:
         
         !if OPTION_USE_FASTLOADER != 0 {
                 ;///////////////////////////////////////////////////////////////
-                ldx #< @filename_outfit
-                ldy #> @filename_outfit
-                jsr loadfile
+                ;;ldx #< @filename_exo
+                ;;ldy #> @filename_exo
+                ;;jsr loadfile_exomizer
+                ;;!byte   $02     ; kil
+                ldx #< @filename_pu
+                ldy #> @filename_pu
+                jsr loadfile_pucrunch
+                ;;!byte   $02     ; kil
+
+                ;;ldx #< @filename_outfit
+                ;;ldy #> @filename_outfit
+                ;;jsr loadfile
                 ldx #< @filename_bsod64
                 ldy #> @filename_bsod64
                 jsr loadfile
@@ -137,6 +146,10 @@ intro_init:
 +               jmp nu_main
 
         }       ;///////////////////////////////////////////////////////////////
+@filename_exo:
+        !pet    "nucomer-exo", 0
+@filename_pu:
+        !pet    "nucomer-pu", 0
 
 @filename_outfit:
         ;-----------------------------------------------------------------------
