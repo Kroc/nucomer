@@ -38,8 +38,8 @@ boot_basic:
 ;===============================================================================
 ; load the intro:
 ;
-; the purpose of this bootstrap is to swtich from BASIC to machine-language
-; control and load the intro
+; the purpose of this bootstrap is to swtich from BASIC
+; to machine-language control and load the intro
 ;
 boot_init:
         ;-----------------------------------------------------------------------

@@ -182,7 +182,7 @@ function Issue:_writedb ()
     f_out:write("\n")
     f_out:write("!ct \"build/scr_nucomer.ct\"")
     f_out:write("\n")
-    f_out:write("MENU_DB_COUNT                   = ")
+    f_out:write(".MENU_DB_COUNT                  = ")
     f_out:write(string.format("%i\n", #self.toc))
 
     f_out:write("\n")

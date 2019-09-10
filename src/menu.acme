@@ -14,23 +14,26 @@
 !ct "build/scr_nucomer.ct"
 
 ; theme colours
-MENU_BORDER     = .VIC_BLACK
-MENU_FORE       = .VIC_BLACK
-MENU_BACK       = .VIC_LTGREY
+.MENU_BORDER    = .VIC_BLACK
+.MENU_FORE      = .VIC_BLACK
+.MENU_BACK      = .VIC_LTGREY
 
-; currently selected menu item
-!addr   ZP_MENU_INDEX           = $10
+!addr {
+
+zp_menu_index   = $10           ; currently selected menu item
+
+}
 
 ;===============================================================================
 ; table of interrupts to use for the menu screen:
 ;
 menu_irqs:
 ;-------------------------------------------------------------------------------
-MENU_IRQ1       = SCANLINE_VBLANK_END + (1 * 8)-2
-MENU_IRQ2       = SCANLINE_VBLANK_END + (2 * 8)-2
-MENU_IRQ3       = SCANLINE_VBLANK_END + (3 * 8)-2
-MENU_IRQ4       = SCANLINE_VBLANK_BEGIN
-MENU_IRQS_COUNT = 4
+.MENU_IRQ1      = SCANLINE_VBLANK_END + (1 * 8)-2
+.MENU_IRQ2      = SCANLINE_VBLANK_END + (2 * 8)-2
+.MENU_IRQ3      = SCANLINE_VBLANK_END + (3 * 8)-2
+.MENU_IRQ4      = SCANLINE_VBLANK_BEGIN
+.MENU_IRQS      = 4
 
 menu_irqs_addr_lo:
         !byte   <menu_irq_vblank
@@ -43,15 +46,15 @@ menu_irqs_addr_hi:
         !byte   >menu_irq_logo
         !byte   >menu_irq_logo
 menu_irqs_scanline_lo:
-        !byte   <MENU_IRQ4
-        !byte   <MENU_IRQ3
-        !byte   <MENU_IRQ2
-        !byte   <MENU_IRQ1
+        !byte   <.MENU_IRQ4
+        !byte   <.MENU_IRQ3
+        !byte   <.MENU_IRQ2
+        !byte   <.MENU_IRQ1
 menu_irqs_scanline_hi:
-        !byte   (>MENU_IRQ4) << 7
-        !byte   (>MENU_IRQ3) << 7
-        !byte   (>MENU_IRQ2) << 7
-        !byte   (>MENU_IRQ1) << 7
+        !byte   (>.MENU_IRQ4) << 7
+        !byte   (>.MENU_IRQ3) << 7
+        !byte   (>.MENU_IRQ2) << 7
+        !byte   (>.MENU_IRQ1) << 7
 
 menu_irq_logo:
         ;-----------------------------------------------------------------------
@@ -111,7 +114,7 @@ menu_irq_logo_end:
 
 menu_irq_vblank:
         ;-----------------------------------------------------------------------
-        lda # MENU_BORDER
+        lda # .MENU_BORDER
         sta .VIC_BORDER
         sta .VIC_BACKGROUND
 
@@ -130,13 +133,13 @@ menu_screen:
         sta .VIC_SCREEN_CTL1
         
         ; set screen colour
-        lda # MENU_BORDER
+        lda # .MENU_BORDER
         sta .VIC_BORDER
-        lda # MENU_BACK
+        lda # .MENU_BACK
         sta .VIC_BACKGROUND
 
         ; erase the text-screen
-        lda # MENU_FORE
+        lda # .MENU_FORE
         jsr clear_screen
 
         ;-----------------------------------------------------------------------
@@ -144,7 +147,7 @@ menu_screen:
         ;
         lda #< menu_irqs        ; address of IRQ table, lo-byte
         ldx #> menu_irqs        ; address of IRQ table, hi-byte
-        ldy # MENU_IRQS_COUNT   ; number of entries in the table (1-based)
+        ldy # .MENU_IRQS        ; number of entries in the table (1-based)
         jsr irqs_load           ; (this will enable interrupts)
 
         ; print logo:
@@ -180,7 +183,7 @@ menu_screen:
         ;-----------------------------------------------------------------------
         ; select the first menu item by default
         lda # 0
-        sta ZP_MENU_INDEX
+        sta zp_menu_index
         
         ; draw the menu items on the screen
         jsr menu_refresh
@@ -215,19 +218,19 @@ menu_keyboard:
         bne @up                 ; if yes, it's CRSR-UP
 
         ; crsr-dn: move to the next menu item
-@dn     ldy ZP_MENU_INDEX       ; what's the currently selected menu item?
+@dn     ldy zp_menu_index       ; what's the currently selected menu item?
         iny                     ; if we were to move down...
-        cpy # MENU_DB_COUNT     ; would we go below the bottom? (1-based)
+        cpy # .MENU_DB_COUNT    ; would we go below the bottom? (1-based)
         beq menu_keyboard       ; if at the bottom, move no further
-        inc ZP_MENU_INDEX
+        inc zp_menu_index
         jsr menu_refresh
         jmp menu_keyboard
 
         ; crsr-up: move to the previous menu item
-@up     ldy ZP_MENU_INDEX       ; what's the currently selected menu item?
+@up     ldy zp_menu_index       ; what's the currently selected menu item?
         dey                     ; if we were to move up?
         bmi menu_keyboard       ; if already at top, move no further
-        dec ZP_MENU_INDEX
+        dec zp_menu_index
         jsr menu_refresh
         jmp menu_keyboard
 
@@ -250,7 +253,7 @@ menu_refresh:
         ;-----------------------------------------------------------------------
         ; the menu-count is 1-based; subtract 1 to avoid printing garbage.
         ; we also render the menu items from last to first for speed purposes
-        ldy # MENU_DB_COUNT
+        ldy # .MENU_DB_COUNT
         dey
         
         ; position the cursor:
@@ -265,7 +268,7 @@ menu_refresh:
         ; set the text colour:
         ;-----------------------------------------------------------------------
 @i      ldy # $88               ; retrieve the menu index
-        cpy ZP_MENU_INDEX       ; is this the selected menu item?
+        cpy zp_menu_index       ; is this the selected menu item?
         bne +                   ; no, use standard colour
         lda # .VIC_BLACK        ; yes, use selected colour
        +bit_skip2               ; skip over the next instruction
@@ -283,7 +286,7 @@ menu_refresh:
 
         ; mark the selected menu item:
         ;-----------------------------------------------------------------------
-        ldy ZP_MENU_INDEX
+        ldy zp_menu_index
         lda menu_db_cols, y     ; column number
         tax                     ; must be in X
         lda menu_db_rows, y     ; row in Y
@@ -314,9 +317,9 @@ menu_load:
         ; tear down the custom interrupt handlers
         jsr irqs_disable
 
-        lda # READ_BACK
+        lda # .READ_BACK
         sta .VIC_BORDER
-        lda # READ_FORE
+        lda # .READ_FORE
         sta .VIC_BACKGROUND
         
         ; change to the custom font, don't remain on the ROM font!
@@ -337,7 +340,7 @@ menu_load:
         jsr .KERNAL_SETLFS
 
         ; read the address of the filename:
-        ldy ZP_MENU_INDEX       ; currently selected menu item
+        ldy zp_menu_index       ; currently selected menu item
         lda menu_db_prg_lens, y ; get string length from the menu database
         pha                     ; put aside whilst we reuse register A
         

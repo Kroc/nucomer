@@ -19,7 +19,7 @@
     },
     // the TODO-tree extension is recommended
     // for finding the TODOs scattered in the code
-    "todo-tree.excludeGlobs": [
+    "todo-tree.filtering.excludeGlobs": [
         // exclude any source that might be
         // in our 3rd-party binaries folder
         "bin",

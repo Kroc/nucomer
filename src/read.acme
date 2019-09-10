@@ -12,21 +12,21 @@
 ; the screen used when reading articles
 
 ; theme colours
-READ_BORDER             = .VIC_LTGREY
-READ_FORE               = .VIC_DKGREY
-READ_BACK               = .VIC_LTGREY
+.READ_BORDER            = .VIC_LTGREY
+.READ_FORE              = .VIC_DKGREY
+.READ_BACK              = .VIC_LTGREY
 
 !addr {
 
 ; vertical scrolling register value to write at each vblank:
 ; this ensures that the change to the vertical smooth-scroll
 ; offset only ever occurs offscreen
-ZP_READ_VERT            = $20
+zp_read_vert            = $20
 
 ; number of lines in the complete article:
-ZP_READ_LINES           = $21
-ZP_READ_LINES_LO        = $21
-ZP_READ_LINES_HI        = $22
+zp_read_lines           = $21
+zp_read_lines_lo        = $21
+zp_read_lines_hi        = $22
 
 ; height of the complete article -- in pixels! this is used to determine the
 ; exact point to clip smooth scrolling when scrolling quickly. the high-bit
@@ -34,51 +34,51 @@ ZP_READ_LINES_HI        = $22
 ; is limited to $7FFF (32'767) pixels high, equivalant to 4'095 lines,
 ; or 170 screens high!
 ;
-ZP_READ_VLEN            = $23
-ZP_READ_VLEN_LO         = $23
-ZP_READ_VLEN_HI         = $24
+zp_read_vlen            = $23
+zp_read_vlen_lo         = $23
+zp_read_vlen_hi         = $24
 
 ; exact scroll position -- in pixels!
-ZP_READ_VPOS            = $25
-ZP_READ_VPOS_LO         = $25
-ZP_READ_VPOS_HI         = $26
+zp_read_vpos            = $25
+zp_read_vpos_lo         = $25
+zp_read_vpos_hi         = $26
 
 ; scroll accumulator, used for changing the speed
 ; of smooth scrolling; a signed byte
-ZP_READ_SCROLL          = $27
+zp_read_scroll          = $27
 
 ; flag to indicate to disallow upward scrolling
 ; (prevents smooth scrolling at top of article)
-ZP_READ_STOP_UP         = $28   ; $00 = go, $FF = stop
+zp_read_stop_up         = $28   ; $00 = go, $FF = stop
 ; flag to indicate to disallow downward scrolling
 ; (prevents smooth scrolling at bottom of article)
-ZP_READ_STOP_DN         = $29   ; $00 = go, $FF = stop
+zp_read_stop_dn         = $29   ; $00 = go, $FF = stop
 
 ; pointer into the line-length array:
-ZP_READ_LENS            = $2a
-ZP_READ_LENS_LO         = $2a
-ZP_READ_LENS_HI         = $2b
+zp_read_lens            = $2a
+zp_read_lens_lo         = $2a
+zp_read_lens_hi         = $2b
 ; address of the line data that appears at the top of the screen:
 ; (changes only when scrolling, not during printing)
-ZP_READ_TOP             = $2c
-ZP_READ_TOP_LO          = $2c
-ZP_READ_TOP_HI          = $2d
+zp_read_top             = $2c
+zp_read_top_lo          = $2c
+zp_read_top_hi          = $2d
 ; current row on screen being printed: (0-26)
-ZP_READ_ROW             = $2e
+zp_read_row             = $2e
 ; current line data-length, in bytes:
-ZP_READ_LEN             = $2f
+zp_read_len             = $2f
 ; number of rows to print: (1-based)
-ZP_READ_ROWS            = $30
+zp_read_rows            = $30
 ; address of the line that appears at the bottom of the screen:
 ; (changes only when scrolling, not during printing)
-ZP_READ_BOT             = $31
-ZP_READ_BOT_LO          = $31
-ZP_READ_BOT_HI          = $32
+zp_read_bot             = $31
+zp_read_bot_lo          = $31
+zp_read_bot_hi          = $32
 
 ; default printing colour for the line:
-ZP_READ_COLOR_LINE      = $33
+zp_read_color_line      = $33
 ; current printing colour:
-ZP_READ_COLOR           = $34
+zp_read_color           = $34
 
 }
 ;===============================================================================
@@ -193,7 +193,7 @@ read_colour_row26       = nu_colour_after
 ; TODO: put this into zero-page for a tiny bit of speed+size-gain?
 read_styles:
 read_styles_colour:
-read_style0_colour:     !byte   READ_FORE
+read_style0_colour:     !byte   .READ_FORE
 read_style1_colour:     !byte   .VIC_BLACK
 read_style2_colour:     !byte   .VIC_WHITE
 read_style3_colour:     !byte   .VIC_WHITE
@@ -211,13 +211,13 @@ read_screen:
         sta .VIC_SCREEN_VERT
 
         ; set screen colour
-        lda # READ_BORDER
+        lda # .READ_BORDER
         sta .VIC_BORDER
-        lda # READ_BACK
+        lda # .READ_BACK
         sta .VIC_BACKGROUND
 
         ; erase the text-screen
-        lda # READ_FORE
+        lda # .READ_FORE
         sta ZP_PRINT_COLOR
         jsr clear_screen
 
@@ -241,20 +241,20 @@ read_screen:
         clc
         lda nu_text-2
         adc #< (nu_text-2)
-        sta READ_CHAR_LO
-        sta ZP_READ_TOP_LO
+        sta .READ_CHAR_LO
+        sta zp_read_top_lo
         lda nu_text-1
         adc #> (nu_text-1)
-        sta READ_CHAR_HI
-        sta ZP_READ_TOP_HI
+        sta .READ_CHAR_HI
+        sta zp_read_top_hi
 
         ; ergo, the line-length array begins two bytes in
         ; and this is our intial pointer in the array
         ; -- we begin printing at article line 1
         lda #< nu_text
-        sta ZP_READ_LENS_LO
+        sta zp_read_lens_lo
         lda #> nu_text
-        sta ZP_READ_LENS_HI
+        sta zp_read_lens_hi
 
         ; for the smooth scrolling to not overshoot the bottom of the article,
         ; we need to calculate the height of the article in pixels; this is
@@ -265,17 +265,17 @@ read_screen:
         ; is when the bottom of the article is reached
         sec
         sbc # 27
-        sta ZP_READ_VLEN_LO
+        sta zp_read_vlen_lo
         lda nu_text-1
         sbc # 0
-        sta ZP_READ_VLEN_HI
+        sta zp_read_vlen_hi
         ; begin multiplying
-        asl ZP_READ_VLEN_LO     ; x2
-        rol ZP_READ_VLEN_HI     ; ...
-        asl ZP_READ_VLEN_LO     ; x4
-        rol ZP_READ_VLEN_HI     ; ...
-        asl ZP_READ_VLEN_LO     ; x8
-        rol ZP_READ_VLEN_HI     ; ...
+        asl zp_read_vlen_lo     ; x2
+        rol zp_read_vlen_hi     ; ...
+        asl zp_read_vlen_lo     ; x4
+        rol zp_read_vlen_hi     ; ...
+        asl zp_read_vlen_lo     ; x8
+        rol zp_read_vlen_hi     ; ...
 
         ; print the article's first screen full of text
         ;-----------------------------------------------------------------------
@@ -285,23 +285,23 @@ read_screen:
 
         ; now that 27 rows have been printed, the routine will have left
         ; the details of the last row behind which we can make use of
-        lda READ_CHAR_LO
-        sta ZP_READ_BOT_LO
-        lda READ_CHAR_HI
-        sta ZP_READ_BOT_HI
+        lda .READ_CHAR_LO
+        sta zp_read_bot_lo
+        lda .READ_CHAR_HI
+        sta zp_read_bot_hi
 
         ;-----------------------------------------------------------------------
         ; reset the smooth scrolling variables
         ldx # $00
-        stx ZP_READ_VERT        ; set initial smooth-scroll offset
-        stx ZP_READ_SCROLL      ; scroll-speed = 0
-        stx ZP_READ_STOP_DN     ; allow scrolling down; $00 = go, $FF = stop
-        stx ZP_READ_VPOS_LO     ; set the exact pixel vertical position
-        stx ZP_READ_VPOS_HI     ; within the article to zero
+        stx zp_read_vert        ; set initial smooth-scroll offset
+        stx zp_read_scroll      ; scroll-speed = 0
+        stx zp_read_stop_dn     ; allow scrolling down; $00 = go, $FF = stop
+        stx zp_read_vpos_lo     ; set the exact pixel vertical position
+        stx zp_read_vpos_hi     ; within the article to zero
         ; we begin at the top of the article,
         ; so disallow scrolling upwards
         dex                     ; X = $FF
-        stx ZP_READ_STOP_UP     ; $00 = go, $FF = stop
+        stx zp_read_stop_up     ; $00 = go, $FF = stop
 
         ; set our own interrupt handlers:
         lda #< read_irqs        ; A = address of IRQ table, lo-byte
@@ -321,7 +321,7 @@ read_keyboard:
         ; when no keys are pressed, or the scroll keys
         ; are released, stop the smooth scrolling
         lda # $00
-        sta ZP_READ_SCROLL
+        sta zp_read_scroll
         ; no key code to process,
         ; go back to waiting
         bpl read_keyboard       ; (always branches)
@@ -341,32 +341,32 @@ read_keyboard:
         ; if at the bottom of the article,
         ; do not allow scrolling any further
         ;
-@dn     lda ZP_READ_STOP_DN     ; check flag set when scroll hits the bottom
+@dn     lda zp_read_stop_dn     ; check flag set when scroll hits the bottom
         bmi read_keyboard       ; if flag is set ($FF) then don't scroll
 
         ; scroll the content down the page:
         ; (smooth scroll upwards)
         ldx # $03               ; set scroll speed
-        stx ZP_READ_SCROLL      ; this will be applied at interrupt
+        stx zp_read_scroll      ; this will be applied at interrupt
         ; whenever scrolling down,
         ; allow scrolling up again
-        sta ZP_READ_STOP_UP     ; A = $00 due to condition above
+        sta zp_read_stop_up     ; A = $00 due to condition above
         bne read_keyboard       ; (always branches, note X register is used!)
 
         ; crsr-up
         ;-----------------------------------------------------------------------
         ; if at the top of the article,
         ; do not allow scrolling any further
-@up     lda ZP_READ_STOP_UP     ; check flag set when scroll hits the top
+@up     lda zp_read_stop_up     ; check flag set when scroll hits the top
         bmi read_keyboard       ; if flag is set ($FF) then don't scroll
 
         ; scroll the content up the page
         ; (smooth scroll downwards)
         ldx # $fd               ; set -1 scroll speed
-        stx ZP_READ_SCROLL      ; this will be applied at interrupt
+        stx zp_read_scroll      ; this will be applied at interrupt
         ; whenever scrolling up,
         ; allow scrolling down again
-        sta ZP_READ_STOP_DN     ; A = $00 due to condition above
+        sta zp_read_stop_dn     ; A = $00 due to condition above
         bne read_keyboard       ; (always branches, note X register is used!)
 
 @spc    cmp # $20
@@ -398,7 +398,7 @@ read_irqs:
 ; beam when we do this to avoid screen-tearing, therefore we begin scrolling
 ; the top of the screen whilst the beam is in the middle of the screen
 ;
-READ_IRQ1 = SCANLINE_VBLANK_BEGIN - (14 * 8)
+.READ_IRQ1      = SCANLINE_VBLANK_BEGIN - (14 * 8)
 
 ; just before the visible screen begins we set the vertical smooth-scrolling
 ; offset -- we cannot change the vertical scroll inside the screen or we will
@@ -411,7 +411,7 @@ READ_IRQ1 = SCANLINE_VBLANK_BEGIN - (14 * 8)
 ; to ensure that the smooth scrolling register is not changed within
 ; the visible portion of the screen when hard-scrolling is occuring
 ;
-READ_IRQ2 = SCANLINE_VBLANK_END - 8
+.READ_IRQ2      = SCANLINE_VBLANK_END - 8
 
 read_irqs_addr_lo:
         !byte   <read_irq_scroll
@@ -420,17 +420,17 @@ read_irqs_addr_hi:
         !byte   >read_irq_scroll
         !byte   >read_irq_top
 read_irqs_scanline_lo:
-        !byte   <READ_IRQ1
-        !byte   <READ_IRQ2
+        !byte   <.READ_IRQ1
+        !byte   <.READ_IRQ2
 read_irqs_scanline_hi:
-        !byte   (>READ_IRQ1) << 7
-        !byte   (>READ_IRQ2) << 7
+        !byte   (>.READ_IRQ1) << 7
+        !byte   (>.READ_IRQ2) << 7
 
 read_irq_top:
         ;-----------------------------------------------------------------------
         ;;inc .VIC_BORDER
         
-        lda ZP_READ_VERT
+        lda zp_read_vert
         and # %00000111
         eor # %00000111
         ; update the screen/scroll register:
@@ -440,7 +440,7 @@ read_irq_top:
         ora # %00010000
         sta .VIC_SCREEN_VERT
         
-;;        lda ZP_READ_VPOS_HI
+;;        lda zp_read_vpos_hi
 ;;        pha                     ; put original value aside
 ;;        sed                     ; enable decimal mode
 ;;
@@ -459,7 +459,7 @@ read_irq_top:
 ;;        sta nu_screen+(10*40)+1
 ;;        cld
 ;;
-;;        lda ZP_READ_VPOS_LO
+;;        lda zp_read_vpos_lo
 ;;        pha                     ; put original value aside
 ;;        sed
 ;;
@@ -478,7 +478,7 @@ read_irq_top:
 ;;        sta nu_screen+(10*40)+3
 ;;
 ;;        cld                     ; disable decimal mode
-;;        lda ZP_READ_VLEN_HI
+;;        lda zp_read_vlen_hi
 ;;        pha                     ; put original value aside
 ;;        sed
 ;;
@@ -496,7 +496,7 @@ read_irq_top:
 ;;        adc # $30               ; rebase to PETSCII '0' and above
 ;;        sta nu_screen+(10*40)+6
 ;;        cld                     ; disable decimal mode
-;;        lda ZP_READ_VLEN_LO
+;;        lda zp_read_vlen_lo
 ;;        pha                     ; put original value aside
 ;;        sed
 ;;
@@ -524,27 +524,27 @@ read_irq_scroll:
 
         ; is there any scrolling to be done?
         ;
-        lda ZP_READ_SCROLL      ; read requested scroll speed
+        lda zp_read_scroll      ; read requested scroll speed
         beq -                   ; if scroll-speed = 0, then skip
 
         ; apply the scroll to our current
         ; vertical position within the article
         clc
-        lda ZP_READ_VPOS_LO
+        lda zp_read_vpos_lo
         ; remember the article position *before* the move;
         ; we'll need to mask the bottom three bits later
         tay
         ; note that regardless of positive or negative scroll speed,
         ; adding will always produce the same result due to the
         ; wrap-around nature of negative numbers (e.g. -1 = +$FF)
-        adc ZP_READ_SCROLL
-        sta ZP_READ_VPOS_LO
+        adc zp_read_scroll
+        sta zp_read_vpos_lo
 
         ; beyond one byte, we do have to take into
         ; account the postive / negative direction
-        lda ZP_READ_VPOS_HI
+        lda zp_read_vpos_hi
         ; check the sign-bit of the scroll-speed
-        bit ZP_READ_SCROLL
+        bit zp_read_scroll
         bmi +
         ; for positive numbers,
         ; the carry can be applied
@@ -553,69 +553,69 @@ read_irq_scroll:
         ; for negative numbers,
         ; the carry becomes a borrow
 +       sbc # 0
-        sta ZP_READ_VPOS_HI
+        sta zp_read_vpos_hi
 
         ; hit top/bottom of article?
         ;-----------------------------------------------------------------------
         ; have we gone above the top of the article?
         ; (pixel vertical position < $0000)
-        ldx ZP_READ_VPOS_HI
+        ldx zp_read_vpos_hi
         bpl +
         ; gone above the article; move back to the top
-        stx ZP_READ_STOP_UP     ; X = $FF, disable scrolling upwards
+        stx zp_read_stop_up     ; X = $FF, disable scrolling upwards
         inx                     ; X = $00
-        stx ZP_READ_VPOS_LO     ; set scroll position within article
-        stx ZP_READ_VPOS_HI     ; to $0000
-        stx ZP_READ_VERT        ; reset vertical smooth-scroll register
+        stx zp_read_vpos_lo     ; set scroll position within article
+        stx zp_read_vpos_hi     ; to $0000
+        stx zp_read_vert        ; reset vertical smooth-scroll register
 
 @done:  ;;dec .VIC_BORDER
         rts
 
         ; check the end of the article:
         ; (X = ZP_READ_VPOS_HI)
-+       ldx ZP_READ_VLEN_HI
-        cpx ZP_READ_VPOS_HI
++       ldx zp_read_vlen_hi
+        cpx zp_read_vpos_hi
         beq +                   ; hi-bytes equal, compare lo-bytes
         bcs @scroll             ; scroll position < height, scroll ahead
         bcc @stop               ; scroll position > height, go back!
         ; check the low-bytes
-+       ldx ZP_READ_VLEN_LO
-        cpx ZP_READ_VPOS_LO
++       ldx zp_read_vlen_lo
+        cpx zp_read_vpos_lo
         bcs @scroll
         
         ; gone below the article!
         ; move back to the end
 @stop   ldx # $ff               ; set the flag to disallow
-        stx ZP_READ_STOP_DN     ; scrolling down ($FF = stop, $00 = go)
+        stx zp_read_stop_dn     ; scrolling down ($FF = stop, $00 = go)
         inx                     ; X = $00
-        sta ZP_READ_SCROLL      ; set scroll speed to zero
-        ldx ZP_READ_VLEN_LO     ; change the moved-to position back a bit
-        stx ZP_READ_VPOS_LO     ; to the exact bottom of the article
-        lda ZP_READ_VLEN_HI
-        sta ZP_READ_VPOS_HI
+        sta zp_read_scroll      ; set scroll speed to zero
+        ldx zp_read_vlen_lo     ; change the moved-to position back a bit
+        stx zp_read_vpos_lo     ; to the exact bottom of the article
+        lda zp_read_vlen_hi
+        sta zp_read_vpos_hi
         
         ; soft/hard-scroll the screen:
         ;-----------------------------------------------------------------------
         ; soft-scroll:
-@scroll lda ZP_READ_VPOS_LO     ; retrieve the article scroll position
-        sta ZP_READ_VERT        ; set the smooth-scrolling register at vblank
+@scroll lda zp_read_vpos_lo     ; retrieve the article scroll position
+        sta zp_read_vert        ; set the smooth-scrolling register at vblank
 
         ; do we need to hard-scroll?
         tya                     ; article scroll position *before* scroll
         and # %00000111
-        sta ZP_READ_ROW         ; (temporary use)
+        sta zp_read_row         ; (temporary use)
 
-        lda ZP_READ_VPOS_LO     ; article scroll position *after* scroll
+        lda zp_read_vpos_lo     ; article scroll position *after* scroll
         and # %00000111
-        bit ZP_READ_SCROLL
+        bit zp_read_scroll
         bpl +
 
-        cmp ZP_READ_ROW         ; (temporary use)
+        cmp zp_read_row         ; (temporary use)
         bcc @done
 
         jmp read_scroll_up
 
-+       cmp ZP_READ_ROW         ; (temporary use)
++       cmp zp_read_row         ; (temporary use)
         bcs @done
 
 ;===============================================================================
@@ -790,32 +790,32 @@ read_scroll_down:
         ; and move the line-pointer for the top screen line to the next line
         ;
         clc                     ; (note that Y = 0)
-        lda (ZP_READ_LENS), y   ; length of line above screen
+        lda (zp_read_lens), y   ; length of line above screen
         and # %00111111         ; (top two bits are flags)
-        adc ZP_READ_TOP_LO      ; add line-length to the line address
-        sta ZP_READ_TOP_LO      ; (move to next line)
+        adc zp_read_top_lo      ; add line-length to the line address
+        sta zp_read_top_lo      ; (move to next line)
         bcc +
-        inc ZP_READ_TOP_HI
+        inc zp_read_top_hi
         clc
 
         ; do the same but with the line-pointer for the bottom row of the
         ; screen, but also write the address into the print routine
         ;
 +       ldy # 26                ; row to begin printing at (below screen)
-        lda (ZP_READ_LENS), y   ; length of line at bottom of screen
+        lda (zp_read_lens), y   ; length of line at bottom of screen
         and # %00111111         ; (top two bits are flags)
-        adc ZP_READ_BOT_LO      ; add line-length to the line address
-        sta ZP_READ_BOT_LO      ; (move to next line)
-        sta READ_CHAR_LO        ; set printing routine line-address (lo)
-        lda ZP_READ_BOT_HI
+        adc zp_read_bot_lo      ; add line-length to the line address
+        sta zp_read_bot_lo      ; (move to next line)
+        sta .READ_CHAR_LO       ; set printing routine line-address (lo)
+        lda zp_read_bot_hi
         adc # 0                 ; ripple the add
-        sta ZP_READ_BOT_HI
-        sta READ_CHAR_HI        ; set printing routine line-address (hi)
+        sta zp_read_bot_hi
+        sta .READ_CHAR_HI       ; set printing routine line-address (hi)
 
         ; move to the next entry in the line-lengths array
-        inc ZP_READ_LENS_LO
+        inc zp_read_lens_lo
         bne +
-        inc ZP_READ_LENS_HI
+        inc zp_read_lens_hi
 
 +       inx                     ; X = 1; number of lines to print
         jmp read_lines          ; note that Y = 26, row to print from
@@ -1010,11 +1010,11 @@ read_scroll_up:
         bne -                   ; stop when X = 0 (important for later!)
 
         sec
-        lda ZP_READ_LENS_LO     ; move the index in the line-lengths array...
+        lda zp_read_lens_lo     ; move the index in the line-lengths array...
         sbc # 1                 ; ...back one line
-        sta ZP_READ_LENS_LO
+        sta zp_read_lens_lo
         bcs +
-        dec ZP_READ_LENS_HI
+        dec zp_read_lens_hi
         sec
 
         ; move the address of the line above the screen
@@ -1024,18 +1024,18 @@ read_scroll_up:
         ;       the need to mask the top bits prevents us
         ;       from using `sbc (ZP_READ_LENS), y`
         ;
-+       lda (ZP_READ_LENS), y
++       lda (zp_read_lens), y
         and # %00111111         ; (top two bits are flags)
-        sta ZP_READ_ROW         ; (temporary use)
+        sta zp_read_row         ; (temporary use)
 
-        lda ZP_READ_TOP_LO
-        sbc ZP_READ_ROW         ; (length of line-data, in bytes)
-        sta ZP_READ_TOP_LO
-        sta READ_CHAR_LO        ; also set in the printing routine
-        lda ZP_READ_TOP_HI
+        lda zp_read_top_lo
+        sbc zp_read_row         ; (length of line-data, in bytes)
+        sta zp_read_top_lo
+        sta .READ_CHAR_LO       ; also set in the printing routine
+        lda zp_read_top_hi
         sbc # 0                 ; ripple the subtract
-        sta ZP_READ_TOP_HI
-        sta READ_CHAR_HI        ; also set in the printing routine
+        sta zp_read_top_hi
+        sta .READ_CHAR_HI       ; also set in the printing routine
 
         ; repeat this for the off-screen
         ; line after the screen RAM
@@ -1045,15 +1045,15 @@ read_scroll_up:
         ;       from using `sbc (ZP_READ_LENS), y`
         ;
         ldy # 26
-        lda (ZP_READ_LENS), y   ; length of line-data, in bytes
+        lda (zp_read_lens), y   ; length of line-data, in bytes
         and # %00111111         ; (top two bits are flags)
-        sta ZP_READ_ROW         ; (temporary use)
+        sta zp_read_row         ; (temporary use)
 
-        lda ZP_READ_BOT_LO
-        sbc ZP_READ_ROW         ; (length of line-data, in bytes)
-        sta ZP_READ_BOT_LO
+        lda zp_read_bot_lo
+        sbc zp_read_row         ; (length of line-data, in bytes)
+        sta zp_read_bot_lo
         bcs +
-        dec ZP_READ_BOT_HI
+        dec zp_read_bot_hi
 
 +       ldy # 0                 ; starting row
         inx                     ; X = 1; number of rows to print
@@ -1068,23 +1068,23 @@ read_lines:
         ;-----------------------------------------------------------------------
         ; prepare for printing:
         ;
-        stx ZP_READ_ROWS        ; number of lines to print (1-based)
-        sty ZP_READ_ROW         ; current row being printed
+        stx zp_read_rows        ; number of lines to print (1-based)
+        sty zp_read_row         ; current row being printed
 
         ; print a line:
         ;-----------------------------------------------------------------------
 @line:  lda read_style0_colour
-        sta ZP_READ_COLOR_LINE  ; set the default colour for the line
-        sta ZP_READ_COLOR       ; and the 'current' colour accordingly
+        sta zp_read_color_line  ; set the default colour for the line
+        sta zp_read_color       ; and the 'current' colour accordingly
 
-        ldy ZP_READ_ROW         ; current row...
+        ldy zp_read_row         ; current row...
         ; set the screen address from the row number
         lda read_screen_rows_lo, y
         sta @out+1
         lda read_screen_rows_hi, y
         sta @out+2
         ; get the number of bytes for this line
-        lda (ZP_READ_LENS), y
+        lda (zp_read_lens), y
 
         ; most lines of text will not require colour data, resorting to the
         ; 'default' style. if we included a byte for every line to indicate
@@ -1104,7 +1104,7 @@ read_lines:
         ; colour the line with default colour
         ; TODO: so very messy
         tay
-        lda ZP_READ_COLOR_LINE
+        lda zp_read_color_line
         jsr read_colour_row
         tya
         clc
@@ -1114,15 +1114,15 @@ read_lines:
 
         ; whilst we count Y down to zero, we keep a copy of the line-length
         ; to move the character pointer forward to the next line
-        sty ZP_READ_LEN
+        sty zp_read_len
         ; 0-length line is skipped,
         ; nothing to print
         beq @eol
 
         ;-----------------------------------------------------------------------
-!addr   READ_CHAR       = @char+1
-!addr   READ_CHAR_LO    = @char+1
-!addr   READ_CHAR_HI    = @char+2
+!addr   .READ_CHAR      = @char+1
+!addr   .READ_CHAR_LO   = @char+1
+!addr   .READ_CHAR_HI   = @char+2
 
         ; screen memory offset for the line
         ; (increases as each character is printed)
@@ -1137,16 +1137,16 @@ read_lines:
 
         ; end-of-line:
         ;-----------------------------------------------------------------------
-@eol:   dec ZP_READ_ROWS        ; all rows printed?
+@eol:   dec zp_read_rows        ; all rows printed?
         beq @eof                ; yes -- stop printing
 
-        inc ZP_READ_ROW         ; move to the next screen row
+        inc zp_read_row         ; move to the next screen row
 
         ; move the data-pointer forward to the beginning of the next line,
         ; that is, add the length of the line (in bytes) to the pointer
         clc
         lda @char+1
-        adc ZP_READ_LEN
+        adc zp_read_len
         sta @char+1
         bcc @line
         inc @char+2
@@ -1168,7 +1168,7 @@ read_lines:
         ; - first data byte = carry set
         ; - other data byte = carry clear
         ;
-@cdata: cpy ZP_READ_LEN         ; is this the first data-byte?
+@cdata: cpy zp_read_len         ; is this the first data-byte?
         beq @first              ; yes, process differently
 
         dey
@@ -1204,7 +1204,7 @@ read_colour_row:
 
         ; which row are we on?
         ; (there are speed-paths for the offscreen rows)
-        ldx ZP_READ_ROW
+        ldx zp_read_row
         beq @before             ; row = 0, colour offscreen row above screen
         cpx # 26                ; row = 26?
         beq @after              ; row = 26, colour offscreen row below screen

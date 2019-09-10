@@ -411,6 +411,8 @@ function Article:read(s_infile)
     -- problem? exit
     if err then print ("! error: " .. err); os.exit(false); end
 
+    local is_block = false
+
     -- TODO:
     -- due to the off-screen scrolling used on the C64, we need to add one
     -- blank line before the article and one-blank line after, though we
@@ -421,7 +423,31 @@ function Article:read(s_infile)
 
     -- walk each line and process
     for s_line in f_lines do
-        self:read_line(s_line)
+        ------------------------------------------------------------------------
+        -- is this a literal block?
+        if s_line:sub(1, 3) == "```" then
+            -- if already within a literal block
+            if is_block == true then
+                -- this ends the block
+                is_block = false
+            else
+                -- this is the beginning of a literal-block;
+                -- process the following lines as literal characters,
+                -- i.e. ASCII / PETSCII and don't use text-compression
+                is_block = true
+            end
+            -- note how the literal block marker
+            -- is never output to the C64
+        else
+            -- which mode of text are we processing?
+            if is_block == false then
+                -- process as regular text
+                self:read_line(s_line)
+            else
+                -- process as literal text
+                self:read_line_literal(s_line)
+            end
+        end
     end
     -- add the trailing line to account for the off-screen bottom row
     self:read_line("")
@@ -594,6 +620,20 @@ function Article:read_line(s_text)
 end
 
 --------------------------------------------------------------------------------
+function Article:read_line_literal(s_text)
+    ----------------------------------------------------------------------------
+    -- create line-object to hold line meta-data
+    local line      = Line:new()
+    -- set the line to encode as literal when converting to C64 data
+    line.is_literal = true
+
+    line:addString(s_text)
+
+    -- add line to the article line array
+    table.insert(self.lines, line)
+end
+
+--------------------------------------------------------------------------------
 function Article:write()
     ----------------------------------------------------------------------------
     -- (attempt) to open the output file
@@ -625,7 +665,7 @@ end
 --------------------------------------------------------------------------------
 Line = {
     text        = "",       -- line text, encoded for the C64
-    is_petscii  = false,    -- is this a PETSCII-only line?
+    is_literal  = false,    -- is this a literal-text line?
     length      = 0,        -- length of line in characters, not bytes
     default     = 0,        -- default colour class
 }
@@ -637,7 +677,7 @@ function Line:new()
     -- crate new, empty, instance
     local line = {
         text        = "",       -- line text, encoded for the C64
-        is_petscii  = false,    -- is this a PETSCII-only line?
+        is_literal  = false,    -- is this a literal-text line?
         length      = 0,        -- length of line in characters, not bytes
         default     = 0         -- default colour class
     }

@@ -42,7 +42,7 @@ ECHO ----------------------------------------
      --format cbm --setpc 0x0334^
      --report "build/load.txt" ^
      --outfile "build/load.prg" ^
-     -- "src\load\load_cfg_all.acme" ^
+     -- "src\load\load_cfg_unp.acme" ^
         "src\load\load.acme"
 
 REM # assemble fonts

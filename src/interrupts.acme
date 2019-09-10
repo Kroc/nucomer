@@ -359,8 +359,8 @@ irq_kernal_on:
 ; but 64 on very early NTSC machines. we don't have to be absolutely accurate
 ; in our delay, there's a few cycles worth of jitter in the flyback period
 ;
-; due to the amount of work we need to do to set up the next interrupt two
-; lines are skipped
+; due to the amount of work we need to do to set up the next interrupt,
+; two lines are skipped
 ;
 ; the 6502 wastes extra cycles when branches or indexed reads cross a page
 ; boundary ($FF->$00) which could throw our timings off, therefore we align

@@ -11,22 +11,22 @@
 ;===============================================================================
 
 ; screen row where the logo text should appear
-LOGO_TEXT_ROW           = 12
+.LOGO_TEXT_ROW          = 12
 
 ; 'final' X-positions of the logo halves
-LOGO_EYE_LEFT_XPOS      = 8 + (320 / 2) - (21 / 2) - 3
-LOGO_EYE_RIGHT_XPOS     = 8 + (320 / 2) + (21 / 2) + 2
+.LOGO_EYE_LEFT_XPOS     = 8 + (320 / 2) - (21 / 2) - 3
+.LOGO_EYE_RIGHT_XPOS    = 8 + (320 / 2) + (21 / 2) + 2
 
 ; 'final' Y-positions of the logo halves
-LOGO_EYE_LEFT_YPOS      = (256 - 24) / 2
-LOGO_EYE_RIGHT_YPOS     = ((256 - 24) / 2) - 1
+.LOGO_EYE_LEFT_YPOS     = (256 - 24) / 2
+.LOGO_EYE_RIGHT_YPOS    = ((256 - 24) / 2) - 1
 
 ; starting position of the eye-lid.
 ; note that it's a double-wide sprite
-LOGO_EYE_LID1_XPOS      = LOGO_EYE_LEFT_XPOS
-LOGO_EYE_LID1_YPOS      = LOGO_EYE_LEFT_YPOS - 24
-LOGO_EYE_LID2_XPOS      = LOGO_EYE_LEFT_XPOS
-LOGO_EYE_LID2_YPOS      = LOGO_EYE_LEFT_YPOS - 24 - 21
+.LOGO_EYE_LID1_XPOS     = .LOGO_EYE_LEFT_XPOS
+.LOGO_EYE_LID1_YPOS     = .LOGO_EYE_LEFT_YPOS - 24
+.LOGO_EYE_LID2_XPOS     = .LOGO_EYE_LEFT_XPOS
+.LOGO_EYE_LID2_YPOS     = .LOGO_EYE_LEFT_YPOS - 24 - 21
 
 ;===============================================================================
 logo_screen:
@@ -155,7 +155,7 @@ logo_screen:
         sta .VIC_SPRITE3_COLOR
         ldx # 12
 -       dex
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 14, x
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 14, x
         bpl -
 
         ldx # 3
@@ -207,12 +207,12 @@ logo_draw:
         ; these colour cells directly. ("camen" shifts left, so does not map
         ; to the original incomming X value)
         ;
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 20, x        ; "d"
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 21, x        ; "e"
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 22, x        ; "s"
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 23, x        ; "i"
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 24, x        ; "g"
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 25, x        ; "n"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 20, x       ; "d"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 21, x       ; "e"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 22, x       ; "s"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 23, x       ; "i"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 24, x       ; "g"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 25, x       ; "n"
         
         pha                     ; put aside colour value
 
@@ -220,7 +220,7 @@ logo_draw:
         ; get left-behind characters from previous frames
         ldy # 39
         lda # ' '
--       sta nu_intro_screen + (LOGO_TEXT_ROW * 40), y
+-       sta nu_intro_screen + (.LOGO_TEXT_ROW * 40), y
         dey
         bpl -
 
@@ -229,17 +229,17 @@ logo_draw:
         ; (note: use screen codes for these values)
 !ct scr {
         lda # 'd'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 20, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 20, x
         lda # 'e'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 21, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 21, x
         lda # 's'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 22, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 22, x
         lda # 'i'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 23, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 23, x
         lda # 'g'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 24, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 24, x
         lda # 'n'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 25, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 25, x
 }
         ; for the logo halves, there is a lesser amount of separation on the
         ; Y-axis than the X-axis so we set the left-eye's Y-position here based
@@ -247,14 +247,14 @@ logo_draw:
         txa
         tay                     ; (put aside the original separation distance)
         clc
-        adc # LOGO_EYE_LEFT_YPOS
+        adc # .LOGO_EYE_LEFT_YPOS
         sta .VIC_SPRITE2_Y
 
         ; the right-hand eye moves the opposite direction so we have to
         ; subtract the separation distance from the 'final' Y-position,
         ; we write this distance into the subtract instruction below
         stx @ypos+1
-        lda # LOGO_EYE_RIGHT_YPOS
+        lda # .LOGO_EYE_RIGHT_YPOS
         sec
 @ypos   sbc # $88
         sta .VIC_SPRITE3_Y
@@ -269,24 +269,24 @@ logo_draw:
         ; (note: use screen codes for these values)
 !ct scr {
         lda # 'c'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 2, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 2, x
         lda # 'a'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 3, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 3, x
         lda # 'm'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 4, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 4, x
         lda # 'e'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 5, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 5, x
         lda # 'n'
-        sta nu_intro_screen + (LOGO_TEXT_ROW * 40) + 6, x
+        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 6, x
 }
         ; and apply the colour:
         ; first, retrieve colour value
         pla
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 2, x         ; "c"
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 3, x         ; "a"
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 4, x         ; "m"
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 5, x         ; "e"
-        sta $d800 + (LOGO_TEXT_ROW * 40) + 6, x         ; "n"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 2, x         ; "c"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 3, x         ; "a"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 4, x         ; "m"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 5, x         ; "e"
+        sta $d800 + (.LOGO_TEXT_ROW * 40) + 6, x         ; "n"
 
         ; multiply up the separation distance to
         ; better work for sprite pixel X co-ordinates
@@ -302,14 +302,14 @@ logo_draw:
         sta @xpos+1
         clc
         ; the intended final position
-        lda # LOGO_EYE_LEFT_XPOS
+        lda # .LOGO_EYE_LEFT_XPOS
 @xpos   sbc # $88               ; subtract the offset
         sta .VIC_SPRITE2_X       ; position the left-eye
 
         txa
         clc
         ; only need to add the indent for the right eye
-        adc # LOGO_EYE_RIGHT_XPOS
+        adc # .LOGO_EYE_RIGHT_XPOS
         sta .VIC_SPRITE3_X       ; position the right-eye
 
         rts
@@ -324,18 +324,18 @@ logo_draw_eyelid:
         lda @frames, x
         tay
         clc
-        adc # LOGO_EYE_LID1_YPOS
+        adc # .LOGO_EYE_LID1_YPOS
         sta .VIC_SPRITE0_Y
         tya
         clc
-        adc # LOGO_EYE_LID2_YPOS
+        adc # .LOGO_EYE_LID2_YPOS
         sta .VIC_SPRITE1_Y
 
         ; set X-positions
         ; (needed during initialisation)
-        lda # LOGO_EYE_LID1_XPOS
+        lda # .LOGO_EYE_LID1_XPOS
         sta .VIC_SPRITE0_X
-        lda # LOGO_EYE_LID2_XPOS
+        lda # .LOGO_EYE_LID2_XPOS
         sta .VIC_SPRITE1_X
         
         rts
