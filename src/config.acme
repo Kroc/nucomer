@@ -8,35 +8,34 @@
 ;   (contact the author for a commercial licence)
 ;
 ;===============================================================================
-;
+OPTION_USE_FASTLOADER   = 1
+
+;-------------------------------------------------------------------------------
 ; memory map:
 ;
-;    $0400   $1000        $4000           $8000        $C000    $E000    $FFFF
-;        +---+------------+----------------------------+--------+--------+
-;        | * | SID        | TEXT                       | BSOD64 | GFX    |
-;        +---+------------+----------------------------+--------+--------+
-;          ^                              ^
-;          main code                      intro (temp)
-
+;  $0   $1000        $4000           $8000       $B000 $C000    $E000    $FFFF
+;  +----+------------+---------------------------+-----+--------+--------+
+;  |  * | SID (12K)  | TEXT (28K)                | *   | BSOD64 | GFX    |
+;  +----+------------+---------------------------+-----+--------+--------+
+;     ^                                            ^
+;     shared code                                  main code
+;
 !addr {
 
-nu_intro                = $8000 ; address of the intro code
-nu_intro_screen         = $a000 ; address of the intro screen
-
-; TODO: decrunch-on-fastload will allow us to go down to $0400;
-;       right now it just crashes trying to unpack over itself
-;
-nu_main                 = $0800 ; address of the main outfit code
-nu_song                 = $1000 ; address of SID song
-nu_text                 = $4000 ; address of the article text
+nu_intro                = $0334 ; address of the shared / intro code
+nu_intro_screen         = $3c00 ; address of the intro screen
 
 NU_VIC_BANK             = 3     ; the VIC bank used by the outfit
+
+nu_main                 = $b000 ; address of the main outfit code
+nu_song                 = $1000 ; address of SID song
+nu_text                 = $4000 ; address of the article text
 
 nu_font                 = $e000 ; location of the custom font; 4 KB
 nu_font_up              = $e000 ; upper-case half of the font; 2 KB
 nu_font_lo              = $e800 ; lower-case half of the font; 2 KB
 
-nu_screen               = $f000 ; text-screen location; 1 KB
+nu_screen               = $f000 ; main text-screen location; 1 KB
 
 ; in a case of "if it's stupid but it works, it's not stupid" we handle the
 ; scrolling in of new lines by simply treating the screen as taller than it

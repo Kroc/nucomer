@@ -30,5 +30,5 @@
 ; can be written to, allowing you to mask out writes to certain bits -- e.g.
 ; ignore writes to the Datasette when changing memory layout
 
-CPU_MASK                = $00   ; data direction register
-CPU_CONTROL             = $01   ; processor port (memory layout and Datasette)
+.CPU_MASK               = $00   ; data direction register
+.CPU_CONTROL            = $01   ; processor port (memory layout and Datasette)

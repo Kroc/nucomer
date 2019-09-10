@@ -37,6 +37,13 @@ REM ============================================================================
 ECHO ----------------------------------------
 <NUL (SET /P "$=Assemble Outfit...                  ")
 
+%ACME% ^
+     --format cbm --setpc 0x0334^
+     --report "build/load.txt" ^
+     --outfile "build/load.prg" ^
+     -- "src\load\load_cfg_all.acme" ^
+        "src\load\load.acme"
+
 REM # assemble fonts
 REM ----------------------------------------------------------------------------
 %ACME% "src\fonts\admiral64.acme"
@@ -114,12 +121,7 @@ REM # exomize content:
 REM ============================================================================
 <NUL (SET /P "$=Exomize...                          ")
 
-REM # TODO...
-%EXOMIZER% mem -l $0800 -q ^
-     -o "build\nucomer-exo.prg" ^
-     -- build\nucomer.prg
-
-%EXOMIZER% sfx $0800 -n -q ^
+%EXOMIZER% sfx $b000 -n -q ^
      -o "build\nucomer-exo.prg" ^
      -- "build\nucomer.prg" ^
         "src\bsod64\bsod64.prg" ^
@@ -146,8 +148,9 @@ REM # prepare the disk image
      -format "nucomer,00" d64 "build\nucomer.d64" ^
      -write "build\boot.prg"            "boot" ^
      -write "build\intro.prg"           "intro" ^
-     -write "build\nucomer-exo.prg"     "nucomer" ^
+     -write "build\nucomer.prg"         "nucomer" ^
      -write "src\bsod64\bsod64.prg"     "bsod64" ^
+     -write "build\admiral64.prg"       "admiral64" ^
      1>NUL
 
 IF ERRORLEVEL 1 (

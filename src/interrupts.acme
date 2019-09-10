@@ -70,12 +70,12 @@ wait_frame:
         ; bottom of the screen (lines 256+), we wait for it to go back around
         ; and don't trigger early
         ;
--       bit VIC_SCREEN_VERT
+-       bit .VIC_SCREEN_VERT
         bmi -                   ; wait until bit 7 is 0
 
         ; now wait for the addressible screen to pass and the vblank
         ; to begin again, this syncronises the main thread with the vblank
--       bit VIC_SCREEN_VERT
+-       bit .VIC_SCREEN_VERT
         bpl -                   ; wait until bit 7 is 1
 
         rts
@@ -91,31 +91,31 @@ irqs_init:
         ; timers on the port
         ;
         lda # %01111111
-        sta CIA1_INTERRUPT
+        sta .CIA1_INTERRUPT
         ; repeat this also for CIA2 which uses the Non-Maskable-Interrupt
         ; ("NMI") for its timers
-        sta CIA2_INTERRUPT
+        sta .CIA2_INTERRUPT
 
         ; we must 'acknowledge' any currently queued interrupts
         ; or they will fire the instant we re-enable interrupts.
         ; this is done by simply reading the port(s)
-        lda CIA1_INTERRUPT
-        lda CIA2_INTERRUPT
+        lda .CIA1_INTERRUPT
+        lda .CIA2_INTERRUPT
 
         ; set the non-maskable interrupt location when the KERNAL is on.
         ; pressing the RESTORE key will fire this routine (unless disabled
         ; -- see comments on `nmi_disable` routine)
         lda #< nmi_debug
-        sta KERNAL_VECTOR_NMI+0
+        sta .KERNAL_VECTOR_NMI+0
         lda #> nmi_debug
-        sta KERNAL_VECTOR_NMI+1
+        sta .KERNAL_VECTOR_NMI+1
 
         ; likewise, when the KERNAL is off, an NMI handler
         ; must be specified or the machine will crash
         lda #< nmi_debug
-        sta HW_VECTOR_NMI+0
+        sta .HW_VECTOR_NMI+0
         lda #> nmi_debug
-        sta HW_VECTOR_NMI+1
+        sta .HW_VECTOR_NMI+1
 
         ; put the KERNAL-off interrupt-handler on stand-by
         ; (fall-through to the routine below)
@@ -131,14 +131,14 @@ irqs_disable:
         ; disable all forms of VIC-II interrupts
         ; (raster, light-pen, sprite collisions)
         lda # %00000000
-        sta VIC_INTERRUPT_CONTROL
+        sta .VIC_INTERRUPT_CONTROL
 
         ; switch to the minimal interrupt
         ; handler for when the KERNAL is off
         lda #< irq_kernal_off
-        sta HW_VECTOR_IRQ+0
+        sta .HW_VECTOR_IRQ+0
         lda #> irq_kernal_off
-        sta HW_VECTOR_IRQ+1
+        sta .HW_VECTOR_IRQ+1
 
         ; and likewise for when the KERNAL is on
         ;
@@ -149,11 +149,11 @@ irqs_disable:
         ; but BASIC is off!
         ;
         lda #< irq_kernal_on
-        sta KERNAL_VECTOR_INTERRUPT+0
-        sta KERNAL_VECTOR_BRK+0
+        sta .KERNAL_VECTOR_IRQ+0
+        sta .KERNAL_VECTOR_BRK+0
         lda #> irq_kernal_on
-        sta KERNAL_VECTOR_INTERRUPT+1
-        sta KERNAL_VECTOR_BRK+1
+        sta .KERNAL_VECTOR_IRQ+1
+        sta .KERNAL_VECTOR_BRK+1
 
         cli                     ; enable interrupts
         rts
@@ -245,28 +245,28 @@ irqs_load:
         ; interrupt by reading from the table
         ;
         lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte
-        sta VIC_SCANLINE        ; set the scanline lo-byte
+        sta .VIC_SCANLINE        ; set the scanline lo-byte
 
         ; because the height of the screen + borders will be more than 256,
-        ; an extra high-bit is included from `VIC_SCREEN_VERT`. the byte in
+        ; an extra high-bit is included from `.VIC_SCREEN_VERT`. the byte in
         ; the table is pre-processed to move this bit from bit 0 to bit 7,
         ; to match the location required for the register
         ;
-        lda VIC_SCREEN_VERT     ; get current register value
+        lda .VIC_SCREEN_VERT     ; get current register value
         eor (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7)
-        sta VIC_SCREEN_VERT     ; update the register
+        sta .VIC_SCREEN_VERT     ; update the register
 
         ; set the central interrupt handling routine,
         ; this will read the table to chain interrupts
         lda #< irq
-        sta HW_VECTOR_IRQ+0
+        sta .HW_VECTOR_IRQ+0
         lda #> irq
-        sta HW_VECTOR_IRQ+1
+        sta .HW_VECTOR_IRQ+1
 
         ; this enables just the raster-interrupt on the VIC-II
         ; (sprite-sprite, sprite-background & lightpen interrupts are disabled)
         lda # %00000001
-        sta VIC_INTERRUPT_CONTROL
+        sta .VIC_INTERRUPT_CONTROL
 
         cli
         rts
@@ -299,7 +299,7 @@ irq_kernal_off:
         ;-----------------------------------------------------------------------
         ; acknowledge the interrupt to prevent it double-firing.
         ; we only need to write to the status register to do this
-        inc VIC_INTERRUPT_STATUS
+        inc .VIC_INTERRUPT_STATUS
 
         ; for BSOD64 integration we push the registers to the stack
         pha
@@ -376,7 +376,7 @@ irq:                                                                    ;cycles
 
         ; acknowledge the interrupt to prevent it double-firing.
         ; we only need to write to the status register to do this
-        inc VIC_INTERRUPT_STATUS                                        ;+6=13
+        inc .VIC_INTERRUPT_STATUS                                       ;+6=13
 
         ; preserve the registers on the stack
         pha                                                             ;+3=16
@@ -398,11 +398,11 @@ irq:                                                                    ;cycles
         ; preserve the memory layout (I/O, KERNAL, BASIC). the routines from
         ; the IRQ table will always be executed with I/O on and KERNAL off
         ;
-+       lda CPU_CONTROL         ; current memory layout                 ;+3=40
++       lda .CPU_CONTROL        ; current memory layout                 ;+3=40
         pha                     ; push to stack                         ;+3=43
         and %11111100           ; strip bottom bits, keep upper bits    ;+2=45
         ora %00000001           ; set memory layout to I/O only         ;+2=47
-        sta CPU_CONTROL                                                 ;+3=50
+        sta .CPU_CONTROL                                                ;+3=50
 
         ; execute the custom interrupt-handler:
         ;-----------------------------------------------------------------------
@@ -430,16 +430,16 @@ irq:                                                                    ;cycles
         ;
 +       sty ZP_IRQ              ; update the 'current' index            ;+3=85
         lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte                 ;+5=90
-        sta VIC_SCANLINE        ; set the scanline lo-byte              ;+3=93
+        sta .VIC_SCANLINE       ; set the scanline lo-byte              ;+3=93
 
         ; because the height of the screen + borders will be more than 256,
-        ; an extra high-bit is included from `VIC_SCREEN_VERT`. the byte in
+        ; an extra high-bit is included from `.VIC_SCREEN_VERT`. the byte in
         ; the table is pre-processed to move this bit from bit 0 to bit 7,
         ; to match the location required for the register
         ;
-        lda VIC_SCREEN_VERT     ; get current register value            ;+3=96
+        lda .VIC_SCREEN_VERT    ; get current register value            ;+3=96
         eor (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7)  ;+5=101
-        sta VIC_SCREEN_VERT     ; update the register                   ;+3=104
+        sta .VIC_SCREEN_VERT    ; update the register                   ;+3=104
         
         ; as soon as the next scanline to interrupt at has been set,
         ; re-enable interrupts to avoid the custom interrupt handler
@@ -463,7 +463,7 @@ irq:                                                                    ;cycles
         ; finish interrupt:
         ;-----------------------------------------------------------------------
         pla                     ; restore the memory layout
-        sta CPU_CONTROL
+        sta .CPU_CONTROL
 
         pla
         tay

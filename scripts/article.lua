@@ -527,7 +527,7 @@ function Article:read_line(s_text)
         -- change the line's default style class
         line.default = 1
         -- build a horizontal bar directly out of screen-codes
-        line:addC64(string.rep(string.char(0x7f), scr_width))
+        line:addC64(string.rep(string.char(0xf6), scr_width))
        -- no need to process any more of the source line
        -- just add the bar we've given and exit
        goto eol

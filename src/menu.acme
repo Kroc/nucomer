@@ -14,9 +14,9 @@
 !ct "build/scr_nucomer.ct"
 
 ; theme colours
-MENU_BORDER     = BLACK
-MENU_FORE       = BLACK
-MENU_BACK       = LTGREY
+MENU_BORDER     = .VIC_BLACK
+MENU_FORE       = .VIC_BLACK
+MENU_BACK       = .VIC_LTGREY
 
 ; currently selected menu item
 !addr   ZP_MENU_INDEX           = $10
@@ -59,8 +59,8 @@ menu_irq_logo:
         ; has delayed up to the horizontal blank, so we can change colours
         ; immediately and there won't be any flicker
         ;
-        lda # DKGREY
-        sta VIC_BORDER
+        lda # .VIC_DKGREY
+        sta .VIC_BORDER
 
         ; now kill enough time for a whole line
         ; TODO: time this more accurately (~63-65 cycles)
@@ -69,7 +69,7 @@ menu_irq_logo:
         bne -
 
         ; go back to black
-        stx VIC_BORDER
+        stx .VIC_BORDER
 
         rts
 
@@ -79,10 +79,10 @@ menu_irq_logo_end:
         ; has delayed up to the horizontal blank, so we can change colours
         ; immediately and there won't be any flicker
         ;
-        lda # DKGREY
-        sta VIC_BORDER
-        lda # LTGREY
-        sta VIC_BACKGROUND
+        lda # .VIC_DKGREY
+        sta .VIC_BORDER
+        lda # .VIC_LTGREY
+        sta .VIC_BACKGROUND
 
         ; now kill enough time for a whole line
         ; TODO: time this more accurately (~63-65 cycles)
@@ -90,12 +90,12 @@ menu_irq_logo_end:
 -       dex
         bne -
         ; go back to black
-        stx VIC_BORDER
-        stx VIC_BACKGROUND
+        stx .VIC_BORDER
+        stx .VIC_BACKGROUND
 
         ; change to the custom font for the rest of the page
         lda # ((>nu_screen & %00111100) << 2) | ((>nu_font_lo & %00111000) >> 2)
-        sta VIC_LAYOUT
+        sta .VIC_LAYOUT
 
         ; kill enough time to get out of the left-hand border before we change
         ; the colour. TODO: time this more accurately
@@ -103,21 +103,21 @@ menu_irq_logo_end:
 -       dex
         bne -
 
-        lda # LTGREY
-        sta VIC_BORDER
-        sta VIC_BACKGROUND
+        lda # .VIC_LTGREY
+        sta .VIC_BORDER
+        sta .VIC_BACKGROUND
 
         rts
 
 menu_irq_vblank:
         ;-----------------------------------------------------------------------
         lda # MENU_BORDER
-        sta VIC_BORDER
-        sta VIC_BACKGROUND
+        sta .VIC_BORDER
+        sta .VIC_BACKGROUND
 
         ; change to the ROM PETSCII font for the logo...
         lda # ((>nu_screen & %00111100) << 2) | ((>nu_font_up & %00111000) >> 2)
-        sta VIC_LAYOUT
+        sta .VIC_LAYOUT
 
         rts
 
@@ -127,13 +127,13 @@ menu_screen:
         ; setup the screen:
         ; turn the screen off whilst we clear it
         lda # %00000000
-        sta VIC_SCREEN_CTL1
+        sta .VIC_SCREEN_CTL1
         
         ; set screen colour
         lda # MENU_BORDER
-        sta VIC_BORDER
+        sta .VIC_BORDER
         lda # MENU_BACK
-        sta VIC_BACKGROUND
+        sta .VIC_BACKGROUND
 
         ; erase the text-screen
         lda # MENU_FORE
@@ -151,14 +151,14 @@ menu_screen:
         ;-----------------------------------------------------------------------
         ; print the logo with the base colour;
         ; we're going to recolour just the letters
-        lda # DKGREY
+        lda # .VIC_DKGREY
         sta ZP_PRINT_COLOR
        +print_str_pos       menu_petscii_logo
 
         ; begin at the end of the logo and work backwards
         ; (easier for loop management to count toward 0)
         ldy # (3 * 40)
-        ldx # BLUE              ; colour of letters
+        ldx # .VIC_BLUE         ; colour of letters
 
 -       dey
         bmi +                   ; finished?
@@ -170,7 +170,7 @@ menu_screen:
         sta $d800, y
         bpl -                   ; (always branches)
 
-+       lda # BLACK
++       lda # .VIC_BLACK
         sta ZP_PRINT_COLOR
 
        +print_str_pos   menu_str_subline
@@ -187,7 +187,7 @@ menu_screen:
 
         ; turn screen on
         lda # %00011011
-        sta VIC_SCREEN_CTL1
+        sta .VIC_SCREEN_CTL1
         
 menu_keyboard:
         ;-----------------------------------------------------------------------
@@ -267,9 +267,9 @@ menu_refresh:
 @i      ldy # $88               ; retrieve the menu index
         cpy ZP_MENU_INDEX       ; is this the selected menu item?
         bne +                   ; no, use standard colour
-        lda # BLACK             ; yes, use selected colour
+        lda # .VIC_BLACK        ; yes, use selected colour
        +bit_skip2               ; skip over the next instruction
-+       lda # DKGREY
++       lda # .VIC_DKGREY
         sta ZP_PRINT_COLOR
 
         ; print the string:
@@ -297,7 +297,7 @@ menu_refresh:
 
         lda # $f0               ; screen code for marker symbol
 @scr    sta $8888
-        lda # BLACK
+        lda # .VIC_BLACK
 @color  sta $8888
 
         rts
@@ -310,31 +310,31 @@ menu_load:
         ;-----------------------------------------------------------------------
         ; turn the screen off
         lda # %00001000
-        sta VIC_SCREEN_CTL1
+        sta .VIC_SCREEN_CTL1
         ; tear down the custom interrupt handlers
         jsr irqs_disable
 
         lda # READ_BACK
-        sta VIC_BORDER
+        sta .VIC_BORDER
         lda # READ_FORE
-        sta VIC_BACKGROUND
+        sta .VIC_BACKGROUND
         
         ; change to the custom font, don't remain on the ROM font!
         lda # ((>nu_screen & %00111100) << 2) | ((>nu_font_lo & %00111000) >> 2)
-        sta VIC_LAYOUT
+        sta .VIC_LAYOUT
 
         ; set the KERNAL load properties:
         sei                     ; disable interrupts
-        inc CPU_CONTROL         ; enable the KERNAL
+        inc .CPU_CONTROL        ; enable the KERNAL
 
         ; get the last-used device
         ; number set by the KERNAL
-        ldx ZP_KERNAL_DEV
+        ldx .ZP_KERNAL_DEV
         bne +                   ; not 0? good
-        ldx # DEV_DRV8          ; default to drive 8
+        ldx # .DEV_DRV8         ; default to drive 8
 +       ldy # $00               ; use custom load address
         tya                     ; logical file number
-        jsr KERNAL_SETLFS
+        jsr .KERNAL_SETLFS
 
         ; read the address of the filename:
         ldy ZP_MENU_INDEX       ; currently selected menu item
@@ -356,18 +356,18 @@ menu_load:
         adc # 0
         tay                     ; program name address hi-byte in Y
         pla                     ; A is string-length
-        jsr KERNAL_SETNAM       ; set KERNAL file name
+        jsr .KERNAL_SETNAM      ; set KERNAL file name
         
         lda # 0                 ; load, not verify
         ldx #< nu_text-2
         ldy #> nu_text-2
-        jsr KERNAL_LOAD
+        jsr .KERNAL_LOAD
 
         ; TODO: error handling, fastloader et al
         bcc +
         brk                     ; BSOD!
         
-+       dec CPU_CONTROL         ; turn KERNAL off
++       dec .CPU_CONTROL        ; turn KERNAL off
         cli
         
         ; switch to the reading screen...

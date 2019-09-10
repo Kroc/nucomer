@@ -11,7 +11,7 @@
 ;===============================================================================
 ; this is a BASIC bootstrap for auto-starting a machine-language program
 ; from disk or tape. it's a simple 1-line BASIC program that automatically
-; jumps to the machine language code immediately after the BASIC program
+; jumps to the machine language code immediately after the BASIC code
 ;
 !source "c64/c64.acme"          ; C64 hardware / software constants
 !source "config.acme"           ; nucomer constants for memory layout
@@ -42,35 +42,43 @@ boot_basic:
 ; control and load the intro
 ;
 boot_init:
-        ; disable interrupts during load
-        sei
+        ;-----------------------------------------------------------------------
         ; turn the screen off
         lda # $00
-        sta VIC_SCREEN_VERT
+        sta .VIC_SCREEN_VERT
 
         ; load intro:
         ;-----------------------------------------------------------------------
         ; TODO: replace this with a fast-loader
         ;
-        ldx ZP_KERNAL_DEV       ; last-used KERNAL device number
+        ldx .ZP_KERNAL_DEV      ; last-used KERNAL device number
         bne +                   ; not 0? good
-        ldx # DEV_DRV8          ; default to drive 8
+        ldx # .DEV_DRV8         ; default to drive 8
 +       ldy # $00               ; use manual load-address
         tya                     ; logical file number
-        jsr KERNAL_SETLFS
+        jsr .KERNAL_SETLFS
 
         ldx #< boot_filename
         ldy #> boot_filename
         lda # 5                 ; A is string-length
-        jsr KERNAL_SETNAM       ; set KERNAL file name
+        jsr .KERNAL_SETNAM      ; set KERNAL file name
+
+        ; * * * W A R N I N G ! * * *
+        ; we will *not* be returning execution here after the load!
+        ; the program we are loading is much larger and will overwrite
+        ; this bootstrap code! therefore we push the address of the intro
+        ; on to the stack and jump into the KERNAL so that when it finishes,
+        ; it returns execution to the newly loaded code and *not* here!
+        ;
+        lda #> (nu_intro-1)
+        pha
+        lda #< (nu_intro-1)
+        pha
 
         lda # 0                 ; load, not verify
         ldx #< nu_intro
         ldy #> nu_intro
-        jsr KERNAL_LOAD
-
-        ; jump to the intro
-        jmp nu_intro
+        jmp .KERNAL_LOAD
 
 boot_filename:
         ;-----------------------------------------------------------------------

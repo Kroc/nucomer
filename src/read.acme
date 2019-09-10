@@ -12,9 +12,9 @@
 ; the screen used when reading articles
 
 ; theme colours
-READ_BORDER             = LTGREY
-READ_FORE               = DKGREY
-READ_BACK               = LTGREY
+READ_BORDER             = .VIC_LTGREY
+READ_FORE               = .VIC_DKGREY
+READ_BACK               = .VIC_LTGREY
 
 !addr {
 
@@ -194,13 +194,13 @@ read_colour_row26       = nu_colour_after
 read_styles:
 read_styles_colour:
 read_style0_colour:     !byte   READ_FORE
-read_style1_colour:     !byte   BLACK
-read_style2_colour:     !byte   WHITE
-read_style3_colour:     !byte   WHITE
-read_style4_colour:     !byte   WHITE
-read_style5_colour:     !byte   WHITE
-read_style6_colour:     !byte   WHITE
-read_style7_colour:     !byte   WHITE
+read_style1_colour:     !byte   .VIC_BLACK
+read_style2_colour:     !byte   .VIC_WHITE
+read_style3_colour:     !byte   .VIC_WHITE
+read_style4_colour:     !byte   .VIC_WHITE
+read_style5_colour:     !byte   .VIC_WHITE
+read_style6_colour:     !byte   .VIC_WHITE
+read_style7_colour:     !byte   .VIC_WHITE
 
 ;===============================================================================
 read_screen:
@@ -208,13 +208,13 @@ read_screen:
         ; setup the screen:
         ; turn the screen off whilst we clear it
         lda # %00000000
-        sta VIC_SCREEN_VERT
+        sta .VIC_SCREEN_VERT
 
         ; set screen colour
         lda # READ_BORDER
-        sta VIC_BORDER
+        sta .VIC_BORDER
         lda # READ_BACK
-        sta VIC_BACKGROUND
+        sta .VIC_BACKGROUND
 
         ; erase the text-screen
         lda # READ_FORE
@@ -428,7 +428,7 @@ read_irqs_scanline_hi:
 
 read_irq_top:
         ;-----------------------------------------------------------------------
-        ;;inc VIC_BORDER
+        ;;inc .VIC_BORDER
         
         lda ZP_READ_VERT
         and # %00000111
@@ -438,7 +438,7 @@ read_irq_top:
         ;     %----0--- = 24 rows (for smooth scrolling)
         ;     %-----??? = vertical scroll offset
         ora # %00010000
-        sta VIC_SCREEN_VERT
+        sta .VIC_SCREEN_VERT
         
 ;;        lda ZP_READ_VPOS_HI
 ;;        pha                     ; put original value aside
@@ -515,12 +515,12 @@ read_irq_top:
 ;;        sta nu_screen+(10*40)+8
 ;;
 
--       ;;dec VIC_BORDER
+-       ;;dec .VIC_BORDER
         rts
 
 read_irq_scroll:
         ;-----------------------------------------------------------------------
-        ;;inc VIC_BORDER
+        ;;inc .VIC_BORDER
 
         ; is there any scrolling to be done?
         ;
@@ -568,7 +568,7 @@ read_irq_scroll:
         stx ZP_READ_VPOS_HI     ; to $0000
         stx ZP_READ_VERT        ; reset vertical smooth-scroll register
 
-@done:  ;;dec VIC_BORDER
+@done:  ;;dec .VIC_BORDER
         rts
 
         ; check the end of the article:
@@ -774,7 +774,7 @@ read_scroll_down:
         dey
         bne -                   ; stop when Y = 0 (important for later!)
 
-        ;;dec VIC_BORDER
+        ;;dec .VIC_BORDER
 
         ; begin printing the new row
         ;-----------------------------------------------------------------------
@@ -999,7 +999,7 @@ read_scroll_up:
         dey
         bne -                   ; stop when Y = 0 (important for later!)
 
-        ;;dec VIC_BORDER
+        ;;dec .VIC_BORDER
 
         ; print the next row in the off-screen space
         ;-----------------------------------------------------------------------

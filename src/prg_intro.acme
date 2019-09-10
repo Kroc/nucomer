@@ -7,41 +7,71 @@
 ; - do not use it for commercial purposes
 ;   (contact the author for a commercial licence)
 ;
+; prg_intro.acme:
 ;===============================================================================
+; after the bootstrap, the "intro" installs some permenant shared code
+; (of particular importance is the fast-loader) shows the logo, and then
+; loads the main menu. this is done this way so that the logo screen can
+; be discard and overwritten after it is shown and not occupy RAM
+; permenantly for a once-off screen
+;
 !source "c64/c64.acme"          ; C64 hardware / software constants
 !source "config.acme"           ; nucomer constants for memory layout
 
 * = nu_intro
 
+; the fast-loader code needs to be kept permenantly, so we place it first
+; and jump over it (as code execution begins here) because the intro code
+; that follows is not important and can be overwritten later
+
+intro_boot:
+        ;-----------------------------------------------------------------------
+        jmp intro_init
+
+; shared code:
+;===============================================================================
+; we must make available the addresses of the routines
+; in the shared code area for use by the main outfit
+;
+!sl     "build/intro_symbols.acme"
+
+!if OPTION_USE_FASTLOADER != 0 {
+        ;///////////////////////////////////////////////////////////////////////
+        !source "loader.acme"
+}       ;///////////////////////////////////////////////////////////////////////
+
+; we need to have safe interrupt-handlers in place before we can disable
+; BASIC & KERNAL ROMs! the shared code must include our stable IRQ routines,
+; as the main outfit code will be loaded into the RAM under BASIC ROM and we
+; can't turn BASIC off without replacement interrupt-handlers in place!
+;
+!source "interrupts.acme"
+
+; the shared code *must* fit beneath $1000
+; as that is where the SID music will be
+;
+!ifdef WARN_OVERFLOW !eof
+!if * >= nu_song {
+        WARN_OVERFLOW = 1
+        !warn "Shared code overflows into SID data! * = ", *
+}
+
+;===============================================================================
 ; TODO: fast-load the outfit, whilst the intro plays
 ;
-intro:
+intro_init:
         ;-----------------------------------------------------------------------
-        ; setup the screen:
         ; turn the screen off whilst we clear it
         lda # %00000000
-        sta VIC_SCREEN_CTL1
+        sta .VIC_SCREEN_CTL1
 
-        ; the intro runs in VIC bank 2 ($8000-$BFFF), specifically so that we
-        ; can load the main outfit into $0400+ without garabge appearing on the
-        ; screen. we don't use VIC bank 3, as the outfit does, because that
-        ; would require loading a font
-        ;
-        ldx CIA2_PORTA_DDR      ; (backup current value)
-        lda # %00000111         ; we only want to write to the low 3-bits
-        sta CIA2_PORTA_DDR      ; set the port's read/write state
-        ;
-        ; the bit value is the inverse of the bank number 0-3
-        lda # (! 2) & %111
-        sta CIA2_PORTA          ; change VIC bank
+        ; change the VIC memory layout to position the text-screen & char ROM
+        lda # ((>nu_intro_screen & %00111100) << 2) | ((>$1800 & %00111000) >> 2)
+        sta .VIC_LAYOUT
 
-        ; we must restore the read/write state of the port
-        ; or disk I/O will break!
-        stx CIA2_PORTA_DDR
-
-        ; change the VIC memory layout to position the text-screen & font
-        lda # ((>nu_intro_screen & %00111100) << 2) | ((>$9800 & %00111000) >> 2)
-        sta VIC_LAYOUT
+        ; put our custom IRQ handlers in place to avoid crashing
+        ; when we turn off the ROMs!
+        jsr irqs_init
 
         ;-----------------------------------------------------------------------
         ; initialise the fast-loader:
@@ -49,47 +79,78 @@ intro:
         ; this will detect the type of drive and upload the fast-loader code
         ; where possible
         ;
-        jsr initloader
+        !if OPTION_USE_FASTLOADER != 0 {
+                ;///////////////////////////////////////////////////////////////
+                jsr initloader
+        }       ;///////////////////////////////////////////////////////////////
 
+        ;-----------------------------------------------------------------------
         jsr logo_screen
         
         ; load the main outfit
         ;-----------------------------------------------------------------------
-        ; TODO: replace this with a fast-loader
-        ;
-        ldx #< @filename
-        ldy #> @filename
-        ;;jsr loadfile_exomizer
-        jsr loadfile
+        lda #> (nu_main-1)
+        pha
+        lda #< (nu_main-1)
+        pha
+        
+        ;;lda CPU_CONTROL
+        ;;and # %11111100
+        ;;sta CPU_CONTROL
+        dec .CPU_CONTROL
+        
+        !if OPTION_USE_FASTLOADER != 0 {
+                ;///////////////////////////////////////////////////////////////
+                ldx #< @filename_outfit
+                ldy #> @filename_outfit
+                jsr loadfile
+                ldx #< @filename_bsod64
+                ldy #> @filename_bsod64
+                jsr loadfile
+                ldx #< @filename_font
+                ldy #> @filename_font
+                jmp loadfile
 
-;;        ldx ZP_KERNAL_DEV       ; last-used KERNAL device number
-;;        bne +                   ; not 0? good
-;;        ldx # DEV_DRV8          ; default to drive 8
-;;+       ldy # $01               ; use PRG load-address
-;;        tya                     ; logical file number
-;;        jsr KERNAL_SETLFS
-;;
-;;        ldx #< @filename
-;;        ldy #> @filename
-;;        lda # 7                 ; A is string-length
-;;        jsr KERNAL_SETNAM       ; set KERNAL file name
-;;
-;;        lda # 0                 ; load, not verify
-;;        ;;ldx #< nu_main
-;;        ;;ldy #> nu_main
-;;        jsr KERNAL_LOAD
-;;        bcc +
-;;        
-;;        jam
-;;+
-        ; jump to the main outfit
-        jmp nu_main + 13
+        } else {;///////////////////////////////////////////////////////////////
 
-@filename:
+                ldx ZP_KERNAL_DEV       ; last-used KERNAL device number
+                bne +                   ; not 0? good
+                ldx # DEV_DRV8          ; default to drive 8
++               ldy # $01               ; use PRG load-address
+                tya                     ; logical file number
+                jsr .KERNAL_SETLFS
+
+                ldx #< @filename_outfit
+                ldy #> @filename_outfit
+                lda # 7                 ; A is string-length
+                jsr .KERNAL_SETNAM       ; set KERNAL file name
+
+                lda # 0                 ; load, not verify
+                ;;ldx #< nu_main
+                ;;ldy #> nu_main
+                jsr .KERNAL_LOAD
+                bcc +
+
+                jam
+
+                ; jump to the main outfit
++               jmp nu_main
+
+        }       ;///////////////////////////////////////////////////////////////
+
+@filename_outfit:
         ;-----------------------------------------------------------------------
         !pet    "nucomer", 0
 
+@filename_bsod64:
+        ;-----------------------------------------------------------------------
+        !pet    "bsod64", 0
+
+@filename_font:
+        ;-----------------------------------------------------------------------
+        !pet    "admiral64", 0
+
+
+
 ;===============================================================================
 !source "logo.acme"
-
-!source "loader.acme"

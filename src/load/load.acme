@@ -46,17 +46,17 @@ fastloadstatus = .zp_fastloadstatus
 .zp_kernal_fa           = $ba
 
 ; disk-drive variables:
-acsbf                   = $01           ; buffer 1 command
-trkbf                   = $08           ; buffer 1 track
-sctbf                   = $09           ; buffer 1 sector
-iddrv0                  = $12           ; disk drive ID
-drvtemp                 = $06           ; temp variable
-id                      = $16           ; disk ID
+.acsbf                  = $01           ; buffer 1 command
+.trkbf                  = $08           ; buffer 1 track
+.sctbf                  = $09           ; buffer 1 sector
+.iddrv0                 = $12           ; disk drive ID
+.drvtemp                = $06           ; temp variable
+.id                     = $16           ; disk ID
 
-buf                     = $0400         ; sector data buffer
-drvstart                = $0500         ; start of drive-code
-drv_sendtblhigh         = $0700         ; 256-byte table for 2-bit send optimization
-initialize              = $d005         ; initialize routine in 1541 ROM
+.buf                    = $0400         ; sector data buffer
+.drvstart               = $0500         ; start of drive-code
+.drv_sendtblhigh        = $0700         ; 256-byte table for 2-bit send optimization
+.initialize             = $d005         ; initialize routine in 1541 ROM
 
 ; KERNAL routines
 .kernal_ciout           = $ffa8
@@ -523,14 +523,14 @@ initfastload:
         inc .zp_fastloadstatus
         lda #< drivecode
         ldx #> drivecode
-        ldy # (drvend-drvstart+.MW_LENGTH-1) / .MW_LENGTH
+        ldy # (drvend-.drvstart+.MW_LENGTH-1) / .MW_LENGTH
 
 ifl_begin:
         sta ifl_senddata+1
         stx ifl_senddata+2
         sty .zp_loadtempreg      ; number of "packets" to send
         jsr kernalon
-        lda #> drvstart
+        lda #> .drvstart
         sta ifl_mwstring+1
         ldy # $00
         sty ifl_mwstring+2      ; drivecode starts at lowbyte 0
@@ -582,7 +582,7 @@ ifl_error:
 ; address in C64's memory
 drivecode:
 
-!pseudopc drvstart {
+!pseudopc .drvstart {
 
 ; address in diskdrive's memory
 drvmain:
@@ -652,7 +652,7 @@ drv_dirloop:
         jsr drv_readsector      ;Read sector
         ldy # $02
 drv_nextfile:
-        lda buf, y               ;File type must be PRG
+        lda .buf, y              ;File type must be PRG
         and # $83
         cmp # $82
         bne drv_notfound
@@ -661,13 +661,13 @@ drv_nextfile:
                 ldx # $03
                 sty drv_namelda+1
                 lda # $a0                ;Make an endmark at the 16th letter
-                sta buf+19, y
+                sta .buf+19, y
 drv_namecmploop:
                 lda drv_filename-3, x    ;Check for wildcard first
                 cmp # $2a
                 beq drv_found
 drv_namelda:
-                lda buf, x               ;Check against each letter of filename,
+                lda .buf, x              ;Check against each letter of filename,
                 cmp drv_filename-3, x    ;break on mismatch
                 bne drv_namedone
                 inx
@@ -677,29 +677,29 @@ drv_namedone:   cmp # $a0                ;If got endmark in both filenames, foun
                 lda drv_filename-3, x
                 beq drv_found
         } else {;///////////////////////////////////////////////////////////////
-                lda buf+3, y
+                lda .buf+3, y
                 cmp drv_filename
                 bne drv_notfound
-                lda buf+4, y
+                lda .buf+4, y
                 cmp drv_filename+1
                 beq drv_found
-        }
+        }       ;///////////////////////////////////////////////////////////////
 drv_notfound:
         tya
         clc
         adc # $20
         tay
         bcc drv_nextfile
-        ldy buf+1               ;Go to next directory block, go on until no
-        ldx buf                 ;more directory blocks
+        ldy .buf+1              ;Go to next directory block, go on until no
+        ldx .buf                ;more directory blocks
         bne drv_dirloop
 drv_filenotfound:
         ldx # $02                ;Return code $02 = File not found
 drv_loadend:
-        stx buf+2
+        stx .buf+2
         lda # $00
-        sta buf
-        sta buf+1
+        sta .buf
+        sta .buf+1
         beq drv_sendblk
 
 drv_quit:                               ;If ATN, exit to drive ROM code
@@ -708,7 +708,7 @@ drv_drivetype:
         bne drv_quitnot1541
         lda # $1a                       ;Restore data direction register
         sta $1802
-        jmp initialize
+        jmp .initialize
 
 drv_quitnot1541:
         rts
@@ -716,9 +716,9 @@ drv_quitnot1541:
 drv_found:
         iny
 drv_nextsect:
-        ldx buf, y       ;File found, get starting track & sector
+        ldx .buf, y       ;File found, get starting track & sector
         beq drv_loadend ;At file's end? (return code $00 = OK)
-        lda buf+1, y
+        lda .buf+1, y
         tay
         jsr drv_readsector      ;Read the data sector
 
@@ -727,7 +727,7 @@ drv_nextsect:
 drv_sendblk:
 drv_sendloop:
 drv_2mhzsend:
-        lda buf
+        lda .buf
         ldx # $00                        ;Set CLK=high to mark data available
 drv_1800ac6:
         stx $1800
@@ -749,7 +749,7 @@ drv_1800ac8:
         nop
 drv_1800ac9:
         sta $1800
-        lda drv_sendtblhigh, y
+        lda .drv_sendtblhigh, y
         cmp ($00, x)
         nop
 drv_1800ac10:
@@ -777,14 +777,14 @@ drv_sendblk:
 drv_1800ac6:
         stx $1800               ;CLK & DATA high -> ready to go
 drv_sendloop:
-        ldx buf
+        ldx .buf
 drv_zpac1:
-        stx drvtemp
+        stx .drvtemp
         tay                     ;Bitpair counter
 drv_sendloop_bitpair:
         ldx # $00
 drv_zpac2:
-        lsr drvtemp
+        lsr .drvtemp
         bcs drv_sendloop_wait1
         ldx # $02
 drv_sendloop_wait1:
@@ -795,7 +795,7 @@ drv_1800ac8:
         stx $1800
         ldx # $00
 drv_zpac3:
-        lsr drvtemp
+        lsr .drvtemp
         bcs drv_sendloop_wait2
         ldx # $02
 drv_sendloop_wait2:
@@ -818,8 +818,8 @@ drv_1800ac12:
 
 }       ;///////////////////////////////////////////////////////////////////////
 
-        lda buf                 ;First 2 bytes zero marks end of loading
-        ora buf+1               ;(3rd byte is the return code)
+        lda .buf                ;First 2 bytes zero marks end of loading
+        ora .buf+1              ;(3rd byte is the return code)
         bne drv_nextsect
         jmp drvmain
 
@@ -853,10 +853,10 @@ drv_1541execwait:
         lda $01
         bmi drv_1541execwait
         pha
-        lda id                  ;Handle disk ID change
-        sta iddrv0
-        lda id+1
-        sta iddrv0+1
+        lda .id                 ;Handle disk ID change
+        sta .iddrv0
+        lda .id+1
+        sta .iddrv0+1
         pla
         rts
 
@@ -887,7 +887,7 @@ drv_sendtblloop:
                 lsr
                 tay
                 lda drv_sendtbl, y
-                sta drv_sendtblhigh, x
+                sta .drv_sendtblhigh, x
                 inx
                 bne drv_sendtblloop
                 rts
@@ -908,7 +908,7 @@ drv_1581dirsct:
 drv_filename:
 
 drvend:
-        !if drvend > drv_sendtblhigh {
+        !if drvend > .drv_sendtblhigh {
                 !error
         }
 
@@ -924,7 +924,7 @@ ifl_mwstring:
 
 ifl_mestring:
         ; "Execute-Memory"
-        !byte   >drvstart, <drvstart
+        !byte   >.drvstart, <.drvstart
         !pet    "E-M"
 
 ;===============================================================================
@@ -969,7 +969,7 @@ initloader:
         sta .zp_fastloadstatus  ; initial fastload status = off
         sta .zp_fileopen        ; no file initially open
 
-        !if TWOBIT_PROTOCOL>0 {
+        !if TWOBIT_PROTOCOL > 0 {
                 ;///////////////////////////////////////////////////////////////
                 sei
                 tax
@@ -1056,13 +1056,13 @@ il_fastloadok:
 il_not1571:     bne il_2mhzdrive
                 ldy #drv_1mhzsenddone-drv_1mhzsend-1
 il_copy1mhzcode:lda il_drv1mhzsend, y
-                sta drv_2mhzsend-drvstart+drivecode, y
+                sta drv_2mhzsend-.drvstart+drivecode, y
                 dey
                 bpl il_copy1mhzcode
 il_2mhzdrive:
-        }
+        }       ;///////////////////////////////////////////////////////////////
         stx il_drivetype+1
-        stx drv_drivetype+1-drvstart+drivecode
+        stx drv_drivetype+1-.drvstart+drivecode
         txa
         beq il_skippatch1800            ;$1800 patching not needed for 1541
         lda .il_1800lo-1, x               ;Perform patching of drivecode
@@ -1074,50 +1074,50 @@ il_patchloop:
         ldx .il_1800ofs, y
 il_patch1800lo:
         lda # $00                        ;Patch all $1800 accesses
-        sta drvmain+1-drvstart+drivecode, x
+        sta drvmain+1-.drvstart+drivecode, x
 il_patch1800hi:
         lda # $00
-        sta drvmain+2-drvstart+drivecode, x
+        sta drvmain+2-.drvstart+drivecode, x
         dey
         bpl il_patchloop
 il_skippatch1800:
 il_drivetype:
         ldx # $00
         lda .il_dirtrklo, x               ;Patch directory
-        sta drv_dirtrk+1-drvstart+drivecode
+        sta drv_dirtrk+1-.drvstart+drivecode
         lda .il_dirtrkhi, x
-        sta drv_dirtrk+2-drvstart+drivecode
+        sta drv_dirtrk+2-.drvstart+drivecode
         lda .il_dirsctlo, x
-        sta drv_dirsct+1-drvstart+drivecode
+        sta drv_dirsct+1-.drvstart+drivecode
         lda .il_dirscthi, x
-        sta drv_dirsct+2-drvstart+drivecode
+        sta drv_dirsct+2-.drvstart+drivecode
         lda .il_execlo, x                 ;Patch job exec address
-        sta drv_execjsr+1-drvstart+drivecode
+        sta drv_execjsr+1-.drvstart+drivecode
         lda .il_exechi, x
-        sta drv_execjsr+2-drvstart+drivecode
+        sta drv_execjsr+2-.drvstart+drivecode
         lda .il_jobtrklo, x               ;Patch job track/sector
-        sta drv_readtrk+1-drvstart+drivecode
+        sta drv_readtrk+1-.drvstart+drivecode
         clc
         adc # $01
-        sta drv_readsct+1-drvstart+drivecode
+        sta drv_readsct+1-.drvstart+drivecode
         lda .il_jobtrkhi, x
-        sta drv_readtrk+2-drvstart+drivecode
+        sta drv_readtrk+2-.drvstart+drivecode
         adc # $00
-        sta drv_readsct+2-drvstart+drivecode
-        !if TWOBIT_PROTOCOL=0 {
+        sta drv_readsct+2-.drvstart+drivecode
+        !if TWOBIT_PROTOCOL = 0 {
                 ;///////////////////////////////////////////////////////////////
                 lda .il_zp, x                     ;Patch zeropage temp usage
-                sta drv_zpac1+1-drvstart+drivecode
-                sta drv_zpac2+1-drvstart+drivecode
-                sta drv_zpac3+1-drvstart+drivecode
-        }
+                sta drv_zpac1+1-.drvstart+drivecode
+                sta drv_zpac2+1-.drvstart+drivecode
+                sta drv_zpac3+1-.drvstart+drivecode
+        }       ;///////////////////////////////////////////////////////////////
         lda .il_ledenabled, x             ;Patch LED flashing
-        sta drv_led-drvstart+drivecode
+        sta drv_led-.drvstart+drivecode
         lda .il_ledbit, x
-        sta drv_led+1-drvstart+drivecode
+        sta drv_led+1-.drvstart+drivecode
         lda .il_ledadrhi, x
-        sta drv_ledac1+2-drvstart+drivecode
-        sta drv_ledac2+2-drvstart+drivecode
+        sta drv_ledac1+2-.drvstart+drivecode
+        sta drv_ledac2+2-.drvstart+drivecode
         rts
 
 ;-------------------------------------------------------------------------------
@@ -1126,7 +1126,7 @@ il_drivetype:
 ;-------------------------------------------------------------------------------
 
 il_drivecode:
-!pseudopc       drvstart {
+!pseudopc       .drvstart {
 
                 asl ild_return1         ;Modify first returnvalue to prove
                                         ;we've executed something :)
@@ -1187,7 +1187,7 @@ il_drv1mhzsend:
 drv_1mhzsend:
         ldx # $00
 drv_1mhzsendloop:
-        lda buf
+        lda .buf
         tay
         and # $0f
         stx $1800
@@ -1200,7 +1200,7 @@ drv_1mhzwait:
         asl
         and # $0f
         sta $1800
-        lda drv_sendtblhigh, y
+        lda .drv_sendtblhigh, y
         sta $1800
         asl
         and # $0f
@@ -1254,11 +1254,11 @@ drv_1mhzsenddone:
         !byte   >drv_1541exec, >$ff54, >drv_fdexec, >$ff4e
 
 .il_jobtrklo:
-        !byte <$0008, <$000d, <$000d, <$2802
+        !byte   <$0008, <$000d, <$000d, <$2802
 .il_jobtrkhi:
-        !byte >$0008, >$000d, >$000d, >$2802
+        !byte   >$0008, >$000d, >$000d, >$2802
 
-!if TWOBIT_PROTOCOL=0 {
+!if TWOBIT_PROTOCOL = 0 {
 ;///////////////////////////////////////////////////////////////////////////////
 .il_zp:
         !byte   $06, $0b, $0b, $06

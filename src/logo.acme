@@ -32,12 +32,12 @@ LOGO_EYE_LID2_YPOS      = LOGO_EYE_LEFT_YPOS - 24 - 21
 logo_screen:
         ;-----------------------------------------------------------------------
         ; set screen colour
-        lda # ORANGE
-        sta VIC_BORDER
-        sta VIC_BACKGROUND
+        lda # .VIC_ORANGE
+        sta .VIC_BORDER
+        sta .VIC_BACKGROUND
 
         ; erase the text-screen, colouring all text orange,
-        ; i.e. ensure text is effectively invsible by default
+        ; i.e. ensure text is effectively invisible by default
         ;
         ; write four 256-byte strips simultaneously
         ; so we don't have to deal with nested loops
@@ -61,31 +61,31 @@ logo_screen:
         ; configure sprites:
         ;-----------------------------------------------------------------------
         ; set sprite colours
-        lda # ORANGE            ; the eye-lid masks the eye,
-        sta VIC_SPRITE0_COLOR   ; so has to match the background colour
-        STA VIC_SPRITE1_COLOR
-        lda # WHITE
-        sta VIC_SPRITE2_COLOR
-        sta VIC_SPRITE3_COLOR
+        lda # .VIC_ORANGE        ; the eye-lid masks the eye,
+        sta .VIC_SPRITE0_COLOR   ; so has to match the background colour
+        STA .VIC_SPRITE1_COLOR
+        lda # .VIC_WHITE
+        sta .VIC_SPRITE2_COLOR
+        sta .VIC_SPRITE3_COLOR
 
         ; select which sprite images to show
         lda # (logo_eye_lid1 % $4000) / 64
-        sta nu_intro_screen + VIC_SPRITE0_PTR
+        sta nu_intro_screen + .VIC_SPRITE0_PTR
         lda # (logo_eye_lid2 % $4000) / 64
-        sta nu_intro_screen + VIC_SPRITE1_PTR
+        sta nu_intro_screen + .VIC_SPRITE1_PTR
         lda # (logo_eye_left % $4000) / 64
-        sta nu_intro_screen + VIC_SPRITE2_PTR
+        sta nu_intro_screen + .VIC_SPRITE2_PTR
         lda # (logo_eye_right % $4000) / 64
-        sta nu_intro_screen + VIC_SPRITE3_PTR
+        sta nu_intro_screen + .VIC_SPRITE3_PTR
         
         ; set sprites to appear behind text
         lda # %11111111
-        sta VIC_SPRITE_PRIORITY
+        sta .VIC_SPRITE_PRIORITY
         
         ; set sprite stretching;
         ; (the eye-lid sprites are double-width)
         lda # %00000011
-        sta VIC_SPRITE_DBLWIDTH
+        sta .VIC_SPRITE_DBLWIDTH
 
         ; position the eye-lid sprites
         ldx # 0                 ; use initial position (out of sight)
@@ -94,55 +94,55 @@ logo_screen:
         ; draw the initial layout of logo text and sprites
         ; (this will set sprite X/Y positions and colours)
         ldx # 12
-        lda # ORANGE
+        lda # .VIC_ORANGE
         jsr logo_draw
 
         ; sprites configured, turn them on
         lda # %00001111
-        sta VIC_SPRITE_ENABLE
+        sta .VIC_SPRITE_ENABLE
 
         ; turn screen on
         lda # %00011011
-        sta VIC_SCREEN_CTL1
+        sta .VIC_SCREEN_CTL1
 
         ;-----------------------------------------------------------------------
         ldx # 12
-        lda # YELLOW
+        lda # .VIC_YELLOW
         jsr logo_animate
         ldx # 6
         jsr logo_animate
         ldx # 3
-        lda # LTGREEN
+        lda # .VIC_LTGREEN
         jsr logo_animate
         ldx # 1
         jsr logo_animate
         ldx # 0
-        lda # WHITE
+        lda # .VIC_WHITE
         jsr logo_animate
 
         ; wait a moment
         ldx # 30
-        jsr logo_wait_frames
+        jsr wait_frames
 
         ; blink the eye:
         ; (note X is 0 due to above count-down)
 -       jsr logo_draw_eyelid    ; position the eye-lid (begins with frame 0)
-        jsr logo_wait_frame
+        jsr wait_frame
         inx
         cpx # 9                 ; reached max. number of frames?
         bcc -                   ; no, keep going
 
         ; now open the eye-lid
 -       jsr logo_draw_eyelid
-        jsr logo_wait_frame
-        jsr logo_wait_frame
+        jsr wait_frame
+        jsr wait_frame
         dex
         bpl -
         jsr logo_draw_eyelid    ; update for frame 0 at the drop-out
 
         ; wait a moment
         ldx # 25
-        jsr logo_wait_frames
+        jsr wait_frames
 
         ; fade out
         ;-----------------------------------------------------------------------
@@ -151,15 +151,15 @@ logo_screen:
 @fade   lda logo_fadeout_colours, y
 
         ; colour the sprites and text
-        sta VIC_SPRITE2_COLOR
-        sta VIC_SPRITE3_COLOR
+        sta .VIC_SPRITE2_COLOR
+        sta .VIC_SPRITE3_COLOR
         ldx # 12
 -       dex
         sta $d800 + (LOGO_TEXT_ROW * 40) + 14, x
         bpl -
 
         ldx # 3
-        jsr logo_wait_frames
+        jsr wait_frames
 
         dey
         bpl @fade
@@ -167,14 +167,15 @@ logo_screen:
         ; logo screen complete
         ;-----------------------------------------------------------------------
         lda # %00000000
-        sta VIC_SPRITE_ENABLE   ; hide the sprites
-        sta VIC_SCREEN_VERT     ; turn the screen off
+        sta .VIC_SPRITE_ENABLE   ; hide the sprites
+        sta .VIC_SCREEN_VERT     ; turn the screen off
 
         rts
 
 logo_fadeout_colours:
         ;-----------------------------------------------------------------------
-        !byte   ORANGE, PURPLE, GREY, YELLOW, YELLOW, LTGREEN
+        !byte   .VIC_ORANGE, .VIC_PURPLE, .VIC_GREY
+        !byte   .VIC_YELLOW, .VIC_YELLOW, .VIC_LTGREEN
 
 ;===============================================================================
 logo_animate:
@@ -183,7 +184,7 @@ logo_animate:
         jsr logo_draw
         
         ldx # 3
-        jsr logo_wait_frames
+        jsr wait_frames
         
         pla
         rts
@@ -198,8 +199,8 @@ logo_draw:
         ;           (for the animation) must be between 0 - 12
         ;
         ; set the sprite colours first as this is very cheap to do
-        sta VIC_SPRITE2_COLOR
-        sta VIC_SPRITE3_COLOR
+        sta .VIC_SPRITE2_COLOR
+        sta .VIC_SPRITE3_COLOR
 
         ; set the colour for the text which has to be written to colour RAM.
         ; because the logo text "design" shifts to the right, we can address
@@ -247,7 +248,7 @@ logo_draw:
         tay                     ; (put aside the original separation distance)
         clc
         adc # LOGO_EYE_LEFT_YPOS
-        sta VIC_SPRITE2_Y
+        sta .VIC_SPRITE2_Y
 
         ; the right-hand eye moves the opposite direction so we have to
         ; subtract the separation distance from the 'final' Y-position,
@@ -256,7 +257,7 @@ logo_draw:
         lda # LOGO_EYE_RIGHT_YPOS
         sec
 @ypos   sbc # $88
-        sta VIC_SPRITE3_Y
+        sta .VIC_SPRITE3_Y
 
         ; now handle the left-hand logo text
         stx @left+1
@@ -303,13 +304,13 @@ logo_draw:
         ; the intended final position
         lda # LOGO_EYE_LEFT_XPOS
 @xpos   sbc # $88               ; subtract the offset
-        sta VIC_SPRITE2_X       ; position the left-eye
+        sta .VIC_SPRITE2_X       ; position the left-eye
 
         txa
         clc
         ; only need to add the indent for the right eye
         adc # LOGO_EYE_RIGHT_XPOS
-        sta VIC_SPRITE3_X       ; position the right-eye
+        sta .VIC_SPRITE3_X       ; position the right-eye
 
         rts
 
@@ -324,61 +325,24 @@ logo_draw_eyelid:
         tay
         clc
         adc # LOGO_EYE_LID1_YPOS
-        sta VIC_SPRITE0_Y
+        sta .VIC_SPRITE0_Y
         tya
         clc
         adc # LOGO_EYE_LID2_YPOS
-        sta VIC_SPRITE1_Y
+        sta .VIC_SPRITE1_Y
 
         ; set X-positions
         ; (needed during initialisation)
         lda # LOGO_EYE_LID1_XPOS
-        sta VIC_SPRITE0_X
+        sta .VIC_SPRITE0_X
         lda # LOGO_EYE_LID2_XPOS
-        sta VIC_SPRITE1_X
+        sta .VIC_SPRITE1_X
         
         rts
 
 @frames:
         ;-----------------------------------------------------------------------
         !byte   0, 1, 2, 4, 7, 11, 16, 22, 29, 32
-
-;===============================================================================
-; wait for a given number of frames to pass:
-;
-;       X = number of frames to wait (1-based)
-;
-logo_wait_frames:
-        ;-----------------------------------------------------------------------
--       jsr logo_wait_frame
-        dex
-        bne -
-        
-        rts
-
-logo_wait_frame:
-        ;-----------------------------------------------------------------------
-        ; wait for a full cycle of the raster beam:
-        ;
-        ; bit 7 of $D011 is the upper-most bit of the current raster line,
-        ; i.e. when it is 0 the beam is on lines 0-255 and when it's 1 the
-        ; beam is on lines 256+ -- PAL has 312 lines, NTSC has 262 lines
-        ; but some very early NTSC machines have 263 lines
-        ;
-        ; first, we wait for the beam to enter the top of the screen
-        ; (lines 0-255), this is so that if the beam is currently within the
-        ; bottom of the screen (lines 256+), we wait for it to go back around
-        ; and don't trigger early
-        ;
--       bit VIC_SCREEN_VERT
-        bmi -                   ; wait until bit 7 is 0
-
-        ; now wait for the addressible screen to pass and the vblank
-        ; to begin again, this syncronises the main thread with the vblank
--       bit VIC_SCREEN_VERT
-        bpl -                   ; wait until bit 7 is 1
-
-        rts
 
 logo_sprites:
 ;===============================================================================
