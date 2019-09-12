@@ -110,7 +110,13 @@ menu_irq_logo_end:
         sta .VIC_BORDER
         sta .VIC_BACKGROUND
 
+        ; TODO: colour-wash the logo
+
         rts
+
+@colours
+        ;-----------------------------------------------------------------------
+        !byte   .VIC_WHITE, .VIC_LTBLUE, .VIC_LTGREEN, .VIC_YELLOW, .VIC_BLUE
 
 menu_irq_vblank:
         ;-----------------------------------------------------------------------
@@ -141,14 +147,6 @@ menu_screen:
         ; erase the text-screen
         lda # .MENU_FORE
         jsr clear_screen
-
-        ;-----------------------------------------------------------------------
-        ; set our own interrupt handlers
-        ;
-        lda #< menu_irqs        ; address of IRQ table, lo-byte
-        ldx #> menu_irqs        ; address of IRQ table, hi-byte
-        ldy # .MENU_IRQS        ; number of entries in the table (1-based)
-        jsr irqs_load           ; (this will enable interrupts)
 
         ; print logo:
         ;-----------------------------------------------------------------------
@@ -187,6 +185,14 @@ menu_screen:
         
         ; draw the menu items on the screen
         jsr menu_refresh
+
+        ;-----------------------------------------------------------------------
+        ; set our own interrupt handlers
+        ;
+        lda #< menu_irqs        ; address of IRQ table, lo-byte
+        ldx #> menu_irqs        ; address of IRQ table, hi-byte
+        ldy # .MENU_IRQS        ; number of entries in the table (1-based)
+        jsr irqs_load           ; (this will enable interrupts)
 
         ; turn screen on
         lda # %00011011

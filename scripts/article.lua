@@ -590,7 +590,19 @@ function Article:read_line(s_text)
     --#    word_spc = 0        -- do not add a space before the next word
     --#    index = index + 1   -- skip the space!
 
+    -- punctuation that line-breaks after (but not before)
+    -- e.g. we don't want to break "yes/no" such that a line begins with "/"
+    --
+    elseif s_text:match("^[\\/]", index) then
+        ------------------------------------------------------------------------
+        -- add the slash to the current word so it stays stuck to it
+        add_char(ascii)
+        -- force a word-break; if the characters after the slash
+        -- don't fit, they will be moved to the next line
+        add_word()
+
     -- an em-dash is a word-break either side
+    --
     elseif s_text:match("^—", index) then
         ------------------------------------------------------------------------
         -- add current word, treating the em-dash as a word-break
