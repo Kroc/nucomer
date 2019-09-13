@@ -1,5 +1,4 @@
 {
-    "menu"      : [],
     "articles"  : [
         {
             "title" : "Editorial: Why 8-Bit?",
@@ -26,6 +25,11 @@
             "scr"   : "Next Issue...",
             "file"  : "next-issue.nu",
             "prg"   : "05.next issue..."
+        },{
+            "title" : "Credits",
+            "scr"   : "Credits",
+            "file"  : "credits.nu",
+            "prg"   : "06.credits"
         }
     ]
 }

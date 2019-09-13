@@ -1,4 +1,4 @@
-:: Editorial: Why 8-Bit?
+:: Editorial
 --------------------------------------------------------------------------------
 by Kroc Camen / Camen Design
 
@@ -23,6 +23,10 @@ This publication exists to implore, educate and demonstrate the satisfaction tha
 Elitist arguments about "original hardware" must be pushed back. Those with a nostalgic connection to the C64 must be willing to give their knowledge to a future world in which there is no original hardware, only de-facto standards.
 
 In reality, modern hardware and the Internet are where people are productive today and Nücomer will never communicate in ignorance of this fact. There are plenty of tutorials and resources out there on setting up a PC development environment and writing your first lines of code for an 8-bit system, I cannot do that within the confines of the C64's RAM & storage! Instead, Nücomer explores the "why"; why you should solve a programming problem in a certain way; why 8-bit systems are the way they are; why you should care.
+
+:: Why 8-Bit?
+--------------------------------------------------------------------------------
+Why not 16-bit? Why not just go all the way and write 64-bit ARM assembly for modern phones?
 
 :: Why The Commodore 64?
 --------------------------------------------------------------------------------

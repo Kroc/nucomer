@@ -535,10 +535,17 @@ function Article:read_line(s_text)
     ----------------------------------------------------------------------------
     function add_line()
         ------------------------------------------------------------------------
+        -- when a line-break occurs, the next line must inherit the style
+        -- of the current line; e.g. titles that span multiple lines
+        local old_literal = line.is_literal
+        local old_default = line.default
         -- add line to the article line array
         table.insert(self.lines, line)
         -- start a new line
         line = Line:new()
+        -- apply the styling from the old line
+        line.is_literal = old_literal
+        line.default = old_default
     end
 
     -- look for special markup at the beginning of the line
