@@ -129,11 +129,11 @@ local str2scr = {
                     -- em-dash is handled separately as it is two chars
     ["“"]  = 0x64,  -- left "smart-quotes"
 
-    ["ç"]  = 0x7a,  -- as in façade
-    ["è"]  = 0x7b,  -- as in "cafè"
-    ["é"]  = 0x7c,  -- as in "née"
-    ["ï"]  = 0x7d,  -- as in "naïve"
-    ["ü"]  = 0x7e,  -- as in "nücomer"
+    ["ç"]  = 0x7b,  -- as in façade
+    ["è"]  = 0x7c,  -- as in "cafè"
+    ["é"]  = 0x7d,  -- as in "née"
+    ["ï"]  = 0x7e,  -- as in "naïve"
+    ["ü"]  = 0x7f,  -- as in "nücomer"
 }
 
 -- convert ASCII string to the screen codes used by Nucomer
@@ -169,79 +169,83 @@ function string:toC64 ()
         ------------------------------------------------------------------------
         elseif self:match("^—", i) ~= nil then
             -- add as two C64 screen-codes!
-            s_out = s_out .. string.char(0x62, 0x63)
+            s_out = s_out .. string.char(0x61, 0x62)
             -- skip the extra (utf-8) bytes
             i = i + 1
 
-        -- "*'d" contractions:
+        --#-- "... I ...":
+        --#---------------------------------------------------------------------
+        --#elseif self:match("^ I ", i) ~= nil then
+        --#    print("...I...")
+        --#    s_out = s_out .. string.char(0x00, 0x78)
+        --#    -- skip a byte
+        --#    i = i + 2
+
+        -- "*'ll":
         ------------------------------------------------------------------------
-        elseif self:match("^%w'd ?", i) ~= nil then
-            -- encode the character before the "'d"
+        elseif self:match("^%w'll ?", i) ~= nil then
+            -- we process this before the "I'*" contraction because there's
+            -- a separate contractor character for "I'*" to avoid needing
+            -- special characters for "I'm" and "I'd"
+            --
+            -- encode the character before the "'ll"
             s_out = s_out .. string.char(str2scr[self:sub(i, i)])
-            -- add the specialised "'d" character
-            s_out = s_out .. string.char(0x70)
-            -- move the index over the processed characters
-            i = i + 2
-
-        -- "I'm" contraction: (uses different character than "I'??")
-        ------------------------------------------------------------------------
-        elseif self:match("^I'm", i) ~= nil then
-            -- encode using the special "I'*" character
-            s_out = s_out .. string.char(0x71, 0x4d)
-            -- move the index over the processed characters
-            i = i + 2
-
-        -- "*'ll'"
-        ------------------------------------------------------------------------
-        elseif self:match("^'ll ?", i) ~= nil then
             -- add the specialised "'l" character and a normal "l"
-            s_out = s_out .. string.char(0x72, 0x4c)
+            s_out = s_out .. string.char(0x71, 0x4c)
             -- move the index over the processed characters
-            i = i + 2
+            i = i + 3
 
-        -- "o'"
+        -- "I'*":
         ------------------------------------------------------------------------
-        elseif self:match("^o'", i) ~= nil then
-            -- add the specialised "o'" character
-            s_out = s_out .. string.char(0x73)
+        elseif self:match("^I'", i) ~= nil then
+            -- encode using the special "I'*" character
+            s_out = s_out .. string.char(0x70, 0x4d)
             -- skip a byte
             i = i + 1
 
-        -- "*'r" contractions:
+        -- "o'":
+        ------------------------------------------------------------------------
+        elseif self:match("^o'", i) ~= nil then
+            -- add the specialised "o'" character
+            s_out = s_out .. string.char(0x72)
+            -- skip a byte
+            i = i + 1
+
+        -- "*'r":
         ------------------------------------------------------------------------
         elseif self:match("^%w'r", i) ~= nil then
             -- encode the character before the "'r"
             s_out = s_out .. string.char(str2scr[self:sub(i, i)])
             -- add the specialised "'r" character
-            s_out = s_out .. string.char(0x74)
+            s_out = s_out .. string.char(0x73)
             -- move the index over the processed characters
             i = i + 2
 
-        -- "*'s" contractions:
+        -- "*'s":
         ------------------------------------------------------------------------
         elseif self:match("^%w's", i) ~= nil then
             -- encode the character before the "'s"
             s_out = s_out .. string.char(str2scr[self:sub(i, i)])
             -- add the specialised "'s" character
-            s_out = s_out .. string.char(0x75)
+            s_out = s_out .. string.char(0x74)
             -- move the index over the processed characters
             i = i + 2
 
-        -- "'t*" contractions:
+        -- "'t":
         ------------------------------------------------------------------------
-        elseif self:match("'t%w", i) ~= nil then
+        elseif self:match("^'t", i) ~= nil then
             -- add the specialised "'t" character
-            s_out = s_out .. string.char(0x76)
+            s_out = s_out .. string.char(0x75)
             -- skip a byte
             i = i + 1
 
-        -- "*'ve" contractions:
+        -- "*'ve":
         ------------------------------------------------------------------------
         elseif self:match("^%w've", i) ~= nil then
             -- encode the character before the "'ve"
             s_out = s_out .. string.char(str2scr[self:sub(i, i)])
-            -- add the specialised "'ve" characters!
-            s_out = s_out .. string.char(0x77, 0x78)
+            -- add the specialised "'ve" characters
+            s_out = s_out .. string.char(0x76, 0x77)
             -- move the index over the processed characters
             i = i + 3
 

@@ -8,3 +8,6 @@ build/**
 
 **.prg
 **.d64
+
+# VICE snapshot files
+*.vsf
