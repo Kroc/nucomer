@@ -492,12 +492,13 @@ function Article:read_line(s_text)
         -- e.g. contractions using specialised single-characters
         local s_c64 = word_str:toC64()
         -- if the word will not fit on the line, hyphenate & word-wrap
-        if line.length + #s_c64 + word_spc > scr_width then
+        if line.length + #s_c64 + word_spc > scr_width - line.indent then
             -- hyphenate the word splitting into as much as can fit
             -- on the current line and the remainder for the next line
             local before, after = hyphenate:breakWord(
+                "en-gb", word_str,
                 -- split the word according to how much line space remains
-                "en-gb", word_str, (scr_width - line.length) - word_spc
+                (scr_width - line.indent - line.length) - word_spc
             )
             --#print(left, right)
             -- add the part of the word that fits (if any)
@@ -537,6 +538,7 @@ function Article:read_line(s_text)
         ------------------------------------------------------------------------
         -- when a line-break occurs, the next line must inherit the style
         -- of the current line; e.g. titles that span multiple lines
+        local old_indent  = line.indent
         local old_literal = line.is_literal
         local old_default = line.default
         -- add line to the article line array
@@ -544,15 +546,26 @@ function Article:read_line(s_text)
         -- start a new line
         line = Line:new()
         -- apply the styling from the old line
+        line.indent = old_indent
         line.is_literal = old_literal
         line.default = old_default
     end
 
     -- look for special markup at the beginning of the line
     ----------------------------------------------------------------------------
+    -- indent?
+    if s_text:match("^%s+") ~= nil then
+        -- how much?
+        local s_indent = s_text:match("^%s+")
+        -- set the property on the line object so that if a line-break occurs
+        -- (e.g. word-wrap), the indent is carried on to subsequent lines
+        line.indent = #s_indent
+        -- skip these spaces
+        index = #s_indent
+
     -- :: title
     --
-    if s_text:match("^::") ~= nil then
+    elseif s_text:match("^::") ~= nil then
         -- change the line's default style class
         line.default = 1
         -- move the index forward over the marker
@@ -687,6 +700,7 @@ end
 
 --------------------------------------------------------------------------------
 Line = {
+    indent      = 0,        -- pre-indent, number of spaces
     text        = "",       -- line text, encoded for the C64
     is_literal  = false,    -- is this a literal-text line?
     length      = 0,        -- length of line in characters, not bytes
@@ -699,6 +713,7 @@ function Line:new()
     ----------------------------------------------------------------------------
     -- crate new, empty, instance
     local line = {
+        indent      = 0,        -- pre-indent, number of spaces
         text        = "",       -- line text, encoded for the C64
         is_literal  = false,    -- is this a literal-text line?
         length      = 0,        -- length of line in characters, not bytes
@@ -743,6 +758,10 @@ function Line:getBin()
     if self.default ~= 0 then
         -- include the colour data
         bin = string.char(0x80 + self.default) .. bin
+    end
+    -- pre-ident?
+    if self.indent > 0 then
+        bin = bin .. string.toC64(string.rep(" ", self.indent))
     end
     -- TODO: PETSCII-only lines with RLE-compression
     bin = bin .. self.text
