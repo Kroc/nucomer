@@ -466,8 +466,8 @@ function Article:read_line(s_text)
 
     -- create line-object to hold line meta-data
     local line      = Line:new()
-    local index     = 0         -- current byte index in the line
-    local ascii     = 0         -- current character
+    local index     = 1         -- current byte index in the line (1-based)
+    local ascii     = 0         -- current character code
     local word_str  = ""        -- current word (for word-wrapping)
     local word_len  = 0         -- character length of word (not byte-length!)
 
@@ -492,13 +492,13 @@ function Article:read_line(s_text)
         -- e.g. contractions using specialised single-characters
         local s_c64 = word_str:toC64()
         -- if the word will not fit on the line, hyphenate & word-wrap
-        if line.length + #s_c64 + word_spc > scr_width - line.indent then
+        if line.length + #s_c64 + word_spc > scr_width then
             -- hyphenate the word splitting into as much as can fit
             -- on the current line and the remainder for the next line
             local before, after = hyphenate:breakWord(
                 "en-gb", word_str,
                 -- split the word according to how much line space remains
-                (scr_width - line.indent - line.length) - word_spc
+                (scr_width - line.length) - word_spc
             )
             --#print(left, right)
             -- add the part of the word that fits (if any)
@@ -549,104 +549,112 @@ function Article:read_line(s_text)
         line.indent = old_indent
         line.is_literal = old_literal
         line.default = old_default
+        -- apply the indent
+        line:addString(string.rep(" ", line.indent))
     end
 
-    -- look for special markup at the beginning of the line
-    ----------------------------------------------------------------------------
     -- indent?
+    --
     if s_text:match("^%s+") ~= nil then
         -- how much?
         local s_indent = s_text:match("^%s+")
         -- set the property on the line object so that if a line-break occurs
         -- (e.g. word-wrap), the indent is carried on to subsequent lines
         line.indent = #s_indent
-        -- skip these spaces
-        index = #s_indent
+        -- add the indent to the output line
+        line:addString(s_indent)
+        -- skip these spaces, effectively restarting the line
+        -- (this is needed to allow for indent + bullet point, for example)
+        index = #s_indent-1
+        --#s_text = s_text:sub(#s_indent+1)
+    end
 
+    -- look for special markup at the beginning of the line
+    ----------------------------------------------------------------------------
     -- :: title
     --
-    elseif s_text:match("^::") ~= nil then
+    if s_text:match("^::", index) ~= nil then
         -- change the line's default style class
         line.default = 1
         -- move the index forward over the marker
-        index = 3
+        index = index + 3
 
     -- horizontal bar?
     -- ---------------
-    elseif s_text:match("^%-%-%-%-") ~= nil then
+    elseif s_text:match("^%-%-%-%-", index) ~= nil then
         -- change the line's default style class
         line.default = 1
         -- build a horizontal bar directly out of screen-codes
-        line:addC64(string.rep(string.char(0xf6), scr_width))
+        line:addC64(string.rep(string.char(0xf6), scr_width - line.indent))
        -- no need to process any more of the source line
        -- just add the bar we've given and exit
-       goto eol
+       add_line()
+       return
+
+    -- bullet point
+    -- * ...
+    elseif s_text:match("^%* ", index) ~= nil then
+        -- switch "*" for the bullet-point character
+        -- TODO: colour the bullet
+        line:addString("• ")
+        -- indent on line-break
+        line.indent = line.indent + 2
+        -- begin after the bullet-point
+        index = index + 2
     end
 
     -- convert em-dashes and consume optional spaces either side
     s_text = s_text:gsub(" ?%-%- ?", "—") -- note that this is an em-dash!
 
-::next::
-    ----------------------------------------------------------------------------
-    -- move to the next character
-    index = index + 1
-    -- hit end of the line?
-    if index > #s_text then goto eol; end
-
-    -- read a single byte
-    ascii = s_text:byte(index)
-
-    -- space = word-break
-    if ascii == 0x20 then
+    while index <= #s_text do
         ------------------------------------------------------------------------
-        -- the current word is complete, add it to the line
-        -- and handle the pending space according to word-wrap
-        add_word()
-        -- queue another space
-        word_spc = 1
+        -- read a single byte
+        ascii = s_text:byte(index)
 
-    --#-- punctuation that word-breaks after
-    --#-- (we remove spaces after commas!)
-    --#elseif s_text:match("^[%,] %l", index) then
-    --#    ------------------------------------------------------------------------
-    --#    add_char(ascii)     -- append the punctuation to the word
-    --#    add_word()          -- append the word with punctuation attached
-    --#    word_spc = 0        -- do not add a space before the next word
-    --#    index = index + 1   -- skip the space!
+        -- space = word-break
+        --
+        if ascii == 0x20 then
+            --------------------------------------------------------------------
+            -- the current word is complete, add it to the line
+            -- and handle the pending space according to word-wrap
+            add_word()
+            -- queue another space
+            word_spc = 1
 
-    -- punctuation that line-breaks after (but not before)
-    -- e.g. we don't want to break "yes/no" such that a line begins with "/"
-    --
-    elseif s_text:match("^[\\/]", index) then
-        ------------------------------------------------------------------------
-        -- add the slash to the current word so it stays stuck to it
-        add_char(ascii)
-        -- force a word-break; if the characters after the slash
-        -- don't fit, they will be moved to the next line
-        add_word()
+        -- punctuation that line-breaks after (but not before)
+        -- e.g. we don't want to break "yes/no" such that a line begins with "/"
+        --
+        elseif s_text:match("^[\\/]", index) then
+            --------------------------------------------------------------------
+            -- add the slash to the current word so it stays stuck to it
+            add_char(ascii)
+            -- force a word-break; if the characters after the slash
+            -- don't fit, they will be moved to the next line
+            add_word()
 
-    -- an em-dash is a word-break either side
-    --
-    elseif s_text:match("^—", index) then
-        ------------------------------------------------------------------------
-        -- add current word, treating the em-dash as a word-break
-        add_word()
-        -- add the em-dash as its own word
-        word_str = s_text:match("^—", index)
-        word_len = utf8.len(word_str)
-        add_word()
-        -- skip the extra byte
+        -- an em-dash is a word-break either side
+        --
+        elseif s_text:match("^—", index) then
+            --------------------------------------------------------------------
+            -- add current word, treating the em-dash as a word-break
+            add_word()
+            -- add the em-dash as its own word
+            word_str = s_text:match("^—", index)
+            word_len = utf8.len(word_str)
+            add_word()
+            -- skip the extra byte
+            index = index + 1
+
+        else
+            --------------------------------------------------------------------
+            -- add to the current word
+            -- (and handle word-wrap)
+            add_char(ascii)
+        end
+
+        -- move to the next character
         index = index + 1
-
-    else
-        ------------------------------------------------------------------------
-        -- add to the current word
-        -- (and handle word-wrap)
-        add_char(ascii)
     end
-    goto next
-
-::eol::
     ----------------------------------------------------------------------------
     -- add the current word to the end of the line.
     -- this might cause an additional line-break!
@@ -758,10 +766,6 @@ function Line:getBin()
     if self.default ~= 0 then
         -- include the colour data
         bin = string.char(0x80 + self.default) .. bin
-    end
-    -- pre-ident?
-    if self.indent > 0 then
-        bin = bin .. string.toC64(string.rep(" ", self.indent))
     end
     -- TODO: PETSCII-only lines with RLE-compression
     bin = bin .. self.text
