@@ -425,7 +425,9 @@ function Article:read(s_infile)
     -- add the leading line to account for the off-screen top row
     self:read_line("")
 
-    -- walk each line and process
+    -- walk each source line:
+    -- (each source line may produce, 0, 1, or more output lines)
+    --
     for s_line in f_lines do
         ------------------------------------------------------------------------
         -- is this a literal block?
@@ -532,7 +534,7 @@ function Article:read_line(s_text)
         word_len = 0
     end
 
-    -- (private) add the current line to the article and start another
+    -- (private) add the current line to the article, and start another
     ----------------------------------------------------------------------------
     function add_line()
         ------------------------------------------------------------------------
@@ -565,8 +567,7 @@ function Article:read_line(s_text)
         line:addString(s_indent)
         -- skip these spaces, effectively restarting the line
         -- (this is needed to allow for indent + bullet point, for example)
-        index = #s_indent-1
-        --#s_text = s_text:sub(#s_indent+1)
+        index = #s_indent+1
     end
 
     -- look for special markup at the beginning of the line
@@ -591,7 +592,7 @@ function Article:read_line(s_text)
        add_line()
        return
 
-    -- bullet point
+    -- bullet point:
     -- * ...
     elseif s_text:match("^%* ", index) ~= nil then
         -- switch "*" for the bullet-point character
@@ -601,6 +602,19 @@ function Article:read_line(s_text)
         line.indent = line.indent + 2
         -- begin after the bullet-point
         index = index + 2
+
+    -- numbered list:
+    -- 1. / a. / i. / A.
+    elseif s_text:match("^%w+%. ", index) ~= nil then
+        -- get the details
+        local s_numeral = s_text:match("^%w+%.", index)
+        -- add it to the output line (excluding the space!)
+        -- TODO: colour the numeral
+        line:addString(s_numeral)
+        -- set the hanging indent for line-breaks
+        line.indent = line.indent + 2
+        -- skip the detected numeral point
+        index = index + #s_numeral + 1
     end
 
     -- convert em-dashes and consume optional spaces either side
