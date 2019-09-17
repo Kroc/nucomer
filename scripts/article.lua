@@ -129,14 +129,14 @@ local str2scr = {
                     -- em-dash is handled separately as it is two chars
     ["“"]  = 0x64,  -- left "smart-quotes"
 
-    ["ç"]  = 0x7b,  -- as in façade
+    ["ç"]  = 0x7b,  -- as in "façade"
     ["è"]  = 0x7c,  -- as in "cafè"
     ["é"]  = 0x7d,  -- as in "née"
     ["ï"]  = 0x7e,  -- as in "naïve"
     ["ü"]  = 0x7f,  -- as in "nücomer"
 }
 
--- convert ASCII string to the screen codes used by Nucomer
+-- convert ASCII string to the screen codes used by Nücomer
 --------------------------------------------------------------------------------
 function string:toC64 ()
     ----------------------------------------------------------------------------
@@ -173,13 +173,12 @@ function string:toC64 ()
             -- skip the extra (utf-8) bytes
             i = i + 1
 
-        --#-- "... I ...":
-        --#---------------------------------------------------------------------
-        --#elseif self:match("^ I ", i) ~= nil then
-        --#    print("...I...")
-        --#    s_out = s_out .. string.char(0x00, 0x78)
-        --#    -- skip a byte
-        --#    i = i + 2
+        -- "... I ...":
+        ---------------------------------------------------------------------
+        elseif self:match("^ I ", i) ~= nil then
+            s_out = s_out .. string.char(0x70, 0x71)
+            -- skip a couple of bytes
+            i = i + 2
 
         -- "*'ll":
         ------------------------------------------------------------------------
@@ -191,7 +190,7 @@ function string:toC64 ()
             -- encode the character before the "'ll"
             s_out = s_out .. string.char(str2scr[self:sub(i, i)])
             -- add the specialised "'l" character and a normal "l"
-            s_out = s_out .. string.char(0x71, 0x4c)
+            s_out = s_out .. string.char(0x73, 0x4c)
             -- move the index over the processed characters
             i = i + 3
 
@@ -199,7 +198,7 @@ function string:toC64 ()
         ------------------------------------------------------------------------
         elseif self:match("^I'", i) ~= nil then
             -- encode using the special "I'*" character
-            s_out = s_out .. string.char(0x70, 0x4d)
+            s_out = s_out .. string.char(0x72)
             -- skip a byte
             i = i + 1
 
@@ -207,7 +206,7 @@ function string:toC64 ()
         ------------------------------------------------------------------------
         elseif self:match("^o'", i) ~= nil then
             -- add the specialised "o'" character
-            s_out = s_out .. string.char(0x72)
+            s_out = s_out .. string.char(0x74)
             -- skip a byte
             i = i + 1
 
@@ -217,7 +216,7 @@ function string:toC64 ()
             -- encode the character before the "'r"
             s_out = s_out .. string.char(str2scr[self:sub(i, i)])
             -- add the specialised "'r" character
-            s_out = s_out .. string.char(0x73)
+            s_out = s_out .. string.char(0x75)
             -- move the index over the processed characters
             i = i + 2
 
@@ -227,7 +226,7 @@ function string:toC64 ()
             -- encode the character before the "'s"
             s_out = s_out .. string.char(str2scr[self:sub(i, i)])
             -- add the specialised "'s" character
-            s_out = s_out .. string.char(0x74)
+            s_out = s_out .. string.char(0x76)
             -- move the index over the processed characters
             i = i + 2
 
@@ -235,7 +234,7 @@ function string:toC64 ()
         ------------------------------------------------------------------------
         elseif self:match("^'t", i) ~= nil then
             -- add the specialised "'t" character
-            s_out = s_out .. string.char(0x75)
+            s_out = s_out .. string.char(0x77)
             -- skip a byte
             i = i + 1
 
@@ -245,7 +244,7 @@ function string:toC64 ()
             -- encode the character before the "'ve"
             s_out = s_out .. string.char(str2scr[self:sub(i, i)])
             -- add the specialised "'ve" characters
-            s_out = s_out .. string.char(0x76, 0x77)
+            s_out = s_out .. string.char(0x78, 0x79)
             -- move the index over the processed characters
             i = i + 3
 
@@ -423,7 +422,7 @@ function Article:read(s_infile)
     -- strip excess leading / trailing lines first
     --
     -- add the leading line to account for the off-screen top row
-    self:read_line("")
+    self:readLine("")
 
     -- walk each source line:
     -- (each source line may produce, 0, 1, or more output lines)
@@ -448,20 +447,20 @@ function Article:read(s_infile)
             -- which mode of text are we processing?
             if is_block == false then
                 -- process as regular text
-                self:read_line(s_line)
+                self:readLine(s_line)
             else
                 -- process as literal text
-                self:read_line_literal(s_line)
+                self:readLiteralLine(s_line)
             end
         end
     end
     -- add the trailing line to account for the off-screen bottom row
-    self:read_line("")
+    self:readLine("")
 end
 
 -- take an input line of ASCII text and create C64 line(s)
 --------------------------------------------------------------------------------
-function Article:read_line(s_text)
+function Article:readLine(s_text)
     ----------------------------------------------------------------------------
     -- line-lenth we'll be breaking against
     local scr_width = 40
@@ -480,7 +479,7 @@ function Article:read_line(s_text)
 
     -- (private) add character to the current word
     ----------------------------------------------------------------------------
-    function add_char(i_char)
+    function _addChar(i_char)
         ------------------------------------------------------------------------
         word_str = word_str .. string.char(i_char)
         word_len = word_len + 1
@@ -488,19 +487,33 @@ function Article:read_line(s_text)
 
     -- (private) append current word to the current line
     ----------------------------------------------------------------------------
-    function add_word()
+    function _addWord()
         ------------------------------------------------------------------------
-        -- convert the word to C64 codes, as this may affect its length
-        -- e.g. contractions using specialised single-characters
-        local s_c64 = word_str:toC64()
-        -- if the word will not fit on the line, hyphenate & word-wrap
-        if line.length + #s_c64 + word_spc > scr_width then
+        -- check the length of the line, assuming the word is added to the end.
+        -- note: when converted to C64 screen codes, the word may amount to
+        -- more or less characters than on its own, which is why we do the
+        -- line-break check this way
+        --
+        local c64_line = line.source
+        -- is there pending spaces before the word?
+        if word_spc > 0 then
+            c64_line = c64_line .. string.rep(" ", word_spc)
+        end
+        -- add the word to the end of this test line
+        c64_line = c64_line .. word_str
+        -- convert to C64 screen-codes, giving us the on-screen width
+        c64_line = string.toC64(c64_line)
+
+        -- if the word would not fit on the line,
+        -- hyphenate & word-wrap:
+        --
+        if #c64_line > scr_width then
             -- hyphenate the word splitting into as much as can fit
             -- on the current line and the remainder for the next line
             local before, after = hyphenate:breakWord(
                 "en-gb", word_str,
                 -- split the word according to how much line space remains
-                (scr_width - line.length) - word_spc
+                (scr_width - line:charLen()) - word_spc
             )
             --#print(left, right)
             -- add the part of the word that fits (if any)
@@ -516,7 +529,7 @@ function Article:read_line(s_text)
                 word_spc = 0
             end
             -- dispatch the current line
-            add_line()
+            _addLine()
             -- begin the new line with the remainder of the word, if any.
             -- note that the unused pending space is carried forward
             if #after > 0 then line:addString(after); end
@@ -536,7 +549,7 @@ function Article:read_line(s_text)
 
     -- (private) add the current line to the article, and start another
     ----------------------------------------------------------------------------
-    function add_line()
+    function _addLine()
         ------------------------------------------------------------------------
         -- when a line-break occurs, the next line must inherit the style
         -- of the current line; e.g. titles that span multiple lines
@@ -556,7 +569,7 @@ function Article:read_line(s_text)
     end
 
     -- indent?
-    --
+    ----------------------------------------------------------------------------
     if s_text:match("^%s+") ~= nil then
         -- how much?
         local s_indent = s_text:match("^%s+")
@@ -575,6 +588,7 @@ function Article:read_line(s_text)
     -- :: title
     --
     if s_text:match("^::", index) ~= nil then
+        ------------------------------------------------------------------------
         -- change the line's default style class
         line.default = 1
         -- move the index forward over the marker
@@ -583,18 +597,22 @@ function Article:read_line(s_text)
     -- horizontal bar?
     -- ---------------
     elseif s_text:match("^%-%-%-%-", index) ~= nil then
-        -- change the line's default style class
-        line.default = 1
+        ------------------------------------------------------------------------
+        line.default = 1        -- change the line's default style class
+        line.is_literal = true  -- set as literal text and do not convert
+
         -- build a horizontal bar directly out of screen-codes
         line:addC64(string.rep(string.char(0xf6), scr_width - line.indent))
+
        -- no need to process any more of the source line
        -- just add the bar we've given and exit
-       add_line()
+       _addLine()
        return
 
     -- bullet point:
     -- * ...
     elseif s_text:match("^%* ", index) ~= nil then
+        ------------------------------------------------------------------------
         -- switch "*" for the bullet-point character
         -- TODO: colour the bullet
         line:addString("• ")
@@ -606,6 +624,7 @@ function Article:read_line(s_text)
     -- numbered list:
     -- 1. / a. / i. / A.
     elseif s_text:match("^%w+%. ", index) ~= nil then
+        ------------------------------------------------------------------------
         -- get the details
         local s_numeral = s_text:match("^%w+%.", index)
         -- add it to the output line (excluding the space!)
@@ -631,39 +650,38 @@ function Article:read_line(s_text)
             --------------------------------------------------------------------
             -- the current word is complete, add it to the line
             -- and handle the pending space according to word-wrap
-            add_word()
+            _addWord()
             -- queue another space
             word_spc = 1
 
-        -- punctuation that line-breaks after (but not before)
-        -- e.g. we don't want to break "yes/no" such that a line begins with "/"
+        -- punctuation that line-breaks after (but not before) e.g. we don't
+        -- want to break "yes/no" such that a line begins with "/"
         --
         elseif s_text:match("^[\\/]", index) then
             --------------------------------------------------------------------
             -- add the slash to the current word so it stays stuck to it
-            add_char(ascii)
+            _addChar(ascii)
             -- force a word-break; if the characters after the slash
             -- don't fit, they will be moved to the next line
-            add_word()
+            _addWord()
 
         -- an em-dash is a word-break either side
         --
         elseif s_text:match("^—", index) then
             --------------------------------------------------------------------
             -- add current word, treating the em-dash as a word-break
-            add_word()
+            _addWord()
             -- add the em-dash as its own word
             word_str = s_text:match("^—", index)
             word_len = utf8.len(word_str)
-            add_word()
+            _addWord()
             -- skip the extra byte
             index = index + 1
 
         else
             --------------------------------------------------------------------
             -- add to the current word
-            -- (and handle word-wrap)
-            add_char(ascii)
+            _addChar(ascii)
         end
 
         -- move to the next character
@@ -672,13 +690,13 @@ function Article:read_line(s_text)
     ----------------------------------------------------------------------------
     -- add the current word to the end of the line.
     -- this might cause an additional line-break!
-    add_word()
+    _addWord()
     -- dispatch the final line
-    add_line()
+    _addLine()
 end
 
 --------------------------------------------------------------------------------
-function Article:read_line_literal(s_text)
+function Article:readLiteralLine(s_text)
     ----------------------------------------------------------------------------
     -- create line-object to hold line meta-data
     local line      = Line:new()
@@ -716,16 +734,15 @@ function Article:write()
     for _, line in ipairs(self.lines) do
         -- do not output empty lines; on the C64, when a line-length of 0
         -- is encountered, the line-data pointer is not moved forward
-        if line.length > 0 then f_out:write(line:getBin()); end
+        if line:charLen() > 0 then f_out:write(line:getBin()); end
     end
 end
 
 --------------------------------------------------------------------------------
 Line = {
     indent      = 0,        -- pre-indent, number of spaces
-    text        = "",       -- line text, encoded for the C64
+    source      = "",       -- source line text, encoded on-demand to C64
     is_literal  = false,    -- is this a literal-text line?
-    length      = 0,        -- length of line in characters, not bytes
     default     = 0,        -- default colour class
 }
 
@@ -736,9 +753,8 @@ function Line:new()
     -- crate new, empty, instance
     local line = {
         indent      = 0,        -- pre-indent, number of spaces
-        text        = "",       -- line text, encoded for the C64
+        source      = "",       -- source line text, encoded on-demand to C64
         is_literal  = false,    -- is this a literal-text line?
-        length      = 0,        -- length of line in characters, not bytes
         default     = 0         -- default colour class
     }
     setmetatable(line, self)    -- set new instance to inherit from prototype
@@ -747,27 +763,39 @@ function Line:new()
 end
 
 -- add C64 screen-code(s) directly to the line, without conversion
+-- TODO: remove this; encode on-demand instead
 --------------------------------------------------------------------------------
 function Line:addC64(s_c64)
     ----------------------------------------------------------------------------
-    self.text = self.text .. s_c64
-    self.length = self.length + #s_c64
+    self.source = self.source .. s_c64
 end
 
--- encode a utf-8 code-point for the C64 and add it to the line
+-- add a character to the source text
 --------------------------------------------------------------------------------
-function Line:addChar(i_utf8)
+function Line:addChar(i_ascii)
     ----------------------------------------------------------------------------
     -- the conversion to C64 screen codes may yield
     -- more than 1 character, for example the em-dash
-    self:addString(utf8.char(i_utf8))
+    self:addString(i_ascii)
 end
 
 -- encode a utf-8 string for the C64 and add it to the line
 --------------------------------------------------------------------------------
 function Line:addString(s_utf8)
     ----------------------------------------------------------------------------
-    self:addC64(string.toC64(s_utf8))
+    self.source = self.source .. s_utf8
+end
+
+-- returns the length of the line in printable characters,
+-- NOT the byte length, which may be very different
+--------------------------------------------------------------------------------
+function Line:charLen()
+    ----------------------------------------------------------------------------
+    if self.is_literal then
+        return #self.source
+    else
+        return string.len(self.source:toC64())
+    end
 end
 
 -- returns the final binary form of the line
@@ -781,8 +809,12 @@ function Line:getBin()
         -- include the colour data
         bin = string.char(0x80 + self.default) .. bin
     end
-    -- TODO: PETSCII-only lines with RLE-compression
-    bin = bin .. self.text
+    -- TODO: literal lines with RLE-compression
+    if self.is_literal then
+        bin = bin .. self.source
+    else
+        bin = bin .. string.toC64(self.source)
+    end
     -- note that lines are written into the binary backwards!
     -- this is so that the line length can be used as a count-down
     -- index which is faster for 6502s to process
@@ -793,11 +825,22 @@ end
 --------------------------------------------------------------------------------
 function Line:getBinLen()
     ----------------------------------------------------------------------------
+    -- get the true length in bytes
+    local len = string.len(self:getBin())
+    -- is this a literal-encoded line?
+    -- if yes, set bit 6 which indicates a literal-encoded line
+    if self.is_literal then len = len + 0x40; end
     -- is there colour data?
-    if self.default ~= 0 then
-        -- mark line as having colour-data by setting the high-bit
-        return string.len(self:getBin()) + 0x80
-    else
-        return string.len(self:getBin())
-    end
+    -- if yes, set bit 7 which indicates the presence of colour-data
+    if self.default ~= 0 then len = len + 0x80; end
+    -- And Now You Know
+    return len
+end
+
+-- return the line encoded for the C64
+--------------------------------------------------------------------------------
+function Line:encode()
+    ----------------------------------------------------------------------------
+    -- TODO: not this way
+    return self:getBin(), self:getBinLen()
 end
