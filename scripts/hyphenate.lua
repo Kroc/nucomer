@@ -23,9 +23,10 @@ local Hyphenate = {
 }
 
 -- string split function with the semantics of Python:
+-- <http://lua-users.org/wiki/SplitJoin>
+--
 -- (I couldn't express this with the built in lua patterns
 --  and my current level of lua knowledge)
--- <http://lua-users.org/wiki/SplitJoin>
 --------------------------------------------------------------------------------
 function string:split(sSeparator, nMax, bRegexp)
     ----------------------------------------------------------------------------

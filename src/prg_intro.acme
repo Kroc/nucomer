@@ -15,8 +15,7 @@
 ; be discard and overwritten after it is shown and not occupy RAM
 ; permenantly for a once-off screen
 ;
-!source "c64/c64.acme"          ; C64 hardware / software constants
-!source "config.acme"           ; nucomer constants for memory layout
+!source "nucomer.acme"          ; nucomer constants for memory layout
 
 * = nu_intro
 

@@ -63,22 +63,26 @@ zp_read_lens_hi         = $2b
 zp_read_top             = $2c
 zp_read_top_lo          = $2c
 zp_read_top_hi          = $2d
-; current row on screen being printed: (0-26)
-zp_read_row             = $2e
-; current line data-length, in bytes:
-zp_read_len             = $2f
 ; number of rows to print: (1-based)
-zp_read_rows            = $30
+zp_read_rows            = $2e
+; current row on screen being printed: (0-26)
+zp_read_row             = $2f
+; pointer to the current row's line-data;
+; this is always where line-data is read from
+zp_read_char            = $30
+zp_read_char_lo         = $30
+zp_read_char_hi         = $31
+; current line data-length, in bytes:
+zp_read_len             = $32
+; indexes used when processing line colour-data (it's faster in this
+; instance to use zero-page than use the stack or self-modifying-code)
+zp_read_index_data      = $33
+zp_read_index_col       = $34
 ; address of the line that appears at the bottom of the screen:
 ; (changes only when scrolling, not during printing)
-zp_read_bot             = $31
-zp_read_bot_lo          = $31
-zp_read_bot_hi          = $32
-
-; default printing colour for the line:
-zp_read_color_line      = $33
-; current printing colour:
-zp_read_color           = $34
+zp_read_bot             = $35
+zp_read_bot_lo          = $35
+zp_read_bot_hi          = $36
 
 }
 ;===============================================================================
@@ -191,16 +195,17 @@ read_colour_row26       = nu_colour_after
 
 ;===============================================================================
 ; TODO: put this into zero-page for a tiny bit of speed+size-gain?
+;
 read_styles:
 read_styles_colour:
-read_style0_colour:     !byte   .READ_FORE
-read_style1_colour:     !byte   .VIC_BLACK
-read_style2_colour:     !byte   .VIC_WHITE
-read_style3_colour:     !byte   .VIC_WHITE
-read_style4_colour:     !byte   .VIC_WHITE
-read_style5_colour:     !byte   .VIC_WHITE
-read_style6_colour:     !byte   .VIC_WHITE
-read_style7_colour:     !byte   .VIC_WHITE
+read_style0_colour:     !byte   .READ_FORE      ; default text colour
+read_style1_colour:     !byte   .VIC_BLACK      ; title
+read_style2_colour:     !byte   .VIC_WHITE      ; <unassigned>
+read_style3_colour:     !byte   .VIC_WHITE      ; <unassigned>
+read_style4_colour:     !byte   .VIC_WHITE      ; <unassigned>
+read_style5_colour:     !byte   .VIC_WHITE      ; <unassigned>
+read_style6_colour:     !byte   .VIC_WHITE      ; <unassigned>
+read_style7_colour:     !byte   .VIC_WHITE      ; <unassigned>
 
 ;===============================================================================
 read_screen:
@@ -218,7 +223,7 @@ read_screen:
 
         ; erase the text-screen
         lda # .READ_FORE
-        sta ZP_PRINT_COLOR
+        sta zp_print_colour
         jsr clear_screen
 
         ; whilst the lines before and after screen RAM will hold text
@@ -241,11 +246,11 @@ read_screen:
         clc
         lda nu_text-2
         adc #< (nu_text-2)
-        sta .READ_CHAR_LO
+        sta zp_read_char_lo
         sta zp_read_top_lo
         lda nu_text-1
         adc #> (nu_text-1)
-        sta .READ_CHAR_HI
+        sta zp_read_char_hi
         sta zp_read_top_hi
 
         ; ergo, the line-length array begins two bytes in
@@ -281,13 +286,13 @@ read_screen:
         ;-----------------------------------------------------------------------
         ldy # 0                 ; begin on row 0 -- the off-screen row
         ldx # 27                ; number of rows to print (1-based)
-        jsr read_lines
+        jsr read_print
 
         ; now that 27 rows have been printed, the routine will have left
         ; the details of the last row behind which we can make use of
-        lda .READ_CHAR_LO
+        lda zp_read_char_lo
         sta zp_read_bot_lo
-        lda .READ_CHAR_HI
+        lda zp_read_char_hi
         sta zp_read_bot_hi
 
         ;-----------------------------------------------------------------------
@@ -806,11 +811,11 @@ read_scroll_down:
         and # %00111111         ; (top two bits are flags)
         adc zp_read_bot_lo      ; add line-length to the line address
         sta zp_read_bot_lo      ; (move to next line)
-        sta .READ_CHAR_LO       ; set printing routine line-address (lo)
+        sta zp_read_char_lo     ; set printing routine line-address (lo)
         lda zp_read_bot_hi
         adc # 0                 ; ripple the add
         sta zp_read_bot_hi
-        sta .READ_CHAR_HI       ; set printing routine line-address (hi)
+        sta zp_read_char_hi     ; set printing routine line-address (hi)
 
         ; move to the next entry in the line-lengths array
         inc zp_read_lens_lo
@@ -818,7 +823,7 @@ read_scroll_down:
         inc zp_read_lens_hi
 
 +       inx                     ; X = 1; number of lines to print
-        jmp read_lines          ; note that Y = 26, row to print from
+        jmp read_print          ; note that Y = 26, row to print from
 
 ;===============================================================================
 ; scroll the article up a line:
@@ -1031,11 +1036,11 @@ read_scroll_up:
         lda zp_read_top_lo
         sbc zp_read_row         ; (length of line-data, in bytes)
         sta zp_read_top_lo
-        sta .READ_CHAR_LO       ; also set in the printing routine
+        sta zp_read_char_lo     ; also set in the printing routine
         lda zp_read_top_hi
         sbc # 0                 ; ripple the subtract
         sta zp_read_top_hi
-        sta .READ_CHAR_HI       ; also set in the printing routine
+        sta zp_read_char_hi     ; also set in the printing routine
 
         ; repeat this for the off-screen
         ; line after the screen RAM
@@ -1064,7 +1069,12 @@ read_scroll_up:
 ;       Y = row to begin printing
 ;       X = number of lines to print (1-based)
 ;       
-read_lines:
+; the address to read data from must already be set in:
+;
+;       zp_read_char_lo &
+;       zp_read_char_hi
+;
+read_print:
         ;-----------------------------------------------------------------------
         ; prepare for printing:
         ;
@@ -1073,63 +1083,59 @@ read_lines:
 
         ; print a line:
         ;-----------------------------------------------------------------------
-@line:  lda read_style0_colour
-        sta zp_read_color_line  ; set the default colour for the line
-        sta zp_read_color       ; and the 'current' colour accordingly
-
-        ldy zp_read_row         ; current row...
+@line:  ldy zp_read_row         ; current row...
         ; set the screen address from the row number
         lda read_screen_rows_lo, y
         sta @out+1
         lda read_screen_rows_hi, y
         sta @out+2
-        ; get the number of bytes for this line
+        ; get the number of *compressed* bytes for this line;
+        ; this is not the number of characters on the line,
+        ; and the upper two-bits are used as flags
         lda (zp_read_lens), y
 
         ; most lines of text will not require colour data, resorting to the
         ; 'default' style. if we included a byte for every line to indicate
         ; if it had colour-data or not, this would waste a lot of bytes very
         ; quickly; 500 extra bytes for 500 lines is a lot of wasted bytes!
-        ; 
+        ;
         ; instead, the upper-bit of the line-length is used to indicate the
         ; presence of colour-data in the line-data. the compare instruction
         ; that follows will check the high-bit of the line-length; if 0,
-        ; carry is set; if 1, carry is clear. we use this as our indicator
+        ; carry is set; if 1, carry is cleared. we use this as our indicator
         ; if colour-data should be read and processed from the line-data
         ;
-        cmp # %10000000         ; check for high-bit on line-length
-        beq @eof                ; terminator mark, article ends
-        bcs +                   ; 
+        cmp # %10000000         ; check for high-bit on the byte-count
+        beq @eof                ; terminator mark ($80), article ends
+        
+        and # %00111111         ; (strip flags from byte-count)
 
-        ; colour the line with default colour
-        ; TODO: so very messy
-        tay
-        lda zp_read_color_line
-        jsr read_colour_row
-        tya
-        clc
-
-+       and # %00111111         ; (strip flags from line length)
         tay                     ; Y = length of line-data (in bytes)
-
         ; whilst we count Y down to zero, we keep a copy of the line-length
         ; to move the character pointer forward to the next line
         sty zp_read_len
-        ; 0-length line is skipped,
-        ; nothing to print
+
+        ; skip a zero-length line
+        ; (line-length must be recorded first)
         beq @eol
 
-        ;-----------------------------------------------------------------------
-!addr   .READ_CHAR      = @char+1
-!addr   .READ_CHAR_LO   = @char+1
-!addr   .READ_CHAR_HI   = @char+2
+        ; if colour data is present, go process it first
+        ; (note that the carry bit has not been modified
+        ; since the CMP instruction above)
+        bcs @cdata
 
-        ; screen memory offset for the line
-        ; (increases as each character is printed)
+        ; when no colour data is present, we still have to
+        ; colour the whole line with the default style
+        lda read_style0_colour
+        jsr read_colour_row
+
+        ;-----------------------------------------------------------------------
+        ; screen memory offset for the line: (increases as each character
+        ; is printed), not equivilent to Y which counts data-bytes and
+        ; will not be in lock-step with X (data is compressed)
 @print  ldx # 0
 
-@char   lda $8888, y            ; read a byte from the binary string
-        bcs @cdata              ; is colour-data is being decoded?
+@char   lda (zp_read_char), y   ; read a byte from the binary string
 @out    sta nu_screen, x        ; print the character
         inx                     ; move to next column on screen
         dey                     ; move to next data-byte
@@ -1145,11 +1151,11 @@ read_lines:
         ; move the data-pointer forward to the beginning of the next line,
         ; that is, add the length of the line (in bytes) to the pointer
         clc
-        lda @char+1
+        lda zp_read_char_lo
         adc zp_read_len
-        sta @char+1
+        sta zp_read_char_lo
         bcc @line
-        inc @char+2
+        inc zp_read_char_hi
         bne @line
 
         brk
@@ -1158,38 +1164,80 @@ read_lines:
 
         ; decode colour-data:
         ;=======================================================================
-        ; note that we must return carry set if we
-        ; want to continue processing colour data
+        ; the first colour byte is special:
         ;
-        ;       A = colour-data byte
-        ;       Y = data-byte index (counts-down)
+        ; if the upper bit is set, this indicates that the whole line is
+        ; coloured a non-default colour and no other colour data will follow
         ;
-        ; note that the compare-Y will change carry:
-        ; - first data byte = carry set
-        ; - other data byte = carry clear
-        ;
-@cdata: cpy zp_read_len         ; is this the first data-byte?
-        beq @first              ; yes, process differently
+@cdata: lda (zp_read_char), y   ; read first colour-data byte
+        bmi @whole              ; colour whole row one colour?
 
-        dey
-        clc
-        bne @print
+        ; if the first byte upper-bit is not set, the first byte represents
+        ; an initial column offset before the first colour change occurs
+        ; (colour spans are limited to 32-chars, but the initial-offset
+        ;  can be up to 38 chars)
+        ;
+        ; now that we know we will be reading more than 1-byte of colour
+        ; data, we set up the colour-RAM address we'll be writing to:
+        ;
+        pha                     ; backup colour-offset byte
+        ldx zp_read_row         ; current row being printed
+        lda read_colour_rows_hi, x
+        sta @clram+2
+        lda read_colour_rows_lo, x
+        sbc # 1                 ; (carry is still set from way, way back!)
+        sta @clram+1
 
-@first: ;;bpl @more
+        ; backup the current position
+        ; in the line-data (data-index)
+        sty zp_read_index_data
+
+        pla                     ; get starting colour column offset
+        tay
+        ldx # 40                ; colour from the end of the line!
+        bne @clram
+
+        ; process colour-spans:
+        ;-----------------------------------------------------------------------
+        ; after the first byte is processed, all colour-data bytes that follow
+        ; use a fixed format
+        ;
+@cread: lda (zp_read_char), y   ; read a byte of colour-data
+        dey                     ; (pre-emptively move to the next data-byte)
+        sty zp_read_index_data  ; backup data-index
+        and %00011111           ; extract the span-length from the byte
+        tay                     ; use this as a count-down
+
+        lda # .VIC_WHITE        ; TODO: decode the colour
+
+        ldx zp_read_index_col   ; restore our current column number
+@clram  sta $d800, x            ; set the colour
+        dex                     ; move to the next colour cell
+        beq @cdone
+        dey                     ; one less cell to colour...
+        bne @clram              ; keep going?
         
+        stx zp_read_index_col
+        
+        ldy zp_read_index_data
+        bne @cread
+
+        ; finished colour-data,  begin printing text:
+        ;-----------------------------------------------------------------------
+@cdone: ldy zp_read_index_data
+        bne @print              ; (always branches, Y != 0)
+
         ; colour whole row:
         ;-----------------------------------------------------------------------
-        and # %00000111         ; which style class
+@whole: and # %00000111         ; which style class
         tax                     ; (we know this is the first byte, so reuse X)
+        
         ; get the colour for the given style class
         lda read_styles_colour, x
-        
         jsr read_colour_row
-        
+
+        ; begin printing text:
         dey                     ; move to the next line-data byte
-        clc                     ; mark colour-data as finished
-        ; begin printing text and set X
-        ; (screen column) back to zero
         bne @print              ; (always branches, Y != 0)
 
 ;===============================================================================
@@ -1200,50 +1248,49 @@ read_lines:
 ;
 read_colour_row:
         ;-----------------------------------------------------------------------
-        pha                     ; put aside colour for now
-
         ; which row are we on?
-        ; (there are speed-paths for the offscreen rows)
+        ; (there are speed-paths for the off-screen rows)
         ldx zp_read_row
-        beq @before             ; row = 0, colour offscreen row above screen
+        beq @before             ; row = 0, colour off-screen row above screen
         cpx # 26                ; row = 26?
-        beq @after              ; row = 26, colour offscreen row below screen
+        beq @after              ; row = 26, colour off-screen row below screen
 
         ; rows 1-25: use the general slow path:
         ;-----------------------------------------------------------------------
+        pha                     ; put colour aside
+
         ; look up the address to write to
+        ; (X is the current row)
         lda read_colour_rows_lo, x
         sta @color+1
         lda read_colour_rows_hi, x
         sta @color+2
 
-        pla                     ; retrieve colour for the given style class
-        ldx # 40-1
+        pla                     ; get the colour back
+        ldx # 40-1              ; colour 40 columns...
 @color  sta $d800, x
         dex
         bpl @color
 
         rts
 
-        ; colour offscreen row before screen:
-        ;-----------------------------------------------------------------------
-@before pla                     ; retrieve the colour for the given style class
-        
-        ; fast-fill the row colour:
-        ; (X offset = start of row)
-        ; (JSR offset = colour 40 chars)
-        ldx # 0
-        jmp read_set_colour_before+0
-
         ; colour offscreen row after screen:
         ;-----------------------------------------------------------------------
-@after  pla                     ; retrieve the colour for the given style class
-
-        ; fast-fill the row colour:
+@after  ; fast-fill the row colour:
+        ; (A = colour)
         ; (X offset = start of row)
         ; (JSR offset = colour 40 chars)
         ldx # 0
         jmp read_set_colour_after+0
+
+        ; colour offscreen row before screen:
+        ;-----------------------------------------------------------------------
+@before ; fast-fill the row colour:
+        ; (A = colour)
+        ; (X offset = start of row), note that X is already 0
+        ; (JSR offset = colour 40 chars)
+        ;
+        ;;jmp read_set_colour_before+0
 
 ;===============================================================================
 ; set the colour for some, or all, of the off-screen top row:

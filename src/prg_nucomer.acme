@@ -8,8 +8,7 @@
 ;   (contact the author for a commercial licence)
 ;
 ;===============================================================================
-!source "c64/c64.acme"          ; C64 hardware / software constants
-!source "config.acme"           ; nucomer constants for memory layout
+!source "nucomer.acme"          ; nucomer constants for memory layout
 
 !source "build/intro_symbols.acme"
 

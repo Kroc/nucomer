@@ -10,6 +10,8 @@
 ;===============================================================================
 OPTION_USE_FASTLOADER   = 1
 
+!source "c64/c64.acme"          ; C64 hardware / software constants
+
 ;-------------------------------------------------------------------------------
 ; memory map:
 ;
@@ -58,6 +60,18 @@ nu_colour_after         = $f4c8
 nu_sprites              = $f500 ; sprite gfx
 
 }
+
+;-------------------------------------------------------------------------------
+; style colours:
+;
+NU_STYLE0               = .VIC_DKGREY   ; default text colour
+NU_STYLE1               = .VIC_BLACK    ; title / horizontal bar
+NU_STYLE2               = .VIC_WHITE    ; <unassigned>
+NU_STYLE3               = .VIC_WHITE    ; <unassigned>
+NU_STYLE4               = .VIC_WHITE    ; <unassigned>
+NU_STYLE5               = .VIC_WHITE    ; <unassigned>
+NU_STYLE6               = .VIC_WHITE    ; <unassigned>
+NU_STYLE7               = .VIC_WHITE    ; <unassigned>
 
 ;-------------------------------------------------------------------------------
 ; BSOD64 integration; not the actual BSOD64 code

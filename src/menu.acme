@@ -153,7 +153,7 @@ menu_screen:
         ; print the logo with the base colour;
         ; we're going to recolour just the letters
         lda # .VIC_DKGREY
-        sta ZP_PRINT_COLOR
+        sta zp_print_colour
        +print_str_pos       menu_petscii_logo
 
         ; begin at the end of the logo and work backwards
@@ -172,7 +172,7 @@ menu_screen:
         bpl -                   ; (always branches)
 
 +       lda # .VIC_BLACK
-        sta ZP_PRINT_COLOR
+        sta zp_print_colour
 
        +print_str_pos   menu_str_subline
        +print_str_pos   menu_str_help
@@ -279,7 +279,7 @@ menu_refresh:
         lda # .VIC_BLACK        ; yes, use selected colour
        +bit_skip2               ; skip over the next instruction
 +       lda # .VIC_DKGREY
-        sta ZP_PRINT_COLOR
+        sta zp_print_colour
 
         ; print the string:
         ;-----------------------------------------------------------------------

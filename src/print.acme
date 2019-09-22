@@ -10,7 +10,7 @@
 ;===============================================================================
 !ct "build/scr_nucomer.ct"
 
-!addr   ZP_PRINT_COLOR          = $02
+!addr   zp_print_colour         = $02
 
 ;===============================================================================
 ; clear the screen:
@@ -97,7 +97,7 @@ print_str_pos:
         ; over from $FF to $00), then it will stop printing
         bne @from
 
-+       lda ZP_PRINT_COLOR      ; get the colour for the text
++       lda zp_print_colour     ; get the colour for the text
 
         ; the Y register contains the number of characters written,
         ; we can now rewind this to quickly apply the colour
@@ -154,7 +154,7 @@ print_str:
         ; so we use a pre-decrement loop where the colour is applied *after*
         ; having decremented Y, so that the 0 index gets included
         ;
-+       lda ZP_PRINT_COLOR      ; text-colour to use
++       lda zp_print_colour     ; text-colour to use
 -       dey
 @color  sta $d800, y
         bne -
