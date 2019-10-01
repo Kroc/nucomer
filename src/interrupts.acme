@@ -319,7 +319,7 @@ irq_kernal_off:
 ; switched on (you can use the RAM underneath instead), therefore we must
 ; provide a routine to replace the BASIC interrupt. it doesn't have to do
 ; any actual work, just merely exit in the correct way, that is, restore
-; the register from the stack and call `rti`. alternatively, one can jump
+; the registers from the stack and call `rti`. alternatively, one can jump
 ; to $EA81 which is the KERNAL's code to do the same, but I recommend
 ; against this because that assumes that the machine is a C64 with
 ; stock ROMs and this might not be the case!
@@ -331,8 +331,8 @@ irq_kernal_on:
         lda $0104, x            ; retrieve the processor flags at interrupt
         and # %00010000         ; check the BRK bit
         beq +
-        jmp $c006               ; invoke BSOD64!
-
+        jmp bsod64_irq          ; invoke BSOD64!
+        ;-----------------------------------------------------------------------
         ; pull the registers from the stack
         ; (in reverse order)
 +       pla                     ; pull...
@@ -365,7 +365,7 @@ irq_kernal_on:
 ; the 6502 wastes extra cycles when branches or indexed reads cross a page
 ; boundary ($FF->$00) which could throw our timings off, therefore we align
 ; this routine to ensure that the code will not cross a boundary before the
-; stabilisation has been done
+; stabilisation is complete
 ;
 !align  $ff, 0
 

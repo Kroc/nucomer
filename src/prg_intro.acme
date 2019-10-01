@@ -70,6 +70,7 @@ intro_init:
 
         ; put our custom IRQ handlers in place to avoid crashing
         ; when we turn off the ROMs!
+        ; TODO: BSOD64 is not in place yet -- a BRK or RESTORE will crash!
         jsr irqs_init
 
         ;-----------------------------------------------------------------------
@@ -100,21 +101,14 @@ intro_init:
         
         !if OPTION_USE_FASTLOADER != 0 {
                 ;///////////////////////////////////////////////////////////////
-                ;;ldx #< @filename_exo
-                ;;ldy #> @filename_exo
-                ;;jsr loadfile_exomizer
-                ;;!byte   $02     ; kil
                 ldx #< @filename_pu
                 ldy #> @filename_pu
                 jsr loadfile_pucrunch
-                ;;!byte   $02     ; kil
 
-                ;;ldx #< @filename_outfit
-                ;;ldy #> @filename_outfit
-                ;;jsr loadfile
                 ldx #< @filename_bsod64
                 ldy #> @filename_bsod64
                 jsr loadfile
+
                 ldx #< @filename_font
                 ldy #> @filename_font
                 jmp loadfile
@@ -138,8 +132,6 @@ intro_init:
                 ;;ldy #> nu_main
                 jsr .KERNAL_LOAD
                 bcc +
-
-                jam
 
                 ; jump to the main outfit
 +               jmp nu_main

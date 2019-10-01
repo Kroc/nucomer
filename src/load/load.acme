@@ -184,52 +184,56 @@ fastopen:
         !if LONG_NAMES > 0 {
                 ;///////////////////////////////////////////////////////////////
                 ldy # $00
-fastload_sendouter:
-                lda (.zp_destlo), y
+@sendouter:     lda (.zp_destlo), y
                 sta .zp_loadtempreg
                 pha
                 ldx # $08       ; bit counter
         } else {;///////////////////////////////////////////////////////////////
                 ldx # $01
-fastload_sendouter:
-                ldy # $08       ; bit counter
+@sendouter:     ldy # $08       ; bit counter
         }       ;///////////////////////////////////////////////////////////////
 
-fastload_sendinner:
+@sendinner:
+        ;-----------------------------------------------------------------------
         bit $dd00               ; wait for both DATA & CLK to go high
-        bpl fastload_sendinner
-        bvc fastload_sendinner
+        bpl @sendinner
+        bvc @sendinner
+
         !if LONG_NAMES = 0 {
                 ;///////////////////////////////////////////////////////////////
                 lsr .filename, x
         } else {;///////////////////////////////////////////////////////////////
                 lsr .zp_loadtempreg
         }       ;///////////////////////////////////////////////////////////////
+        
         lda # $10
         ora $dd00
         bcc +
         eor # $30
+
         ; zero-bit:
 +       sta $dd00               ; wait for CLK & DATA low
         lda # $c0               ; (answer from disk-drive)
+        
         ; send-back:
 -       bit $dd00
         bne -
+        
         lda # $ff-$30           ; set DATA and CLK high
         and $dd00
         sta $dd00
         !if LONG_NAMES > 0 {
                 ;///////////////////////////////////////////////////////////////
                 dex
-                bne fastload_sendinner
+                bne @sendinner
                 iny
                 pla
-                bne fastload_sendouter
+                bne @sendouter
         } else {;///////////////////////////////////////////////////////////////
                 dey
-                bne fastload_sendinner
+                bne @sendinner
                 dex
-                bpl fastload_sendouter
+                bpl @sendouter
         }       ;///////////////////////////////////////////////////////////////
         sta $d07a               ; SCPU to slow mode
         ; pre-delay:
@@ -237,6 +241,7 @@ fastload_sendinner:
         bne -                   ; DATA high / CLK low before we continue
 
 fastload_fillbuffer:
+        ;-----------------------------------------------------------------------
         ldx .zp_fileopen
         beq fileclosed
         pha

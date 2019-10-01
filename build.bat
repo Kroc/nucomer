@@ -21,6 +21,7 @@ REM # assemble BSOD64 into its own folder as its a sub-project
 
 ..\..\%ACME% -v1 ^
      --format cbm ^
+     --report "..\..\build/bsod.txt" ^
      -Wtype-mismatch ^
           "bsod64.acme"
 

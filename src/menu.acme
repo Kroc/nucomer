@@ -322,7 +322,7 @@ menu_load:
         sta .VIC_SCREEN_CTL1
         ; tear down the custom interrupt handlers
         jsr irqs_disable
-
+        
         lda # .READ_BACK
         sta .VIC_BORDER
         lda # .READ_FORE
@@ -336,14 +336,18 @@ menu_load:
         sei                     ; disable interrupts
         inc .CPU_CONTROL        ; enable the KERNAL
 
-        ; get the last-used device
-        ; number set by the KERNAL
-        ldx .ZP_KERNAL_DEV
-        bne +                   ; not 0? good
-        ldx # .DEV_DRV8         ; default to drive 8
-+       ldy # $00               ; use custom load address
-        tya                     ; logical file number
-        jsr .KERNAL_SETLFS
+        !if OPTION_USE_FASTLOADER = 0 {
+                ;///////////////////////////////////////////////////////////////
+                ; get the last-used device
+                ; number set by the KERNAL
+                ldx .ZP_KERNAL_DEV
+                bne +                   ; not 0? good
+                ldx # .DEV_DRV8         ; default to drive 8
++               ldy # $00               ; use custom load address
+                tya                     ; logical file number
+                jsr .KERNAL_SETLFS
+
+        }       ;///////////////////////////////////////////////////////////////
 
         ; read the address of the filename:
         ldy zp_menu_index       ; currently selected menu item
@@ -365,17 +369,23 @@ menu_load:
         adc # 0
         tay                     ; program name address hi-byte in Y
         pla                     ; A is string-length
-        jsr .KERNAL_SETNAM      ; set KERNAL file name
         
-        lda # 0                 ; load, not verify
-        ldx #< nu_text-2
-        ldy #> nu_text-2
-        jsr .KERNAL_LOAD
+        !if OPTION_USE_FASTLOADER != 0 {
+                ;///////////////////////////////////////////////////////////////
+                jsr loadfile
+        } else {;///////////////////////////////////////////////////////////////
+                jsr .KERNAL_SETNAM      ; set KERNAL file name
+
+                lda # 0                 ; load, not verify
+                ldx #< nu_text-2
+                ldy #> nu_text-2
+                jsr .KERNAL_LOAD
+        }       ;///////////////////////////////////////////////////////////////
 
         ; TODO: error handling, fastloader et al
         bcc +
         brk                     ; BSOD!
-        
+
 +       dec .CPU_CONTROL        ; turn KERNAL off
         cli
         

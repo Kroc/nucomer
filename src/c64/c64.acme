@@ -22,6 +22,11 @@
         !byte $2c
 }
 
+; "halt & catch fire"
+!macro  hcf {
+        !byte $f2
+}
+
 ; CPU port: memory layout & Datasette
 ;===============================================================================
 ; memory address $00/$01 is hard-wired to the C64's 6510 CPU; the "processor

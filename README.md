@@ -31,14 +31,18 @@ All code & content, unless otherwise specified, is licensed under a [Creative Co
 
 ## Software
 
-- The [ACME Assembler][acme]
-- Microsoft [Visual Studio Code][vscode]
+- **Source code assembled with:** The [ACME Assembler][acme]
+- **Source code written with:** Microsoft [Visual Studio Code][vscode]
   - The VSCode environment is based on Ingo Hinterding's [ACME Assembly VSCode template][template]
-- [Lua][lua], for scripting
+- **Build System written in:** [Lua][lua]
   - [json.lua] by rxi
+- **Fonts designed with:** [CharPad]
+- **Emulation provided by:** [VICE]
 
 [vscode]:   https://code.visualstudio.com/
 [acme]:     https://sourceforge.net/projects/acme-crossass/
 [template]: https://github.com/Esshahn/acme-assembly-vscode-template
 [lua]:      https://www.lua.org
 [json.lua]: https://github.com/rxi/json.lua
+[CharPad]:  https://www.subchristsoftware.com/charpad.htm
+[VICE]:     http://vice-emu.sourceforge.net/
