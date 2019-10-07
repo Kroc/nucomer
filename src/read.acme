@@ -1121,7 +1121,7 @@ read_print:
 
         ; if colour data is present, go process it first
         ; (note that the carry bit has not been modified
-        ; since the CMP instruction above)
+        ;  since the CMP instruction above)
         bcs @cdata
 
         ; when no colour data is present, we still have to
@@ -1133,6 +1133,7 @@ read_print:
         ; screen memory offset for the line: (increases as each character
         ; is printed), not equivilent to Y which counts data-bytes and
         ; will not be in lock-step with X (data is compressed)
+        ;
 @print  ldx # 0
 
 @char   lda (zp_read_char), y   ; read a byte from the binary string
@@ -1162,73 +1163,8 @@ read_print:
 
 @eof:   rts
 
-        ; decode colour-data:
-        ;=======================================================================
-        ; the first colour byte is special:
-        ;
-        ; if the upper bit is set, this indicates that the whole line is
-        ; coloured a non-default colour and no other colour data will follow
-        ;
-@cdata: lda (zp_read_char), y   ; read first colour-data byte
-        bmi @whole              ; colour whole row one colour?
-
-        ; if the first byte upper-bit is not set, the first byte represents
-        ; an initial column offset before the first colour change occurs
-        ; (colour spans are limited to 32-chars, but the initial-offset
-        ;  can be up to 38 chars)
-        ;
-        ; now that we know we will be reading more than 1-byte of colour
-        ; data, we set up the colour-RAM address we'll be writing to:
-        ;
-        pha                     ; backup colour-offset byte
-        ldx zp_read_row         ; current row being printed
-        lda read_colour_rows_hi, x
-        sta @clram+2
-        lda read_colour_rows_lo, x
-        sbc # 1                 ; (carry is still set from way, way back!)
-        sta @clram+1
-
-        ; backup the current position
-        ; in the line-data (data-index)
-        sty zp_read_index_data
-
-        pla                     ; get starting colour column offset
-        tay
-        ldx # 40                ; colour from the end of the line!
-        bne @clram
-
-        ; process colour-spans:
-        ;-----------------------------------------------------------------------
-        ; after the first byte is processed, all colour-data bytes that follow
-        ; use a fixed format
-        ;
-@cread: lda (zp_read_char), y   ; read a byte of colour-data
-        dey                     ; (pre-emptively move to the next data-byte)
-        sty zp_read_index_data  ; backup data-index
-        and %00011111           ; extract the span-length from the byte
-        tay                     ; use this as a count-down
-
-        lda # .VIC_WHITE        ; TODO: decode the colour
-
-        ldx zp_read_index_col   ; restore our current column number
-@clram  sta $d800, x            ; set the colour
-        dex                     ; move to the next colour cell
-        beq @cdone
-        dey                     ; one less cell to colour...
-        bne @clram              ; keep going?
-        
-        stx zp_read_index_col
-        
-        ldy zp_read_index_data
-        bne @cread
-
-        ; finished colour-data,  begin printing text:
-        ;-----------------------------------------------------------------------
-@cdone: ldy zp_read_index_data
-        bne @print              ; (always branches, Y != 0)
-
         ; colour whole row:
-        ;-----------------------------------------------------------------------
+        ;=======================================================================
 @whole: and # %00000111         ; which style class
         tax                     ; (we know this is the first byte, so reuse X)
         
@@ -1239,6 +1175,97 @@ read_print:
         ; begin printing text:
         dey                     ; move to the next line-data byte
         bne @print              ; (always branches, Y != 0)
+
+        brk
+
+        ; decode colour-data:
+        ;=======================================================================
+        ; the first colour byte is special:
+        ;
+        ; if the upper bit is set, this indicates that the whole line is
+        ; coloured a non-default colour and no other colour data will follow
+        ;
+@cdata: lda (zp_read_char), y   ; read first colour-data byte
+        bmi @whole              ; colour whole row one colour?
+
+        dey                     ; move to the next data-byte
+        sty zp_read_index_data  ; save the current position
+
+        ; if the first byte upper-bit is not set, the first byte represents
+        ; an initial column offset before the first colour change occurs
+        ; (colour spans are limited to 32-chars, but the initial-offset can
+        ;  be higher, though obviously limited to the width of the screen)
+        ;
+        ; now that we know we will be reading more than 1-byte of colour
+        ; data, we set up the colour-RAM address we'll be writing to:
+        ;
+        pha                     ; backup the first data-byte
+
+        ldx zp_read_row         ; current row being printed
+        lda read_colour_rows_hi, x
+        sta @clram+2
+        lda read_colour_rows_lo, x
+        sbc # 1                 ; (carry is still set from way, way back!)
+        sta @clram+1
+
+        pla                     ; length of first span (can be > 32)
+        beq @cread              ; if there's no initial offset, ignore it
+
+        tay                     ; number of characters to colour
+        dey                     ; (adjust to 0-based for the colouring loop)
+        lda read_style0_colour  ; use the default line colour
+        ldx # 40                ; starting column (colouring right-to-left!)
+        bne @clram              ; (always branches, != 0)
+
+        brk
+
+        ; process colour-spans:
+        ;-----------------------------------------------------------------------
+        ; after the first byte is processed, all colour-data bytes that follow
+        ; use a fixed format:
+        ;
+        ;       %sssnnnnn       s = style class to change to (0-7)
+        ;                       n = length of span (0-31, represents 1 to 32)
+        ;
+@cread: ldy zp_read_index_data  ; retrieve the data-index before reading
+        lda (zp_read_char), y   ; read a byte of colour-data
+        tax                     ; (put-aside to extract the style-class later)
+        dec zp_read_index_data  ; move to the next data-byte
+        and # %00011111         ; extract the span-length from the byte,
+        tay                     ; and use this as a count-down
+
+        ; decode the style-class from the top three bits;
+        ; we need to rotate these into the bottom three bits
+        ;
+        txa                     ; retrieve the data-byte again
+        and # %11100000         ; keep top three bits (also, no carry at end)
+        asl                     ; pop bit 7 off
+        rol                     ; shift bit 7 in, pop bit 6 off
+        rol                     ; shift bit 6 in, pop bit 5 off
+        rol                     ; shift bit 5 in
+        tax                     ; we now have the style class 0-7
+        lda read_styles, x      ; look up the style class from the index
+
+        ldx zp_read_index_col   ; restore our current column number
+@clram  sta $d800, x            ; set the colour
+        dex
+        beq @cdone
+        dey                     ; one less cell to colour...
+        bpl @clram              ; keep going?
+        
+        stx zp_read_index_col   ; remember current column for the next span
+        bmi @cread              ; read the next span from the colour-data?
+
+        brk
+
+        ; finished colour-data, begin printing text:
+        ;-----------------------------------------------------------------------
+@cdone: ldy zp_read_index_data  ; retrieve the data-index for reading bytes
+        bne @print              ; (always branches, Y != 0)
+        
+        brk
+        !byte   $42
+        !pet    "Impossible Branch!", 0
 
 ;===============================================================================
 ; colour a whole row:

@@ -309,8 +309,8 @@ Line = {
     source      = "",       -- source line text, encoded on-demand to C64
     is_literal  = false,    -- is this a literal-text line?
     default     = 0,        -- default style class
-    styles      = {},       -- table of style classes for each character
     -------------------------- no touchy!
+    _styles     = {},       -- table of style classes for each character
     _dirty      = false,    -- changes made?
     _cache      = "",       -- cached encoded version of line
 }
@@ -325,8 +325,8 @@ function Line:new()
         source      = "",       -- source line text, encoded on-demand to C64
         is_literal  = false,    -- is this a literal-text line?
         default     = 0,        -- default colour class
-        styles      = {},       -- table of style classes for each char
         -------------------------- no touchy!
+        _styles     = {},       -- table of style classes for each char
         _dirty      = false,    -- changes made?
         _cache      = "",       -- cached encoded version of line
     }
@@ -338,43 +338,66 @@ end
 --------------------------------------------------------------------------------
 function Line:_cacheLine()
     ----------------------------------------------------------------------------
-    if self._dirty then
-        if self.is_literal then
-            self._cache = self.source
-        else
-            self._cache = self.source:toC64()
-        end
-        self._dirty = false
+    if self._dirty == false then return; end
+
+    if self.is_literal then
+        self._cache = self.source
+    else
+        self._cache = self.source:toC64()
     end
+    self._dirty = false
 end
 
 -- encode a utf-8 string for the C64 and add it to the line
 --------------------------------------------------------------------------------
 function Line:addString(s_utf8, i_style)
     ----------------------------------------------------------------------------
+    -- sanity check
+    if s_utf8 == "" then return; end
+
     -- default style class?
     if i_style == nil then i_style = self.default; end
     -- get the length of the current line, when encoded,
     -- to determine where (on screen) our addition appears
-    local i = self:getCharLen()
-    -- if there's nothing on the line yet, then the style-class
-    -- will begin on the first character
-    if i == 0 then i = 1; end
+    local i = self:getCharLen()+1
 
     -- encode the combined line + string to get the end-point
     -- (combining the string with the line may change its encoded length!)
     self.source = self.source .. s_utf8
     self._dirty = true
-    -- do we need to add colour data?
-    --#if i_style ~= self.default then
-        -- re-encode the line given the string we've added;
-        self:_cacheLine()
-        -- the length of this will determine the end-point
-        local j = self:getCharLen()
-        -- set the style class for those characters
-        -- (this'll allow us to more easily combine spans)
-        for n = i, j do self.styles[n] = i_style; end
-    --#end
+    -- the length of this will determine the end-point
+    local j = self:getCharLen()
+
+    -- set the style class for those character columns
+    -- (this'll allow us to more easily combine spans)
+    for n = i, j do self._styles[n] = i_style; end
+
+    -- try and combine / minimise styles:
+    --
+    -- the more separate colour spans we have the more bytes we use,
+    -- so we try minimise the number of spans by extending styles
+    -- across spaces, i.e. taking a line that may look like this:
+    --
+    --      text  : the quick brown fox jumps over the lazy dog
+    --      style : 1110111110111110111011111011110111011110111
+    --
+    -- and changing the style of the spaces to extend the nearest span:
+    --
+    --      text  : the quick brown fox jumps over the lazy dog
+    --      style : 1111111111111111111111111111111111111111111
+    --
+    -- walk to the left of the string added...
+    for n = i-1, 1, -1 do
+        -- as long as spaces continue...
+        if self.source:byte(n) == 0x20 then
+            -- change their style class to match the added
+            -- (right-most) style
+            self._styles[n] = i_style
+        else
+            -- as soon as we hit any non-space, stop
+            break
+        end
+    end
 end
 
 -- returns the length of the line in printable characters,
@@ -388,111 +411,146 @@ function Line:getCharLen()
     return #self._cache
 end
 
--- return the line encoded for the C64
+-- returns the source line, converted to C64 screen-codes
 --------------------------------------------------------------------------------
-function Line:encode()
+function Line:getBinText()
     ----------------------------------------------------------------------------
-    -- TODO: not this way
-    return self:getBin(), self:getBinLen()
-end
-
--- returns the final binary form of the line
---------------------------------------------------------------------------------
-function Line:getBin()
-    ----------------------------------------------------------------------------
-    -- binary string that will be returned
-    local bin = self:getBinColour()
-    -- does the line need re-encoding?
-    self:_cacheLine()
-    -- TODO: literal lines with RLE-compression
-    bin = bin .. self._cache
-    -- note that lines are written into the binary backwards!
-    -- this is so that the line length can be used as a count-down
-    -- index which is faster for 6502s to process
-    return bin:reverse()
+    self:_cacheLine()   -- encode the line, if not already done
+    return self._cache
 end
 
 -- returns the binary colour data
 --------------------------------------------------------------------------------
 function Line:getBinColour()
     ----------------------------------------------------------------------------
-    local s_bin = ""
+    if self.source == "" then return ""; end
 
-    -- non-default style class?
-    if self.default ~= 0 then
-        -- indicate the default style-class for the whole line
-        s_bin = string.char(0x80 + self.default)
+    --#if true then return ""; end
+
+    -- reverse the columns!
+    --
+    -- most lines are going to have some trailing space before the end of the
+    -- screen; if we construct our colour-spans from the right to the left
+    -- (rather than the natural left-to-right, to suit the text), then we will
+    -- have a first span that will represent the largest amount of skippable
+    -- [for colour] space, in most instances. given that the first byte of
+    -- colour-data is an initial offset to skip, working from right to left
+    -- will give us the best use of the byte -- if working left-to-right,
+    -- a bullet point at the start of the line would be a waste of skipping
+    --
+    -- the string, at this stage, may not fill all 40 columns
+    -- and we will need all in place in order to reverse them
+    -- (lua stops iterating a table when it hits a null!)
+    --
+    local styles = {}
+    for i = 1, 40 do; styles[i] = self.default; end
+
+    for char_index, char_style in ipairs(self._styles) do
+        -- reverse the column indicies
+        styles[41-char_index] = char_style
     end
-    -- is there *any* colour data?
-    if #self.styles == 0 then return s_bin; end
 
-    -- batch together the style-classes for each character into spans:
-    ----------------------------------------------------------------------------
-    local last_index    = 0
-    local span_begin    = 0
-    local span_style    = self.default
+    local view = ""
+    for i = 1, 40 do; view = tostring(styles[i]) .. view; end
+
+    -- batch together the style-classes
+    -- for each character into spans:
+    --
+    local last_index    = 1
+    local span_begin    = 1
+    local span_style    = styles[1]
     local spans         = {}
 
     --#print(truncate(self.source))
 
-    for char_index, char_style in pairs(self.styles) do
+    for char_index, char_style in pairs(styles) do
         ------------------------------------------------------------------------
-        --#print("?", char_index, char_style)
-        -- if the character style-class has changed or the index
-        -- is non-contiguous then start a new span
-        if char_style ~= span_style or char_index > (last_index+1) then
-            -- we do not add spans for the default style,
-            -- nor before the first span has been initialised
-            if (span_begin > 0) and (span_style ~= self.default)
-            then
-                -- construct a span covering the contiguous
-                -- characters of the same style-class
-                table.insert(spans, {
-                    first = span_begin, last = last_index,
-                    style = span_style
-                })
-                --#print("+", span_begin, last_index)
-            end
+        -- if the character style-class has changed then start a new span
+        if char_style ~= span_style then
+            -- construct a span covering the contiguous
+            -- characters of the same style-class
+            table.insert(spans, {
+                first = span_begin, last = last_index,
+                style = span_style
+            })
             -- begin a new span:
             span_begin  = char_index
             span_style  = char_style
         end
         -- where the character style remains
         -- contiguous, we inch forward
-        last_index  = char_index
+        last_index = char_index
     end
     -- given that the line's text may continue past the last style change,
     -- we must check if there remains one un-finished span
-    if (span_begin > 0) and (span_style ~= self.default) then
-        table.insert(spans, {
-            first = span_begin, last = last_index,
-            style = span_style
-        })
-        --#print("+", span_begin, last_index)
+    table.insert(spans, {
+        -- the whole line must always be coloured to avoid colour-garbage
+        -- from other lines appearing when scrolling on the C64, so the last
+        -- span is extended to the end of the screen
+        first = span_begin, last = 40,
+        style = span_style
+    })
+
+    -- is the whole line a single colour?
+    if #spans == 1 then
+        -- default line colour?
+        if span_style > 0 then
+            -- indicate the style-class for the whole line,
+            -- by setting the high-bit. the lower 3 bits
+            -- will be taken as the style-class to use
+            return string.char(0x80 + span_style)
+        else
+            -- a default style-class for the whole line
+            -- does not need any colour data,
+            -- a critical space saver!
+            return ""
+        end
     end
 
     -- convert spans into binary colour-data
     ----------------------------------------------------------------------------
-    for _, span in pairs(spans) do
-        --#print("=", span.first, span.last, self.source:sub(span.first, span.last+1))
+    local s_bin = ""
+
+    print(truncate(self.source))
+    print(view)
+
+    for i, span in ipairs(spans) do
+        -- the first byte of the colour-data must be an initial offset
+        -- to the first non-default colour-span
+        if i == 1 then
+            -- if the first colour-span is the default style,
+            -- then replace it with the initial offset
+            if span.style == self.default then
+                --#print(">", (span.last-span.first)+1)
+                -- note that this has to be 1-based to allow for "0" to
+                -- be used for a non-default colour span occuring at the
+                -- beginning of a line, leading to no initial offset
+                s_bin = s_bin .. string.char((span.last-span.first)+1)
+            else
+                print(">", "0")
+                s_bin = s_bin .. string.char(0)
+            end
+        else
+            -- move the style-class into the upper three bits
+            local span_class = span.style * (2 ^ 5)
+            -- the length of the span occupies the low five bits
+            local span_width = span.last-span.first
+            -- colour spans are limited to 32 chars!
+            -- (0-to-31 represents 1-to-32 on the C64)
+            if span_width > 31 then
+                -- split the span into two;
+                -- first write a maximum span of 32
+                s_bin = s_bin .. string.char(31 + span_class)
+                --#print("=", 32, span.style)
+                -- leave the remainder
+                span_width = span_width - 31
+            end
+            -- combine the span style-class and length
+            s_bin = s_bin .. string.char(span_width + span_class)
+            --#print("=", span_width+1, span.style)
+        end
     end
 
+    print("#", #s_bin)
     return s_bin
 end
-
--- length of the binary line, including colour-data (if present)
---------------------------------------------------------------------------------
-function Line:getBinLen()
-    ----------------------------------------------------------------------------
-    -- get the true length in bytes
-    local len = string.len(self:getBin())
-    -- is this a literal-encoded line?
-    -- if yes, set bit 6 which indicates a literal-encoded line
-    if self.is_literal then len = len + 0x40; end
-    -- is there colour data?
-    -- if yes, set bit 7 which indicates the presence of colour-data
-    if self.default ~= 0 then len = len + 0x80; end
-    -- And Now You Know
-    return len
-end
-

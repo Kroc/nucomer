@@ -19,7 +19,9 @@ for _, s_exception in pairs({
     -- where the hyphenation algorithm fails, I am referring to the
     -- "Collins Gem Dictionary Of English Spelling", 1994 reprint,
     -- ISBN: 0-00-458725-1
-    "every-thing", "pri-vate", "with-out"
+    "every-thing", "pri-vate", "with-out",
+    -- needs verification, or non-standard
+    "al-tered"
 }) do
     hyphenate:insertException("en-gb", s_exception)
 end
@@ -268,11 +270,13 @@ function Article:readLine(s_text)
         -- start a new line
         line = Line:new()
         -- apply the styling from the old line
-        line.indent = old_indent
+        line.indent     = old_indent
         line.is_literal = old_literal
-        line.default = old_default
+        line.default    = old_default
         -- apply the indent
-        line:addString(string.rep(" ", line.indent))
+        if line.indent > 0 then
+            line:addString(string.rep(" ", line.indent))
+        end
     end
 
     -- indent?
@@ -307,7 +311,7 @@ function Article:readLine(s_text)
         line.is_literal = true  -- set as literal text and do not convert
 
         -- build a horizontal bar directly out of screen-codes
-        line:addString(string.rep(string.char(0xf6), scr_width - line.indent))
+        line:addString(string.rep(string.char(0xf6), scr_width-line.indent))
 
        -- no need to process any more of the source line
        -- just add the bar we've given and exit
@@ -319,7 +323,7 @@ function Article:readLine(s_text)
     elseif s_text:match("^%* ", index) ~= nil then
         ------------------------------------------------------------------------
         -- switch "*" for the bullet-point character
-        line:addString("• ", 2)
+        line:addString("• ", 1)
         -- indent on line-break
         line.indent = line.indent + 2
         -- begin after the bullet-point
@@ -332,7 +336,7 @@ function Article:readLine(s_text)
         -- get the details
         local s_numeral = s_text:match("^%w+%.", index)
         -- add it to the output line (excluding the space!)
-        line:addString(s_numeral, 2)
+        line:addString(s_numeral, 1)
         -- set the hanging indent for line-breaks
         line.indent = line.indent + 2
         -- skip the detected numeral point
@@ -424,18 +428,39 @@ function Article:write()
 
     -- how long the line-lengths list is (2-bytes)
     f_out:write(string.pack("<I2", #self.lines+2))
-    -- the list of line-lengths
-    for _, line in ipairs(self.lines) do
-        f_out:write(string.pack("B", line:getBinLen()))
+
+    -- convert all lines to C64 colour-spans & screen-codes
+    local lines = {}
+    for i, line in ipairs(self.lines) do table.insert(lines, {
+        colour  = line:getBinColour(),
+        text    = line:getBinText()
+    }); end
+
+    -- the list of line-lengths:
+    ----------------------------------------------------------------------------
+    for _, line in ipairs(lines) do
+        -- the length of the line-data, in bytes:
+        local line_len = #line.colour + #line.text
+        -- the presence of colour data is indicated by the high-bit
+        -- (so that we don't need an extra byte for every uncoloured line)
+        if #line.colour > 0 then line_len = line_len + 0x80; end
+        -- write the line-length byte to the file
+        f_out:write(string.pack("B", line_len))
     end
     -- the lines-length table is suffixed with 0x80
     -- to indicate when to stop scrolling downwards
     f_out:write(string.pack("B", 0x80))
 
-    -- and then the binary line-data
-    for _, line in ipairs(self.lines) do
+    -- and then the binary line-data:
+    ----------------------------------------------------------------------------
+    for _, line in ipairs(lines) do
         -- do not output empty lines; on the C64, when a line-length of 0
         -- is encountered, the line-data pointer is not moved forward
-        if line:getCharLen() > 0 then f_out:write(line:getBin()); end
+        if #line.text > 0 then
+            -- note that lines are written into the binary backwards!
+            -- this is so that the line length can be used as a count-down
+            -- index which is faster for 6502s to process
+            f_out:write(string.reverse(line.colour..line.text))
+        end
     end
 end
