@@ -1,6 +1,6 @@
 :: Editorial
 --------------------------------------------------------------------------------
-by _Kroc Camen_ / _Camen Design_
+By _Kroc Camen_ / _Camen Design_
 
 Welcome, Newcomer.
 
@@ -22,7 +22,7 @@ This publication exists to implore, educate and demonstrate the satisfaction tha
 
 Elitist arguments about "original hardware" must be pushed back. Those with a nostalgic connection to the C64 must be willing to give their knowledge to a future world in which there is no original hardware, only de-facto standards.
 
-In reality, modern hardware and the Internet are where people are productive today and Nücomer will never communicate in ignorance of this fact. There are plenty of tutorials and resources out there on setting up a PC development environment and writing your first lines of code for an 8-bit system, I cannot do that within the confines of the C64's RAM & storage! Instead, Nücomer explores the "why"; why you should solve a programming problem in a certain way; why 8-bit systems are the way they are; why you should care.
+In reality, modern hardware and the Internet are where people are productive today and *nücomer* will never communicate in ignorance of this fact. There are plenty of tutorials and resources out there on setting up a PC development environment and writing your first lines of code for an 8-bit system, I cannot do that within the confines of the C64's RAM & storage! Instead, *nücomer* explores the "why"; why you should solve a programming problem in a certain way; why 8-bit systems are the way they are; why you should care.
 
 :: Why 8-Bit?
 --------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ So why the Commodore 64, of all 8-bit systems?
 
 Unlike today's "flavours of x86" PC market, the 8-bit generation of home-microcomputers ran on a variety of wildly different processor architectures.
 
-The Zilog Z80 CPU -- an independently enhanced Intel 8080, and therefore a "cousin" to x86 -- featured in the ZX Spectrum (Timex Sinclair in the USA), Amstrad CPC, Tandy / RadioShack TRS 80, innumerable CP/M business systems, the MSX standard popular in Japan and later in consoles such as the SEGA Master System and, in a stripped down form, as the Nintendo Game Boy.
+The Zilog Z80 CPU -- an independently enhanced Intel 8080, and therefore a "cousin" to x86 -- featured in the ZX Spectrum (Timex Sinclair in the USA), Amstrad CPC, Tandy/RadioShack TRS-80, innumerable CP/M business systems, the MSX standard popular in Japan and later in consoles such as the SEGA Master System and, in a stripped down form, as the Nintendo GameBoy.
 
 Programming the Z80 is fairly easy given its very large number of registers for an 8-bit system (over 20!) and how easily it handles 16-bit operations; the index registers are 16-bit as is the stack. A 16-bit add instruction means that you don't have to 
 
@@ -42,6 +42,6 @@ Programming the Z80 is fairly easy given its very large number of registers for 
 --------------------------------------------------------------------------------
 In this, the 0th issue -- zero because it can't be a true magazine until it's had feedback and outside input -- we look at the code & design of the magazine outfit itself; the challenges of even getting some text on the screen.
 
-In "Help! My Interrupt Crashed!" I explain how an incremental approach to implementing custom interrupts will only lead to nightmarish bugs and provide a breakdown of the C64's interrupt "gotcha's".
+In *"Help! My Interrupt Crashed!"* I explain how an incremental approach to implementing custom interrupts will only lead to nightmarish bugs and provide a breakdown of the C64's interrupt "gotcha's".
 
-"BSOD64: BRK Dancing" introduces our C64 debugger designed for users writing their first software for the platform, and explains how debugging works on the C64.
+*"BSOD64: BRK Dancing"* introduces our C64 debugger designed for users writing their first software for the platform, and explains how debugging works on the C64.

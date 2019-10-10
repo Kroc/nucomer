@@ -1,9 +1,9 @@
 :: Nücomer Magazine:
 
-_Kroc Camen_:
-- code / font
+Code / Gfx:
+- _Kroc Camen_
 
-Special Thanks To:
+Special Thanks:
 - _Michael Steil_ (<@pagetable>)
 
 :: Attribution-NonCommercial-ShareAlike 4.0 International

@@ -388,6 +388,16 @@ function Article:readLine(s_text)
         -- begin after the bullet-point
         index = index + 2
 
+    -- bullet point:
+    -- * ...
+    elseif s_text:match("^%- ", index) ~= nil then
+        ------------------------------------------------------------------------
+        line:addString("- ", STYLE_TITLE)
+        -- indent on line-break
+        line.indent = line.indent + 2
+        -- begin after the bullet-point
+        index = index + 2
+
     -- numbered list:
     -- 1. / a. / i. / A.
     elseif s_text:match("^%w+%. ", index) ~= nil then

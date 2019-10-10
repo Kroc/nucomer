@@ -199,9 +199,9 @@ read_colour_row26       = nu_colour_after
 read_styles:
 read_styles_colour:
 read_style0_colour:     !byte   .READ_FORE      ; default text colour
-read_style1_colour:     !byte   .VIC_BLACK      ; title
-read_style2_colour:     !byte   .VIC_WHITE      ; term
-read_style3_colour:     !byte   .VIC_PURPLE     ; name
+read_style1_colour:     !byte   .VIC_BLACK      ; structural (e.g. title)
+read_style2_colour:     !byte   .VIC_ORANGE     ; proper noun, work/citation
+read_style3_colour:     !byte   .VIC_PURPLE     ; proper noun, people
 read_style4_colour:     !byte   .VIC_WHITE      ; <unassigned>
 read_style5_colour:     !byte   .VIC_WHITE      ; <unassigned>
 read_style6_colour:     !byte   .VIC_BLUE       ; URL
