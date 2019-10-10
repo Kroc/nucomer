@@ -200,7 +200,7 @@ read_styles:
 read_styles_colour:
 read_style0_colour:     !byte   .READ_FORE      ; default text colour
 read_style1_colour:     !byte   .VIC_BLACK      ; title
-read_style2_colour:     !byte   .VIC_WHITE      ; <unassigned>
+read_style2_colour:     !byte   .VIC_BLUE       ; <unassigned>
 read_style3_colour:     !byte   .VIC_WHITE      ; <unassigned>
 read_style4_colour:     !byte   .VIC_WHITE      ; <unassigned>
 read_style5_colour:     !byte   .VIC_WHITE      ; <unassigned>
@@ -1208,13 +1208,15 @@ read_print:
         sbc # 1                 ; (carry is still set from way, way back!)
         sta @clram+1
 
+        ldx # 40                ; starting column
+        stx zp_read_index_col   ; (colouring right-to-left!)
+
         pla                     ; length of first span (can be > 32)
         beq @cread              ; if there's no initial offset, ignore it
 
         tay                     ; number of characters to colour
         dey                     ; (adjust to 0-based for the colouring loop)
         lda read_style0_colour  ; use the default line colour
-        ldx # 40                ; starting column (colouring right-to-left!)
         bne @clram              ; (always branches, != 0)
 
         brk

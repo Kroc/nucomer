@@ -516,21 +516,20 @@ function Line:getBinColour()
 
     for i, span in ipairs(spans) do
         -- the first byte of the colour-data must be an initial offset
-        -- to the first non-default colour-span
-        if i == 1 then
-            -- if the first colour-span is the default style,
-            -- then replace it with the initial offset
-            if span.style == self.default then
-                --#print(">", (span.last-span.first)+1)
-                -- note that this has to be 1-based to allow for "0" to
-                -- be used for a non-default colour span occuring at the
-                -- beginning of a line, leading to no initial offset
-                s_bin = s_bin .. string.char((span.last-span.first)+1)
-            else
-                print(">", "0")
-                s_bin = s_bin .. string.char(0)
-            end
+        -- to the first non-default colour-span:
+        --
+        -- if the first colour-span is the default style,
+        -- then replace it with the initial offset
+        if i == 1 and span.style == self.default then
+            -- note that this has to be 1-based to allow for "0" to
+            -- be used for a non-default colour span occuring at the
+            -- beginning of a line, leading to no initial offset
+            s_bin = string.char((span.last-span.first)+1)
+            --#print(">", (span.last-span.first)+1)
         else
+            -- if the first colour span is not the default style,
+            -- we have to conceed the first byte
+            if i == 1 then s_bin = string.char(0); end
             -- move the style-class into the upper three bits
             local span_class = span.style * (2 ^ 5)
             -- the length of the span occupies the low five bits

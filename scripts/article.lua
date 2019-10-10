@@ -19,9 +19,7 @@ for _, s_exception in pairs({
     -- where the hyphenation algorithm fails, I am referring to the
     -- "Collins Gem Dictionary Of English Spelling", 1994 reprint,
     -- ISBN: 0-00-458725-1
-    "every-thing", "pri-vate", "with-out",
-    -- needs verification, or non-standard
-    "al-tered"
+    "al-tered", "every-thing", "pri-vate", "with-out"
 }) do
     hyphenate:insertException("en-gb", s_exception)
 end
@@ -175,11 +173,19 @@ function Article:readLine(s_text)
     local scr_width = 40
 
     -- create line-object to hold line meta-data
-    local line      = Line:new()
-    local index     = 1         -- current byte index in the line (1-based)
-    local ascii     = 0         -- current character code
-    local word_str  = ""        -- current word (for word-wrapping)
-    local word_len  = 0         -- character length of word (not byte-length!)
+    local line          = Line:new()
+    local index         = 1     -- current byte index in the line (1-based)
+    local ascii         = 0     -- current character code
+    local word_str      = ""    -- current word (for word-wrapping)
+    local word_len      = 0     -- character length of word (not byte-length!)
+    local word_style    = 0     -- style class of word
+
+    -- flag for indicating when we're between / within words, as certain markup
+    -- only applies at the beginning of a word, e.g. bold, URLs
+    local is_word   = false
+    -- indicates that the current word is a URL and therefore
+    -- needs to be word-wrapped differently
+    local is_url    = false
 
     -- we do not want to leave trailing spaces on lines, so when a word begins,
     -- we hold on to the space until the word ends and decide where it goes
@@ -192,6 +198,7 @@ function Article:readLine(s_text)
         ------------------------------------------------------------------------
         word_str = word_str .. string.char(i_char)
         word_len = word_len + 1
+        is_word  = true
     end
 
     -- (private) append current word to the current line
@@ -203,36 +210,52 @@ function Article:readLine(s_text)
         -- more or less characters than on its own, which is why we do the
         -- line-break check this way
         --
-        local c64_line = line.source
+        local c64_old = line.source
+        local c64_new = ""
         -- is there pending spaces before the word?
         if word_spc > 0 then
-            c64_line = c64_line .. string.rep(" ", word_spc)
+            c64_old = c64_old .. string.rep(" ", word_spc)
         end
         -- add the word to the end of this test line
-        c64_line = c64_line .. word_str
-        -- convert to C64 screen-codes, giving us the on-screen width
-        c64_line = string.toC64(c64_line)
+        c64_new = c64_old .. word_str
+        -- convert to C64 screen-codes,
+        -- giving us the on-screen widths
+        c64_old = string.toC64(c64_old)
+        c64_new = string.toC64(c64_new)
 
         -- if the word would not fit on the line,
         -- hyphenate & word-wrap:
         --
-        if #c64_line > scr_width then
-            -- hyphenate the word splitting into as much as can fit
-            -- on the current line and the remainder for the next line
-            local before, after = hyphenate:breakWord(
-                "en-gb", word_str,
-                -- split the word according to how much line space remains
-                (scr_width - line:getCharLen()) - word_spc
-            )
-            --#print(left, right)
+        if #c64_new > scr_width then
+            --------------------------------------------------------------------
+            local before, after
+            -- is this a URL? (don't hyphenate)
+            if is_url then
+                -- how much of the URL will fit?
+                local i = scr_width - #c64_old
+                -- split the URL into two pieces
+                before = word_str:sub(1, i)
+                after  = word_str:sub(i+1)
+            else
+                -- hyphenate the word splitting into as much as can fit
+                -- on the current line and the remainder for the next line
+                before, after = hyphenate:breakWord(
+                    "en-gb", word_str,
+                    -- split the word according to how much line space remains
+                    (scr_width - line:getCharLen()) - word_spc
+                )
+            end
+            --#print(before, after)
             -- add the part of the word that fits (if any)
             if #before > 0 then
                 -- add the pending spaces from before the word started
                 if word_spc > 0 then
-                    line:addString(string.rep(" ", word_spc))
+                    -- the style class of the word is used to create
+                    -- a contiguous span, requiring less colour-data bytes
+                    line:addString(string.rep(" ", word_spc), word_style)
                 end
                 -- add the hyphenated portion of the word
-                line:addString(before)
+                line:addString(before, word_style)
                 -- the pending spaces have been handled,
                 -- don't add them again on the next line
                 word_spc = 0
@@ -241,19 +264,37 @@ function Article:readLine(s_text)
             _addLine()
             -- begin the new line with the remainder of the word, if any.
             -- note that the unused pending space is carried forward
-            if #after > 0 then line:addString(after); end
+            if #after > 0 then
+                -- the remainder may still be too long!
+                -- (particularly with URLs)
+                if #after > (scr_width-line.indent) then
+                    word_str = after
+                    word_len = #after
+                    _addWord()
+                    return
+                else
+                    line:addString(after, word_style)
+                end
+            end
         else
             -- add the pending spaces from before the word started
-            if word_spc > 0 then line:addString(string.rep(" ", word_spc)); end
+            if word_spc > 0 then
+                -- the style class of the word is used to create
+                -- a contiguous span, requiring less colour-data bytes
+                line:addString(string.rep(" ", word_spc), word_style)
+            end
             -- the word fits the line, add as is
-            if word_len > 0 then line:addString(word_str); end
+            if word_len > 0 then line:addString(word_str, word_style); end
             -- the pending spaces have been handled,
             -- don't add them again on the next line
             word_spc = 0
         end
         -- reset the current word
-        word_str = ""
-        word_len = 0
+        word_str    = ""
+        word_len    = 0
+        word_style  = line.default
+        is_word     = false
+        is_url      = false
     end
 
     -- (private) add the current line to the article, and start another
@@ -275,8 +316,9 @@ function Article:readLine(s_text)
         line.default    = old_default
         -- apply the indent
         if line.indent > 0 then
-            line:addString(string.rep(" ", line.indent))
+            line:addString(string.rep(" ", line.indent), line.default)
         end
+        is_word = false
     end
 
     -- indent?
@@ -288,7 +330,7 @@ function Article:readLine(s_text)
         -- (e.g. word-wrap), the indent is carried on to subsequent lines
         line.indent = #s_indent
         -- add the indent to the output line
-        line:addString(s_indent)
+        line:addString(s_indent, line.default)
         -- skip these spaces, effectively restarting the line
         -- (this is needed to allow for indent + bullet point, for example)
         index = #s_indent+1
@@ -301,6 +343,7 @@ function Article:readLine(s_text)
     if s_text:match("^::", index) ~= nil then
         ------------------------------------------------------------------------
         line.default = 1    -- change the line's default style class
+        word_style = 1      -- the first word needs to match
         index = index + 3   -- move the index forward over the marker
 
     -- horizontal bar?
@@ -346,10 +389,37 @@ function Article:readLine(s_text)
     -- convert em-dashes and consume optional spaces either side
     s_text = s_text:gsub(" ?%-%- ?", "—") -- note that this is an em-dash!
 
+    ----------------------------------------------------------------------------
     while index <= #s_text do
         ------------------------------------------------------------------------
         -- read a single byte
         ascii = s_text:byte(index)
+
+        -- special handling for start of words;
+        -- some formatting we do not want to match in the middle of a word
+        --
+        if is_word == false then
+            --------------------------------------------------------------------
+            -- url?
+            --------------------------------------------------------------------
+            local match = ""
+            match = s_text:match("^<[^> ]+>", index)
+            if match ~= nil then
+                -- extract the URL, (skip "<" & ">")
+                local url = match:sub(2, -2)
+                -- set the URL as the current word,
+                -- and apply the URL style class
+                word_str    = url
+                word_len    = #url
+                word_style  = 2
+                is_url      = true      -- handle URL word-wrapping
+                -- add the URL to line
+                _addWord()
+                -- skip over the URL text
+                index = index + #match-1
+                goto next
+            end
+        end
 
         -- space = word-break
         --
@@ -390,6 +460,7 @@ function Article:readLine(s_text)
             _addChar(ascii)
         end
 
+::next::
         -- move to the next character
         index = index + 1
     end
