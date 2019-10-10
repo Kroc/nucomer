@@ -511,8 +511,8 @@ function Line:getBinColour()
     ----------------------------------------------------------------------------
     local s_bin = ""
 
-    print(truncate(self.source))
-    print(view)
+    --#print(self.source)
+    --#print(view)
 
     for i, span in ipairs(spans) do
         -- the first byte of the colour-data must be an initial offset
@@ -550,6 +550,6 @@ function Line:getBinColour()
         end
     end
 
-    print("#", #s_bin)
+    --#print("#", #s_bin)
     return s_bin
 end

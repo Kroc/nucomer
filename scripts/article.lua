@@ -96,6 +96,12 @@ Article = {
     lines       = {}    -- table of converted lines in the article
 }
 
+local STYLE_DEFAULT = 0
+local STYLE_TITLE   = 1
+local STYLE_BOLD    = 2
+local STYLE_NAME    = 3
+local STYLE_URL     = 6
+
 -- create a new instance of the Article class
 --------------------------------------------------------------------------------
 function Article:new()
@@ -178,7 +184,8 @@ function Article:readLine(s_text)
     local ascii         = 0     -- current character code
     local word_str      = ""    -- current word (for word-wrapping)
     local word_len      = 0     -- character length of word (not byte-length!)
-    local word_style    = 0     -- style class of word
+    -- style class of word
+    local word_style    = STYLE_DEFAULT
 
     -- flag for indicating when we're between / within words, as certain markup
     -- only applies at the beginning of a word, e.g. bold, URLs
@@ -186,6 +193,9 @@ function Article:readLine(s_text)
     -- indicates that the current word is a URL and therefore
     -- needs to be word-wrapped differently
     local is_url    = false
+
+    local is_bold   = false
+    local is_name   = false
 
     -- we do not want to leave trailing spaces on lines, so when a word begins,
     -- we hold on to the space until the word ends and decide where it goes
@@ -205,6 +215,12 @@ function Article:readLine(s_text)
     ----------------------------------------------------------------------------
     function _addWord()
         ------------------------------------------------------------------------
+        if word_style == line.default then
+            if is_bold then word_style = STYLE_BOLD; end
+            if is_name then word_style = STYLE_NAME; end
+            if is_url  then word_style = STYLE_URL;  end
+        end
+
         -- check the length of the line, assuming the word is added to the end.
         -- note: when converted to C64 screen codes, the word may amount to
         -- more or less characters than on its own, which is why we do the
@@ -342,16 +358,16 @@ function Article:readLine(s_text)
     --
     if s_text:match("^::", index) ~= nil then
         ------------------------------------------------------------------------
-        line.default = 1    -- change the line's default style class
-        word_style = 1      -- the first word needs to match
-        index = index + 3   -- move the index forward over the marker
+        line.default = STYLE_TITLE  -- change the line's default style class
+        word_style = line.default   -- the first word needs to match
+        index = index + 3           -- move the index forward over the marker
 
     -- horizontal bar?
     -- ---------------
     elseif s_text:match("^%-%-%-%-", index) ~= nil then
         ------------------------------------------------------------------------
-        line.default = 1        -- change the line's default style class
-        line.is_literal = true  -- set as literal text and do not convert
+        line.default = STYLE_TITLE  -- change the line's default style class
+        line.is_literal = true      -- set as literal text and do not convert
 
         -- build a horizontal bar directly out of screen-codes
         line:addString(string.rep(string.char(0xf6), scr_width-line.indent))
@@ -366,7 +382,7 @@ function Article:readLine(s_text)
     elseif s_text:match("^%* ", index) ~= nil then
         ------------------------------------------------------------------------
         -- switch "*" for the bullet-point character
-        line:addString("• ", 1)
+        line:addString("• ", STYLE_TITLE)
         -- indent on line-break
         line.indent = line.indent + 2
         -- begin after the bullet-point
@@ -379,7 +395,7 @@ function Article:readLine(s_text)
         -- get the details
         local s_numeral = s_text:match("^%w+%.", index)
         -- add it to the output line (excluding the space!)
-        line:addString(s_numeral, 1)
+        line:addString(s_numeral, STYLE_TITLE)
         -- set the hanging indent for line-breaks
         line.indent = line.indent + 2
         -- skip the detected numeral point
@@ -389,8 +405,9 @@ function Article:readLine(s_text)
     -- convert em-dashes and consume optional spaces either side
     s_text = s_text:gsub(" ?%-%- ?", "—") -- note that this is an em-dash!
 
+    s_text = s_text .. " "
     ----------------------------------------------------------------------------
-    while index <= #s_text do
+    while index <= #s_text-1 do
         ------------------------------------------------------------------------
         -- read a single byte
         ascii = s_text:byte(index)
@@ -402,21 +419,33 @@ function Article:readLine(s_text)
             --------------------------------------------------------------------
             -- url?
             --------------------------------------------------------------------
-            local match = ""
-            match = s_text:match("^<[^> ]+>", index)
-            if match ~= nil then
+            if s_text:match("^<%S+>", index) then
+                local match = s_text:match("^<%S+>", index)
                 -- extract the URL, (skip "<" & ">")
                 local url = match:sub(2, -2)
                 -- set the URL as the current word,
                 -- and apply the URL style class
                 word_str    = url
                 word_len    = #url
-                word_style  = 2
-                is_url      = true      -- handle URL word-wrapping
+                is_url      = true      -- use URL word-wrapping
                 -- add the URL to line
                 _addWord()
                 -- skip over the URL text
                 index = index + #match-1
+                goto next
+
+            -- *bold*
+            --------------------------------------------------------------------
+            elseif s_text:match("^%*%g", index) then
+                is_bold = true
+                is_word = true
+                goto next
+
+            -- _name_
+            --------------------------------------------------------------------
+            elseif s_text:match("^%_%g", index) then
+                is_name = true
+                is_word = true
                 goto next
             end
         end
@@ -431,16 +460,32 @@ function Article:readLine(s_text)
             -- queue another space
             word_spc = 1
 
-        -- punctuation that line-breaks after (but not before) e.g. we don't
-        -- want to break "yes/no" such that a line begins with "/"
+        -- punctuation that line-breaks before (but not after)
+        -- e.g. wrapping punctuation such as "(..."
         --
-        elseif s_text:match("^[\\/]", index) then
+        elseif s_text:match("^[%(%[%\"]", index) then
             --------------------------------------------------------------------
-            -- add the slash to the current word so it stays stuck to it
+            -- force a word-break
+            _addWord()
+            -- add the punctuation to the current word so it stays stuck to it
             _addChar(ascii)
-            -- force a word-break; if the characters after the slash
+            -- TODO: can't have a word contain multiple colour spans!
+            _addWord()
+            -- allow start-of-word markup
+            is_word = false
+
+        -- punctuation that line-breaks after (but not before)
+        -- e.g. don't break "yes/no" such that a line begins with "/"
+        --
+        elseif s_text:match("^[\\/%)%]%\"]", index) then
+            --------------------------------------------------------------------
+            -- add the punctuation to the current word so it stays stuck to it
+            _addChar(ascii)
+            -- force a word-break; if the characters after the punctuation
             -- don't fit, they will be moved to the next line
             _addWord()
+            -- allow start-of-word markup
+            is_word = false
 
         -- an em-dash is a word-break either side
         --
@@ -454,6 +499,19 @@ function Article:readLine(s_text)
             _addWord()
             -- skip the extra byte
             index = index + 1
+
+        -- end of bold
+        ------------------------------------------------------------------------
+        elseif s_text:match("^%*[%s%p]", index) then
+            _addWord()
+            is_bold = false
+
+        -- end of name class
+        ------------------------------------------------------------------------
+        elseif s_text:match("^%_[%s%p]", index) then
+            _addWord()
+            is_name = false
+
         else
             --------------------------------------------------------------------
             -- add to the current word

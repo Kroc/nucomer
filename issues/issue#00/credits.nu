@@ -1,10 +1,10 @@
 :: Nücomer Magazine:
 
-Kroc Camen:
+_Kroc Camen_:
 - code / font
 
 Special Thanks To:
-- Michael Steil (@pagetable)
+- _Michael Steil_ (<@pagetable>)
 
 :: Attribution-NonCommercial-ShareAlike 4.0 International
 --------------------------------------------------------------------------------

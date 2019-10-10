@@ -1,6 +1,6 @@
 :: Editorial
 --------------------------------------------------------------------------------
-by Kroc Camen / Camen Design
+by _Kroc Camen_ / _Camen Design_
 
 Welcome, Newcomer.
 
