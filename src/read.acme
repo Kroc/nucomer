@@ -11,13 +11,41 @@
 ;===============================================================================
 ; the screen used when reading articles
 
-; theme colours
-.READ_BORDER            = .VIC_LTGREY
-.READ_FORE              = .VIC_DKGREY
-.READ_BACK              = .VIC_LTGREY
+.THEME_GREY_BACK        = .VIC_LTGREY
+.THEME_GREY_BORDER      = .THEME_GREY_BACK
+.THEME_GREY_FORE        = .VIC_DKGREY
+.THEME_GREY_TITLE       = .VIC_BLACK
+.THEME_GREY_BOLD        = .VIC_WHITE
+.THEME_GREY_NOUN        = .VIC_ORANGE
+.THEME_GREY_NAME        = .VIC_PURPLE
+.THEME_GREY_URL         = .VIC_BLUE
+.THEME_GREY_WARN        = .VIC_RED
+
+.THEME_BLUE_BACK        = .VIC_BLUE
+.THEME_BLUE_BORDER      = .THEME_BLUE_BACK
+.THEME_BLUE_FORE        = .VIC_LTBLUE
+.THEME_BLUE_TITLE       = .VIC_YELLOW
+.THEME_BLUE_BOLD        = .VIC_WHITE
+.THEME_BLUE_NOUN        = .VIC_LTGREEN
+.THEME_BLUE_NAME        = .VIC_GREEN
+.THEME_BLUE_URL         = .VIC_CYAN
+.THEME_BLUE_WARN        = .VIC_RED
+
+; define the default theme,
+; as is compiled into the assembly:
+;
+.THEME_BACK             = .THEME_BLUE_BACK
+.THEME_BORDER           = .THEME_BACK
+.THEME_FORE             = .THEME_BLUE_FORE
+.THEME_TITLE            = .THEME_BLUE_TITLE
+.THEME_BOLD             = .THEME_BLUE_BOLD
+.THEME_NOUN             = .THEME_BLUE_NOUN
+.THEME_NAME             = .THEME_BLUE_NAME
+.THEME_URL              = .THEME_BLUE_URL
+.THEME_WARN             = .THEME_BLUE_WARN
 
 !addr {
-
+;===============================================================================
 ; vertical scrolling register value to write at each vblank:
 ; this ensures that the change to the vertical smooth-scroll
 ; offset only ever occurs offscreen
@@ -194,18 +222,17 @@ read_colour_row26       = nu_colour_after
 }
 
 ;===============================================================================
-; TODO: put this into zero-page for a tiny bit of speed+size-gain?
 ;
 read_styles:
 read_styles_colour:
-read_style0_colour:     !byte   .READ_FORE      ; default text colour
-read_style1_colour:     !byte   .VIC_BLACK      ; structural (e.g. title)
-read_style2_colour:     !byte   .VIC_ORANGE     ; proper noun, work/citation
-read_style3_colour:     !byte   .VIC_PURPLE     ; proper noun, people
-read_style4_colour:     !byte   .VIC_WHITE      ; <unassigned>
-read_style5_colour:     !byte   .VIC_WHITE      ; <unassigned>
-read_style6_colour:     !byte   .VIC_BLUE       ; URL
-read_style7_colour:     !byte   .VIC_RED        ; <unassigned>
+read_style0_colour:     !byte   .THEME_FORE     ; default text colour
+read_style1_colour:     !byte   .THEME_TITLE    ; structural (e.g. title)
+read_style2_colour:     !byte   .THEME_BOLD
+read_style3_colour:     !byte   .THEME_NOUN     ; proper noun, work/citation
+read_style4_colour:     !byte   .THEME_NAME     ; person / group
+read_style5_colour:     !byte   .VIC_RED        ; <unassigned>
+read_style6_colour:     !byte   .THEME_URL      ; URL
+read_style7_colour:     !byte   .THEME_WARN     ; warning / error
 
 ;===============================================================================
 read_screen:
@@ -216,13 +243,16 @@ read_screen:
         sta .VIC_SCREEN_VERT
 
         ; set screen colour
-        lda # .READ_BORDER
+        lda # .THEME_BORDER
         sta .VIC_BORDER
-        lda # .READ_BACK
+        ; (save a couple of bytes if the background/border are the same)
+        !if .THEME_BORDER != .THEME_BACK {
+        lda # .THEME_BACK
+        }
         sta .VIC_BACKGROUND
 
         ; erase the text-screen
-        lda # .READ_FORE
+        lda # .THEME_FORE
         sta zp_print_colour
         jsr clear_screen
 
@@ -298,7 +328,7 @@ read_screen:
         ;-----------------------------------------------------------------------
         ; reset the smooth scrolling variables
         ldx # $00
-        stx zp_read_vert        ; set initial smooth-scroll offset
+        ;;stx zp_read_vert        ; set initial smooth-scroll offset
         stx zp_read_scroll      ; scroll-speed = 0
         stx zp_read_stop_dn     ; allow scrolling down; $00 = go, $FF = stop
         stx zp_read_vpos_lo     ; set the exact pixel vertical position
@@ -435,7 +465,8 @@ read_irq_top:
         ;-----------------------------------------------------------------------
         ;;inc .VIC_BORDER
         
-        lda zp_read_vert
+        ;;lda zp_read_vert
+        lda zp_read_vpos_lo
         and # %00000111
         eor # %00000111
         ; update the screen/scroll register:
@@ -571,7 +602,7 @@ read_irq_scroll:
         inx                     ; X = $00
         stx zp_read_vpos_lo     ; set scroll position within article
         stx zp_read_vpos_hi     ; to $0000
-        stx zp_read_vert        ; reset vertical smooth-scroll register
+        ;;stx zp_read_vert        ; reset vertical smooth-scroll register
 
 @done:  ;;dec .VIC_BORDER
         rts
@@ -602,8 +633,8 @@ read_irq_scroll:
         ; soft/hard-scroll the screen:
         ;-----------------------------------------------------------------------
         ; soft-scroll:
-@scroll lda zp_read_vpos_lo     ; retrieve the article scroll position
-        sta zp_read_vert        ; set the smooth-scrolling register at vblank
+@scroll ;;lda zp_read_vpos_lo     ; retrieve the article scroll position
+        ;;sta zp_read_vert        ; set the smooth-scrolling register at vblank
 
         ; do we need to hard-scroll?
         tya                     ; article scroll position *before* scroll
@@ -630,9 +661,9 @@ read_scroll_down:
         ;-----------------------------------------------------------------------
         ; copy the screen up a row -- due to the number of rows, the loop has
         ; to be split into three otherwise the relative branches cannot reach
-        ; the top (>128 bytes) but we do want to get as close to that limit as
-        ; possible (about 41 load + stores) as this minimizes the number of
-        ; cycles wasted each iteration maintaining the loop
+        ; the top (>128 bytes) but we do want to get as close to that limit
+        ; as possible (about 41 load + stores) as this minimizes the number
+        ; of cycles wasted each iteration maintaining the loop
         ;
         ldy # 39                ; as always, loop backwards for speed
 -       ; row 1 -> row 0
@@ -772,7 +803,7 @@ read_scroll_down:
         ; copy the off-screen line into view
         lda read_screen_row26-1, y
         sta read_screen_row25-1, y
-        ; the color for the off-screen line is stored at a different
+        ; note that the color for the off-screen line is stored at a different
         ; place as we cannot store data at $DC00 when I/O is on!
         lda read_colour_row26-1, y
         sta read_colour_row25-1, y
@@ -903,7 +934,7 @@ read_scroll_up:
         ldy # 39
         ; row 18 -> row ...
         ; (we use the off-screen row above temporarily as it is "garbage" at
-        ;  this point until after the screen copy when it will be populated)
+        ;  this point until after the screen copy, when it will be populated)
 -       lda read_screen_row18, y
         sta read_screen_row0, y
         lda read_colour_row18, y

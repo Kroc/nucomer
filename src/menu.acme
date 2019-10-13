@@ -323,9 +323,9 @@ menu_load:
         ; tear down the custom interrupt handlers
         jsr irqs_disable
         
-        lda # .READ_BACK
+        lda # .THEME_BACK
         sta .VIC_BORDER
-        lda # .READ_FORE
+        lda # .THEME_FORE
         sta .VIC_BACKGROUND
         
         ; change to the custom font, don't remain on the ROM font!

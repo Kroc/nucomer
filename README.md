@@ -4,7 +4,8 @@ Never been to a demo party? Good. I have the disk-mag for you.
 
 Nücomer is a disk magazine for the Commodore 64 that is dedicated to providing content for the modern C64 user, whether you had one in the '80s and are just getting back into it, but particularly for those for whom the C64 is from a time long before you were born and you're interested in knowing what all the hype over these 8-bit machines is about.
 
-![VICE screenshot](screenshot.png)
+![VICE screenshot of the main menu](screenshot_menu.png)
+![VICE screenshot of an article](screenshot_read.png)
 
 ## Contributing
 

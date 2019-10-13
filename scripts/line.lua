@@ -171,8 +171,14 @@ function string:toC64 ()
             -- skip the extra (utf-8) bytes
             i = i + 1
 
+        -- full-stop (further left than dot between characters)
+        ------------------------------------------------------------------------
+        elseif self:match("^%.%s", i) or self:match("^%.$", i) then
+            -- add the special full-stop char
+            s_out = s_out ..string.char(0x63)
+
         -- "... I ...":
-        ---------------------------------------------------------------------
+        ------------------------------------------------------------------------
         elseif self:match("^ I ", i) ~= nil then
             s_out = s_out .. string.char(0x70, 0x71)
             -- skip a couple of bytes

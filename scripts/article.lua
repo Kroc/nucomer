@@ -99,8 +99,10 @@ Article = {
 local STYLE_DEFAULT = 0
 local STYLE_TITLE   = 1
 local STYLE_BOLD    = 2
-local STYLE_NAME    = 3
+local STYLE_NOUN    = 3
+local STYLE_NAME    = 4
 local STYLE_URL     = 6
+local STYLE_WARN    = 7
 
 -- create a new instance of the Article class
 --------------------------------------------------------------------------------
@@ -190,12 +192,13 @@ function Article:readLine(s_text)
     -- flag for indicating when we're between / within words, as certain markup
     -- only applies at the beginning of a word, e.g. bold, URLs
     local is_word   = false
+
+    local is_bold   = false
+    local is_noun   = false
+    local is_name   = false
     -- indicates that the current word is a URL and therefore
     -- needs to be word-wrapped differently
     local is_url    = false
-
-    local is_bold   = false
-    local is_name   = false
 
     -- we do not want to leave trailing spaces on lines, so when a word begins,
     -- we hold on to the space until the word ends and decide where it goes
@@ -218,6 +221,7 @@ function Article:readLine(s_text)
         if word_style == line.default then
             if is_bold then word_style = STYLE_BOLD; end
             if is_name then word_style = STYLE_NAME; end
+            if is_noun then word_style = STYLE_NOUN; end
             if is_url  then word_style = STYLE_URL;  end
         end
 
@@ -370,7 +374,7 @@ function Article:readLine(s_text)
         line.is_literal = true      -- set as literal text and do not convert
 
         -- build a horizontal bar directly out of screen-codes
-        line:addString(string.rep(string.char(0xf6), scr_width-line.indent))
+        line:addString(string.rep(string.char(0xf1), scr_width-line.indent))
 
        -- no need to process any more of the source line
        -- just add the bar we've given and exit
@@ -382,7 +386,7 @@ function Article:readLine(s_text)
     elseif s_text:match("^%* ", index) ~= nil then
         ------------------------------------------------------------------------
         -- switch "*" for the bullet-point character
-        line:addString("• ", STYLE_TITLE)
+        line:addString("• ", STYLE_BOLD)
         -- indent on line-break
         line.indent = line.indent + 2
         -- begin after the bullet-point
@@ -392,7 +396,7 @@ function Article:readLine(s_text)
     -- * ...
     elseif s_text:match("^%- ", index) ~= nil then
         ------------------------------------------------------------------------
-        line:addString("- ", STYLE_TITLE)
+        line:addString("- ", STYLE_BOLD)
         -- indent on line-break
         line.indent = line.indent + 2
         -- begin after the bullet-point
@@ -405,7 +409,7 @@ function Article:readLine(s_text)
         -- get the details
         local s_numeral = s_text:match("^%w+%.", index)
         -- add it to the output line (excluding the space!)
-        line:addString(s_numeral, STYLE_TITLE)
+        line:addString(s_numeral, STYLE_BOLD)
         -- set the hanging indent for line-breaks
         line.indent = line.indent + 2
         -- skip the detected numeral point
@@ -451,12 +455,20 @@ function Article:readLine(s_text)
                 is_word = true
                 goto next
 
+            -- ~noun~
+            --------------------------------------------------------------------
+            elseif s_text:match("^%~%g", index) then
+                is_noun = true
+                is_word = true
+                goto next
+
             -- _name_
             --------------------------------------------------------------------
             elseif s_text:match("^%_%g", index) then
                 is_name = true
                 is_word = true
                 goto next
+
             end
         end
 
@@ -473,13 +485,14 @@ function Article:readLine(s_text)
         -- punctuation that line-breaks before (but not after)
         -- e.g. wrapping punctuation such as "(..."
         --
-        elseif s_text:match("^[%(%[%\"]", index) then
+        elseif s_text:match("^[%(%[]", index) then
             --------------------------------------------------------------------
             -- force a word-break
             _addWord()
             -- add the punctuation to the current word so it stays stuck to it
             _addChar(ascii)
             -- TODO: can't have a word contain multiple colour spans!
+            -- TODO: this allows a line-break immediately after a bracket :(
             _addWord()
             -- allow start-of-word markup
             is_word = false
@@ -487,7 +500,7 @@ function Article:readLine(s_text)
         -- punctuation that line-breaks after (but not before)
         -- e.g. don't break "yes/no" such that a line begins with "/"
         --
-        elseif s_text:match("^[\\/%)%]%\"]", index) then
+        elseif s_text:match("^[\\/%)%]]", index) then
             --------------------------------------------------------------------
             -- add the punctuation to the current word so it stays stuck to it
             _addChar(ascii)
@@ -515,6 +528,12 @@ function Article:readLine(s_text)
         elseif s_text:match("^%*[%s%p]", index) then
             _addWord()
             is_bold = false
+
+        -- end of noun class
+        ------------------------------------------------------------------------
+        elseif s_text:match("^%~[%s%p]", index) then
+            _addWord()
+            is_noun = false
 
         -- end of name class
         ------------------------------------------------------------------------
