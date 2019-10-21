@@ -1,4 +1,4 @@
-:: Nücomer Magazine:
+:: nücomer Magazine:
 --------------------------------------------------------------------------------
 <github.com/Kroc/nucomer>
 

@@ -96,13 +96,13 @@ Article = {
     lines       = {}    -- table of converted lines in the article
 }
 
-local STYLE_DEFAULT = 0
-local STYLE_TITLE   = 1
-local STYLE_BOLD    = 2
-local STYLE_NOUN    = 3
-local STYLE_NAME    = 4
-local STYLE_URL     = 6
-local STYLE_WARN    = 7
+STYLE_DEFAULT   = 0
+STYLE_TITLE     = 1
+STYLE_BOLD      = 2
+STYLE_NOUN      = 3
+STYLE_NAME      = 4
+STYLE_URL       = 6
+STYLE_WARN      = 7
 
 -- create a new instance of the Article class
 --------------------------------------------------------------------------------
@@ -240,8 +240,8 @@ function Article:readLine(s_text)
         c64_new = c64_old .. word_str
         -- convert to C64 screen-codes,
         -- giving us the on-screen widths
-        c64_old = string.toC64(c64_old)
-        c64_new = string.toC64(c64_new)
+        c64_old = c64_old:toC64()
+        c64_new = c64_new:toC64()
 
         -- if the word would not fit on the line,
         -- hyphenate & word-wrap:
@@ -343,7 +343,7 @@ function Article:readLine(s_text)
 
     -- indent?
     ----------------------------------------------------------------------------
-    if s_text:match("^%s+") ~= nil then
+    if s_text:match("^%s+") then
         -- how much?
         local s_indent = s_text:match("^%s+")
         -- set the property on the line object so that if a line-break occurs
@@ -360,7 +360,7 @@ function Article:readLine(s_text)
     ----------------------------------------------------------------------------
     -- :: title
     --
-    if s_text:match("^::", index) ~= nil then
+    if s_text:match("^::", index) then
         ------------------------------------------------------------------------
         line.default = STYLE_TITLE  -- change the line's default style class
         word_style = line.default   -- the first word needs to match
@@ -368,13 +368,17 @@ function Article:readLine(s_text)
 
     -- horizontal bar?
     -- ---------------
-    elseif s_text:match("^%-%-%-%-", index) ~= nil then
+    elseif s_text:match("^%-%-%-%-", index) then
         ------------------------------------------------------------------------
         line.default = STYLE_TITLE  -- change the line's default style class
         line.is_literal = true      -- set as literal text and do not convert
 
-        -- build a horizontal bar directly out of screen-codes
-        line:addString(string.rep(string.char(0xf1), scr_width-line.indent))
+        line:addString(
+            -- build a horizontal bar directly out of screen-codes;
+            -- (the escape code, 0x1b, allows embedding screen codes
+            --  that won't be converted from ASCII)
+            string.rep(string.char(0x1b, 0xf1), scr_width-line.indent)
+        )
 
        -- no need to process any more of the source line
        -- just add the bar we've given and exit
@@ -383,7 +387,7 @@ function Article:readLine(s_text)
 
     -- bullet point:
     -- * ...
-    elseif s_text:match("^%* ", index) ~= nil then
+    elseif s_text:match("^%* ", index) then
         ------------------------------------------------------------------------
         -- switch "*" for the bullet-point character
         line:addString("• ", STYLE_BOLD)
@@ -394,7 +398,7 @@ function Article:readLine(s_text)
 
     -- bullet point:
     -- * ...
-    elseif s_text:match("^%- ", index) ~= nil then
+    elseif s_text:match("^%- ", index) then
         ------------------------------------------------------------------------
         line:addString("- ", STYLE_BOLD)
         -- indent on line-break
@@ -404,7 +408,7 @@ function Article:readLine(s_text)
 
     -- numbered list:
     -- 1. / a. / i. / A.
-    elseif s_text:match("^%w+%. ", index) ~= nil then
+    elseif s_text:match("^%w+%. ", index) then
         ------------------------------------------------------------------------
         -- get the details
         local s_numeral = s_text:match("^%w+%.", index)
@@ -507,8 +511,8 @@ function Article:readLine(s_text)
             -- force a word-break; if the characters after the punctuation
             -- don't fit, they will be moved to the next line
             _addWord()
-            -- allow start-of-word markup
-            is_word = false
+            word_spc = 0        -- don't add a space inbetween
+            is_word = false     -- allow start-of-word markup
 
         -- an em-dash is a word-break either side
         --

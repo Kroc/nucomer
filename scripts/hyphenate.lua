@@ -89,7 +89,7 @@ function Hyphenate:patternToPoints(s_pattern)
     local t_points = {}
     for _, s_point in pairs(s_pattern:split("[.a-z]", nil, true)) do
         local i_point = 0
-        if tonumber(s_point) ~= nil then i_point = tonumber(s_point); end
+        if tonumber(s_point) then i_point = tonumber(s_point); end
         table.insert(t_points, i_point)
     end
     return t_points
@@ -156,14 +156,14 @@ function Hyphenate:hyphenate(s_locale, s_word)
     local s, e          -- "start" & "end" character positions
 
     s, e = s_word:find("^%W+")
-    if s ~= nil then
+    if s then
         prfx = s_word:sub(s, e)
         -- strip the leading symbols from the word
         s_word = s_word:sub(e+1)
     end
 
     s, e = s_word:find("%W+$")
-    if s ~= nil then
+    if s then
         sufx = s_word:sub(s, e)
         -- strip the trailing symbols from the word
         s_word = s_word:sub(1, s-1)
@@ -180,11 +180,11 @@ function Hyphenate:hyphenate(s_locale, s_word)
     -- is this word already in the exceptions list?
     -- TODO: how does this handle hyphens already in the word?
     local t_points = self.langs[s_locale].exceptions[string.lower(s_word)]
-    if t_points ~= nil then goto output; end
+    if t_points then goto output; end
 
     --#-- if the word already contains hyphens, split using those
     --#-- and do not automatically hyphenate
-    --#if s_word:match("-") ~= nil then
+    --#if s_word:match("-") then
     --#    t_points = {prfx}
     --#    for _, s_piece in pairs(s_word:split("-", nil, true)) do
     --#        table.insert(t_points, s_piece)
