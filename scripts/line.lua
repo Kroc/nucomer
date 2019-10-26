@@ -51,15 +51,12 @@ end
 
 -- encode a utf-8 string for the C64 and add it to the line
 --------------------------------------------------------------------------------
-function Line:addString(s_utf8, i_style)
+function Line:addString(s_utf8)
     ----------------------------------------------------------------------------
     -- sanity check
     if s_utf8 == "" then return; end
 
-    -- default style class?
-    if i_style == nil then i_style = self.default; end
-
-    self.source = self.source .. ("\x1b"..tostring(i_style)) .. s_utf8
+    self.source = self.source .. s_utf8
     self._dirty = true
 end
 
@@ -174,8 +171,8 @@ function Line:getBinColour()
     ----------------------------------------------------------------------------
     local s_bin = ""
 
-    --#print(self.source)
-    --#print(view)
+    print(self.source)
+    print(view)
 
     for i, span in ipairs(spans) do
         -- the first byte of the colour-data must be an initial offset
@@ -188,7 +185,7 @@ function Line:getBinColour()
             -- be used for a non-default colour span occuring at the
             -- beginning of a line, leading to no initial offset
             s_bin = string.char((span.last-span.first)+1)
-            --#print(">", (span.last-span.first)+1)
+            print(">", (span.last-span.first)+1)
         else
             -- if the first colour span is not the default style,
             -- we have to conceed the first byte
@@ -203,16 +200,16 @@ function Line:getBinColour()
                 -- split the span into two;
                 -- first write a maximum span of 32
                 s_bin = s_bin .. string.char(31 + span_class)
-                --#print("=", 32, span.style)
+                print("=", 32, span.style)
                 -- leave the remainder
                 span_width = span_width - 31
             end
             -- combine the span style-class and length
             s_bin = s_bin .. string.char(span_width + span_class)
-            --#print("=", span_width+1, span.style)
+            print("=", span_width+1, span.style)
         end
     end
 
-    --#print("#", #s_bin)
+    print("#", #s_bin)
     return s_bin
 end

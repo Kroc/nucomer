@@ -10,6 +10,28 @@
 
 -- nustring.lua : conversion of ASCII to C64 screen & colour codes
 --------------------------------------------------------------------------------
+-- nücomer provides 8 text styles (0 being the default)
+--
+STYLE_DEFAULT   = 0
+STYLE_TITLE     = 1
+STYLE_BOLD      = 2
+STYLE_NOUN      = 3
+STYLE_NAME      = 4
+STYLE_SOFT      = 5
+STYLE_URL       = 6
+STYLE_WARN      = 7
+
+-- escape codes are used in the source ASCII string to indicate
+-- where style changes will occur in the ouput C64 string
+ESC             = "\x1B"
+ESC_DEFAULT     = ESC.."0" --#tostring(STYLE_DEFAULT)
+ESC_TITLE       = ESC.."1" --#tostring(STYLE_TITLE)
+ESC_BOLD        = ESC.."2" --#tostring(STYLE_BOLD)
+ESC_NOUN        = ESC.."3" --#tostring(STYLE_NOUN)
+ESC_NAME        = ESC.."4" --#tostring(STYLE_NAME)
+ESC_SOFT        = ESC.."5" --#tostring(STYLE_SOFT)
+ESC_URL         = ESC.."6" --#tostring(STYLE_URL)
+ESC_WARN        = ESC.."7" --#tostring(STYLE_WARN)
 
 -- this is the conversion table used to convert the source article characters
 -- into screen-codes for the custom font used on the C64, which is not in any
@@ -145,8 +167,8 @@ function string:toC64 ()
 
     -- for each character, a style class is stored
     --
-    local style  = 0            -- default style class
-    local styles = {}           -- an array 0..n
+    local style  = STYLE_DEFAULT -- default style class
+    local styles = {}            -- an array 0..n
 
     -- we need to do multi-character conversions (such as contractions),
     -- as well as the default character-to-screen-code conversion, so we
@@ -166,7 +188,7 @@ function string:toC64 ()
         --
         -- escape codes, for setting the style-class
         ------------------------------------------------------------------------
-        if self:match("^\x1b.", i) then
+        if self:match("^\x1B%S", i) then
             -- skip over the escape code
             i = i + 1
             -- read the style class:
@@ -188,16 +210,31 @@ function string:toC64 ()
             -- add style class for the added character(s)
             table.insert(styles, style)
 
-        -- em-dash:
+        -- em-dash: "--"
+        ------------------------------------------------------------------------
+        elseif self:match("^%-%-", i) then
+            -- how many bytes is that?
+            local em = self:match("^%-%-", i)
+            -- add as two C64 screen-codes!
+            out_str = out_str .. string.char(0x61, 0x62)
+            -- add style class for the added character(s)
+            table.insert(styles, style)
+            table.insert(styles, style)
+            -- skip the extra bytes
+            i = i + #em-1
+
+        -- em-dash: (unicode)
         ------------------------------------------------------------------------
         elseif self:match("^—", i) then
+            -- how many bytes is that?
+            local em = self:match("^—", i)
             -- add as two C64 screen-codes!
             out_str = out_str .. string.char(0x61, 0x62)
             -- add style class for the added character(s)
             table.insert(styles, style)
             table.insert(styles, style)
             -- skip the extra (utf-8) bytes
-            i = i + 1
+            i = i + #em-1
 
         -- full-stop (further left than dot between characters)
         ------------------------------------------------------------------------
@@ -238,7 +275,7 @@ function string:toC64 ()
 
         -- "I'*":
         ------------------------------------------------------------------------
-        elseif self:match("^I'", i) then
+        elseif self:match("^I'%w", i) then
             -- encode using the special "I'*" character
             out_str = out_str .. string.char(0x72)
             -- add style class for the added character(s)
@@ -338,7 +375,7 @@ function string:toC64 ()
 
         -- "?th" ordinal:
         ------------------------------------------------------------------------
-        elseif self:match("^%gth[%s%p]", i) then
+        elseif self:match("^%dth[%s%p]", i) then
             -- encode the character before the "th"
             out_str = out_str .. string.char(str2scr[self:sub(i, i)])
             -- add the specialised "th" character
@@ -370,9 +407,13 @@ function string:toC64 ()
             out_str = out_str .. string.char(i_scr)
             -- skip over the excess bytes
             i = i + (#s_utf8-1)
+
+        ------------------------------------------------------------------------
         else
             -- "�"
-            --#out_str = out_str .. string.char(0xff)
+            out_str = out_str .. string.char(0xff)
+            -- set the warning style class
+            table.insert(styles, STYLE_WARN)
         end
 
     until i >= #self
@@ -395,10 +436,10 @@ function string:toC64 ()
     -- before a space, and 'bleed' it across the spaces
     --
     local bleed = styles[1]
-
+    local nuspc = str2scr[" "]
     for n = #out_str, 1, -1 do
         -- as long as spaces continue...
-        if out_str:byte(n) == 0x20 then
+        if out_str:byte(n) == nuspc then
             -- change the style class to match
             -- the last used style class
             styles[n] = bleed

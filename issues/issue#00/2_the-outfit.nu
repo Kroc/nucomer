@@ -10,6 +10,10 @@ Being born, as it was, in the 1980s, before PCs were common, before the World Wi
 
 * *You must never claim as your own, something you did not write*
 
+* *Don't just copy+paste. Learn the principle and make something new*
+
+* *Respect the rules before breaking them* -- <@conspiracyhu>
+
 * *Don't be lame*
 
 Source code is never provided (just transferring binaries could be an all-night job) and you were expected to learn from disassembling other's work.
@@ -18,10 +22,8 @@ Of course, we don't live in those days any more, do we?
 
 :: Why nücomer?
 --------------------------------------------------------------------------------
-All of the code that both produces this magazine on the PC, and runs it on the C64, is open-source and available to examine:
+All of the code that both produces this magazine on the PC, and runs it on the C64, is open-source and available to examine (much as with the ~Emperor's New Clothes~, everything is on show!)
 
 * <github.com/Kroc/nucomer>
 
-Much as the ~Emperor's New Clothes~, everything is on show!
-
-Whilst I have commented the code to an 
+Whilst I have commented the code to an excessive degree, this article is really about the decisions made in the approach

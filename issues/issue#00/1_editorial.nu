@@ -14,11 +14,11 @@ For me, the Commodore 64 was my own private world. With just games and manuals I
 
 Mentorship is the critical difference between a consumer and a creator.
 
-30 years after I began my C64 journey, I'm aware of my adeptness at learning whatever tool is necessary for the job and to retain detailed technical information. I have no doubt that had I had access to the scene at the time, and a mentor to guide me, I could be just as good a demo-coder as any other.
+30 years after I began my C64 journey, I'm aware of my adeptness at learning whatever tool is necessary for the job and to retain detailed technical information. I have no doubt that, had I access to the scene at the time and a mentor to guide me, I could be just as good a demo-coder as any other.
 
-For every skill I've learned and every community I've discovered I have always appraised myself as the outsider looking in, bringing with myself the experience of a newcomer, but critically, determined to build up the path behind me so that others do not have as hard a time as I had finding the way.
+For every skill I learned and every community I discovered, I have always appraised myself as the outsider looking in, bringing with myself the experience of a newcomer, but critically, determined to build up the path behind me so that others do not have as hard a time as I had finding the way.
 
-This publication exists to implore, educate and demonstrate the satisfaction that comes from 8-bit systems and software, particularly the Commodore 64 (we'll get to why in a moment). It is my sincere hope that you, the reader, have had to expend the least amount of effort in getting to this point. Maybe you're reading this in an emulator, in a web browser, and that is fine with me.
+This publication exists to implore, educate and demonstrate the satisfaction that comes from 8-bit systems and software. It is my sincere hope that you, the reader, have had to expend the least amount of effort in getting to this point. Maybe you're reading this in an emulator, in a web browser, and that is fine with me.
 
 Elitist arguments about "original hardware" must be pushed back. Those with a nostalgic connection to the C64 must be willing to give their knowledge to a future world in which there is no original hardware, only de-facto standards.
 
