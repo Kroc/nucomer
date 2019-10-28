@@ -274,10 +274,12 @@ function Article:readLine(s_text)
                 before, after = hyphenate:breakWord(
                     "en-gb", word_str,
                     -- split the word according to how much line space remains
-                    scr_width - line:getCharLen()
+                    scr_width - #c64_old
                 )
             end
+
             --#print(before, after)
+
             -- add the part of the word that fits (if any)
             if #before > 0 then line:addString(before); end
             -- dispatch the current line

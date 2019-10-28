@@ -171,13 +171,9 @@ function Line:getBinColour()
     ----------------------------------------------------------------------------
     local s_bin = ""
 
-    --#print(self.source)
+    --#print('"'..self.source..'"')
     --#print(view)
-    --#if #_styles > 40 then
-    --#    print('"'..self.source..'"')
-    --#    print(#_styles, inspect(_styles))
-    --#    error(">40!")
-    --#end
+    --#print(#_styles, inspect(_styles))
 
     for i, span in ipairs(spans) do
         -- the first byte of the colour-data must be an initial offset
@@ -209,7 +205,7 @@ function Line:getBinColour()
                 s_bin = s_bin .. string.char(31 + span_class)
                 --#print("=", 32, span.style)
                 -- leave the remainder
-                span_width = span_width - 31
+                span_width = span_width - 32
             end
             -- combine the span style-class and length
             s_bin = s_bin .. string.char(span_width + span_class)
