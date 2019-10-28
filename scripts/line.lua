@@ -171,8 +171,13 @@ function Line:getBinColour()
     ----------------------------------------------------------------------------
     local s_bin = ""
 
-    print(self.source)
-    print(view)
+    --#print(self.source)
+    --#print(view)
+    --#if #_styles > 40 then
+    --#    print('"'..self.source..'"')
+    --#    print(#_styles, inspect(_styles))
+    --#    error(">40!")
+    --#end
 
     for i, span in ipairs(spans) do
         -- the first byte of the colour-data must be an initial offset
@@ -185,7 +190,7 @@ function Line:getBinColour()
             -- be used for a non-default colour span occuring at the
             -- beginning of a line, leading to no initial offset
             s_bin = string.char((span.last-span.first)+1)
-            print(">", (span.last-span.first)+1)
+            --#print(">", (span.last-span.first)+1)
         else
             -- if the first colour span is not the default style,
             -- we have to conceed the first byte
@@ -196,20 +201,22 @@ function Line:getBinColour()
             local span_width = span.last-span.first
             -- colour spans are limited to 32 chars!
             -- (0-to-31 represents 1-to-32 on the C64)
+            -- TODO: allow a trailing class to the end of the line
+            --       using lengths 40-47
             if span_width > 31 then
                 -- split the span into two;
                 -- first write a maximum span of 32
                 s_bin = s_bin .. string.char(31 + span_class)
-                print("=", 32, span.style)
+                --#print("=", 32, span.style)
                 -- leave the remainder
                 span_width = span_width - 31
             end
             -- combine the span style-class and length
             s_bin = s_bin .. string.char(span_width + span_class)
-            print("=", span_width+1, span.style)
+            --#print("=", span_width+1, span.style)
         end
     end
 
-    print("#", #s_bin)
+    --#print("#", #s_bin)
     return s_bin
 end

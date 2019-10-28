@@ -20,11 +20,16 @@
 --   # remove and bit-pack spaces(TODO?)
 -- # analyse symbols across whole issue(TODO?)
 
-require "scripts.article"
+--------------------------------------------------------------------------------
+inspect = require "scripts.inspect"
 
+--------------------------------------------------------------------------------
 -- include the JSON library
 -- <https://github.com/rxi/json.lua>
-json = require "json"
+--
+json = require "scripts.json"
+
+require "scripts.article"
 
 function truncate(str)
         return string.format("%-36s", string.gsub(

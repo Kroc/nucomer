@@ -19,7 +19,8 @@ for _, s_exception in pairs({
     -- where the hyphenation algorithm fails, I am referring to the
     -- "Collins Gem Dictionary Of English Spelling", 1994 reprint,
     -- ISBN: 0-00-458725-1
-    "al-tered", "every-thing", "pri-vate", "with-out"
+    --
+    "al-tered", "de-fined", "every-thing", "pri-vate", "with-out"
 }) do
     hyphenate:insertException("en-gb", s_exception)
 end
@@ -247,8 +248,12 @@ function Article:readLine(s_text)
         if #c64_new <= scr_width then
             --------------------------------------------------------------------
             if word_len > 0 then line:addString(word_str); end
-            -- do we need to append a space?
-            if is_space then line:addString(" "); end
+            -- if the word fits exactly, we don't want to start
+            -- the next line with an errant space
+            if #c64_new < scr_width then
+                -- should we add a space after the word?
+                if is_space then line:addString(" "); end
+            end
 
         -- if the word would not fit on the line,
         -- hyphenate & word-wrap:
