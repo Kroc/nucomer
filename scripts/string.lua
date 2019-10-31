@@ -8,18 +8,18 @@
 --   (contact the author for a commercial licence)
 --
 
--- nustring.lua : conversion of ASCII to C64 screen & colour codes
+-- string.lua : conversion of ASCII to C64 screen & colour codes
 --------------------------------------------------------------------------------
 -- nücomer provides 8 text styles (0 being the default)
 --
-STYLE_DEFAULT   = 0
-STYLE_TITLE     = 1
-STYLE_BOLD      = 2
-STYLE_NOUN      = 3
-STYLE_NAME      = 4
-STYLE_SOFT      = 5
-STYLE_URL       = 6
-STYLE_WARN      = 7
+STYLE_DEFAULT   = 0             -- default body text
+STYLE_TITLE     = 1             -- structural; titles / lines
+STYLE_BOLD      = 2             -- *bold*
+STYLE_NOUN      = 3             -- ~noun~
+STYLE_NAME      = 4             -- _name_
+STYLE_SOFT      = 5             -- ((soft))
+STYLE_URL       = 6             -- <url>
+STYLE_WARN      = 7             -- !
 
 -- escape codes are used in the source ASCII string to indicate
 -- where style changes will occur in the ouput C64 string
@@ -38,7 +38,7 @@ ESC_WARN        = ESC..tostring(STYLE_WARN)
 -- guaranteed order, being instead a selection of only the necessary characters
 -- and various pseudo-characters for typographic effects such as "smart quotes"
 --
-local str2scr = {
+str2scr = {
     -- we begin in ASCII order purely for easy comparison to the source ASCII
     -- text, and the need to replicate ASCII characters not within the C64 ROM,
     -- such as curly braces & back-slash
@@ -167,7 +167,7 @@ function string:toC64 ()
 
     -- for each character, a style class is stored
     --
-    local style  = STYLE_DEFAULT -- default style class
+    local style  = STYLE_DEFAULT -- current style class
     local styles = {}            -- an array 0..n
 
     -- we need to do multi-character conversions (such as contractions),
@@ -417,37 +417,6 @@ function string:toC64 ()
         end
 
     until i >= #self
-
-    -- try and combine / minimise styles:
-    --
-    -- the more separate colour spans we have the more bytes we use,
-    -- so we try minimise the number of spans by extending styles
-    -- across spaces, i.e. taking a line that may look like this:
-    --
-    --      text  : the quick brown fox jumps over the lazy dog
-    --      style : 1110111110111110111011111011110111011110111
-    --
-    -- and changing the style of the spaces to extend the nearest span:
-    --
-    --      text  : the quick brown fox jumps over the lazy dog
-    --      style : 1111111111111111111111111111111111111111111
-    --
-    -- this variable will hold the last known style
-    -- before a space, and 'bleed' it across the spaces
-    --
-    local bleed = styles[1]
-    local nuspc = str2scr[" "]
-    for n = #out_str, 1, -1 do
-        -- as long as spaces continue...
-        if out_str:byte(n) == nuspc then
-            -- change the style class to match
-            -- the last used style class
-            styles[n] = bleed
-        else
-            -- not a space? update the style class to bleed
-            bleed = styles[n]
-        end
-    end
 
     return out_str, styles
 end

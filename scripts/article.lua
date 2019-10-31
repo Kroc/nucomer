@@ -176,13 +176,12 @@ function Article:readLine(s_text)
     local line          = ""    -- current line being built
     local index         = 1     -- current byte index in the line (1-based)
     local word_str      = ""    -- current word (for word-wrapping)
-    local word_len      = 0     -- character length of word (not byte-length!)
     local indent        = 0     -- size of the indent when breaking lines
 
     -- handles nesting of style class changes;
     -- the base is the default style
-    local style_stack   = {STYLE_DEFAULT}
     local style         = STYLE_DEFAULT
+    local style_stack   = {style}
 
     -- flag for indicating when we're between / within words, as certain markup
     -- only applies at the beginning of a word, e.g. titles, URLs
@@ -204,7 +203,6 @@ function Article:readLine(s_text)
     function _addChar(i_char)
         ------------------------------------------------------------------------
         word_str = word_str .. string.char(i_char)
-        word_len = word_len + 1
         is_word  = true
     end
 
@@ -259,7 +257,7 @@ function Article:readLine(s_text)
         --
         if #c64_new <= scr_width then
             --------------------------------------------------------------------
-            if word_len > 0 then line = line .. word_str; end
+            line = line .. word_str
             -- if the word fits exactly, we don't want to start
             -- the next line with an errant space
             if #c64_new < scr_width then
@@ -302,7 +300,6 @@ function Article:readLine(s_text)
                 -- (particularly with URLs)
                 if #after > (scr_width-indent) then
                     word_str = after
-                    word_len = #after
                     _addWord()
                     return
                 else
@@ -315,7 +312,6 @@ function Article:readLine(s_text)
 
         -- reset the current word
         word_str    = ""
-        word_len    = 0
         is_word     = false
         is_url      = false     -- URLs have no spaces
         is_space    = false
@@ -447,7 +443,6 @@ function Article:readLine(s_text)
                 -- set the URL as the current word,
                 -- and apply the URL style class
                 word_str    = url
-                word_len    = #url
                 is_url      = true      -- use URL word-wrapping
                 -- switch to the URL style class
                 line = line .. _pushStyle(STYLE_URL)
@@ -590,7 +585,6 @@ function Article:readLine(s_text)
             _addWord()
             -- add the em-dash as its own word
             word_str = "—"
-            word_len = 1
             _addWord()
             -- skip the extra byte(s)
             index = index + #em-1
@@ -603,7 +597,6 @@ function Article:readLine(s_text)
             _addWord()
             -- add the em-dash as its own word
             word_str = "—"
-            word_len = 1
             _addWord()
             -- skip the extra byte
             index = index + #em-1
@@ -691,6 +684,63 @@ function Article:encodeLine(line)
     ----------------------------------------------------------------------------
     if line == "" then return "", ""; end
 
+    -- get the C64-encoded text and colour data
+    -- for the given source (ASCII) line
+    local src_chars, src_styles = line:toC64()
+
+    -- try and combine / minimise styles:
+    --
+    -- the more separate colour spans we have the more bytes we use,
+    -- so we try minimise the number of spans by extending styles
+    -- across spaces, i.e. taking a line that may look like this:
+    --
+    --      text  : the quick brown fox jumps over the lazy dog
+    --      style : 1110111110111110111011111011110111011110111
+    --
+    -- and changing the style of the spaces to extend the nearest span:
+    --
+    --      text  : the quick brown fox jumps over the lazy dog
+    --      style : 1111111111111111111111111111111111111111111
+    --
+    -- this variable will hold the last known style
+    -- before a space, and 'bleed' it across the spaces
+    --
+    local bleed = src_styles[1]
+    local nuspc = str2scr[" "]
+
+    for i = #src_chars, 1, -1 do
+        -- as long as spaces continue...
+        if src_chars:byte(i) == nuspc then
+            -- change the style class to match
+            -- the last used style class
+            src_styles[i] = bleed
+        else
+            -- not a space? update the style class to bleed
+            bleed = src_styles[i]
+        end
+    end
+
+    -- in order to detect lines that are all one style, we want to bleed
+    -- the last character's style class to the end of the line; e.g.
+    --
+    --      text  : a short line.
+    --      style : 1111111111111000000000000000000000000000
+    --
+    -- is converted to:
+    --
+    --      text  : a short line.
+    --      style : 1111111111111111111111111111111111111111
+    --
+    -- get the last character's style class:
+    local default = src_styles[#src_styles]
+
+    -- the line might not fill all 40 columns, and we will need
+    -- all in place in order to reverse them (lua stops iterating
+    -- a table when it hits a null!)
+    --
+    local out_styles = {}
+    for i = 1, 40 do; out_styles[i] = default; end
+
     -- reverse the columns!
     --
     -- most lines are going to have some trailing space before the end of the
@@ -702,35 +752,25 @@ function Article:encodeLine(line)
     -- will give us the best use of the byte -- if working left-to-right,
     -- a bullet point at the start of the line would be a waste of skipping
     --
-    -- the string, at this stage, may not fill all 40 columns
-    -- and we will need all in place in order to reverse them
-    -- (lua stops iterating a table when it hits a null!)
-    --
-    local styles = {}
-    for i = 1, 40 do; styles[i] = STYLE_DEFAULT; end
-
-    -- get the C64-encoded text and colour data
-    local s_txt, _styles = line:toC64()
-
-    for char_index, char_style in ipairs(_styles) do
+    for src_index, src_style in ipairs(src_styles) do
         -- reverse the column indicies
-        styles[41-char_index] = char_style
+        out_styles[41-src_index] = src_style
     end
 
     local view = ""
-    for i = 1, 40 do; view = tostring(styles[i]) .. view; end
+    for i = 1, 40 do; view = tostring(out_styles[i]) .. view; end
 
     -- batch together the style-classes
     -- for each character into spans:
     --
     local last_index    = 1
     local span_begin    = 1
-    local span_style    = styles[1]
+    local span_style    = out_styles[1]
     local spans         = {}
 
     --#print(truncate(line))
 
-    for char_index, char_style in pairs(styles) do
+    for char_index, char_style in pairs(out_styles) do
         ------------------------------------------------------------------------
         -- if the character style-class has changed then start a new span
         if char_style ~= span_style then
@@ -766,12 +806,12 @@ function Article:encodeLine(line)
             -- indicate the style-class for the whole line,
             -- by setting the high-bit. the lower 3 bits
             -- will be taken as the style-class to use
-            return string.char(0x80 + span_style), s_txt
+            return string.char(0x80 + span_style), src_chars
         else
             -- a default style-class for the whole line
             -- does not need any colour data,
             -- a critical space saver!
-            return "", s_txt
+            return "", src_chars
         end
     end
 
@@ -781,7 +821,7 @@ function Article:encodeLine(line)
 
     --#print('"'..line..'"')
     --#print(view)
-    --#print(#_styles, inspect(_styles))
+    --#print(#out_styles, inspect(out_styles))
 
     for i, span in ipairs(spans) do
         -- the first byte of the colour-data must be an initial offset
@@ -798,6 +838,10 @@ function Article:encodeLine(line)
         else
             -- if the first colour span is not the default style,
             -- we have to conceed the first byte
+            -- TODO: we can use the sixth bit of the first byte to
+            --       indicate an initial non-default style and use
+            --       the first byte to indicate the style class
+            --       and the second byte for the length
             if i == 1 then s_bin = string.char(0); end
             -- move the style-class into the upper three bits
             local span_class = span.style * (2 ^ 5)
@@ -806,7 +850,7 @@ function Article:encodeLine(line)
             -- colour spans are limited to 32 chars!
             -- (0-to-31 represents 1-to-32 on the C64)
             -- TODO: allow a trailing class to the end of the line
-            --       using lengths 40-47
+            --       using lengths 40-47?
             if span_width > 31 then
                 -- split the span into two;
                 -- first write a maximum span of 32
@@ -822,5 +866,5 @@ function Article:encodeLine(line)
     end
 
     --#print("#", #s_bin)
-    return s_bin, s_txt
+    return s_bin, src_chars
 end
