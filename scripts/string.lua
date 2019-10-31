@@ -24,14 +24,14 @@ STYLE_WARN      = 7
 -- escape codes are used in the source ASCII string to indicate
 -- where style changes will occur in the ouput C64 string
 ESC             = "\x1B"
-ESC_DEFAULT     = ESC.."0" --#tostring(STYLE_DEFAULT)
-ESC_TITLE       = ESC.."1" --#tostring(STYLE_TITLE)
-ESC_BOLD        = ESC.."2" --#tostring(STYLE_BOLD)
-ESC_NOUN        = ESC.."3" --#tostring(STYLE_NOUN)
-ESC_NAME        = ESC.."4" --#tostring(STYLE_NAME)
-ESC_SOFT        = ESC.."5" --#tostring(STYLE_SOFT)
-ESC_URL         = ESC.."6" --#tostring(STYLE_URL)
-ESC_WARN        = ESC.."7" --#tostring(STYLE_WARN)
+ESC_DEFAULT     = ESC..tostring(STYLE_DEFAULT)
+ESC_TITLE       = ESC..tostring(STYLE_TITLE)
+ESC_BOLD        = ESC..tostring(STYLE_BOLD)
+ESC_NOUN        = ESC..tostring(STYLE_NOUN)
+ESC_NAME        = ESC..tostring(STYLE_NAME)
+ESC_SOFT        = ESC..tostring(STYLE_SOFT)
+ESC_URL         = ESC..tostring(STYLE_URL)
+ESC_WARN        = ESC..tostring(STYLE_WARN)
 
 -- this is the conversion table used to convert the source article characters
 -- into screen-codes for the custom font used on the C64, which is not in any

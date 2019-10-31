@@ -18,6 +18,7 @@
 .THEME_GREY_BOLD        = .VIC_WHITE
 .THEME_GREY_NOUN        = .VIC_ORANGE
 .THEME_GREY_NAME        = .VIC_PURPLE
+.THEME_GREY_SOFT        = .VIC_GREY
 .THEME_GREY_URL         = .VIC_BLUE
 .THEME_GREY_WARN        = .VIC_RED
 
@@ -28,6 +29,7 @@
 .THEME_BLUE_BOLD        = .VIC_WHITE
 .THEME_BLUE_NOUN        = .VIC_LTGREEN
 .THEME_BLUE_NAME        = .VIC_GREEN
+.THEME_BLUE_SOFT        = .VIC_GREY
 .THEME_BLUE_URL         = .VIC_CYAN
 .THEME_BLUE_WARN        = .VIC_RED
 
@@ -41,6 +43,7 @@
 .THEME_BOLD             = .THEME_BLUE_BOLD
 .THEME_NOUN             = .THEME_BLUE_NOUN
 .THEME_NAME             = .THEME_BLUE_NAME
+.THEME_SOFT             = .THEME_BLUE_SOFT
 .THEME_URL              = .THEME_BLUE_URL
 .THEME_WARN             = .THEME_BLUE_WARN
 
@@ -230,7 +233,7 @@ read_style1_colour:     !byte   .THEME_TITLE    ; structural (e.g. title)
 read_style2_colour:     !byte   .THEME_BOLD
 read_style3_colour:     !byte   .THEME_NOUN     ; proper noun, work/citation
 read_style4_colour:     !byte   .THEME_NAME     ; person / group
-read_style5_colour:     !byte   .VIC_RED        ; <unassigned>
+read_style5_colour:     !byte   .THEME_SOFT     ; soft / aside text
 read_style6_colour:     !byte   .THEME_URL      ; URL
 read_style7_colour:     !byte   .THEME_WARN     ; warning / error
 
@@ -1298,7 +1301,7 @@ read_print:
         
         brk
         !byte   $42
-        !pet    "Impossible Branch!", 0
+        !pet    "impossible branch!", 0
 
 ;===============================================================================
 ; colour a whole row:

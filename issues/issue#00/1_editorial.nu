@@ -10,7 +10,7 @@ Those who grew up with 8-bit computers in their youth have a fond connection wit
 
 From the day I received a Commodore 64, rather late in the game in 1991, I have been an outsider looking in. There was no scene for me; the days of the Commodore 64 being the hottest tech in town had long past and either way I never had any connections. There were no kids to swap cracked games with, there was no BBSes to dial in to -- this was the UK, where there was neither the infrastructure nor the affordability; disk drives had been expensive and uncommon, and modems even less so.
 
-For me, the Commodore 64 was my own private world. With just games and manuals I could pick up cheap from local car-boot sales (think giant open-air thrift markets), I set about learning everything I could about this machine. And that's what sets 8-bit systems apart today. It is entirely possible to know and understand literally everything there is to know about the C64, right down to the electrical level. With total knowledge of a single machine, the possibilities are endless. But without a scene, without feedback, without encouragement, without direction, I could never achieve anything concrete; always full of ideas, but lacking the disciplined coding skills to take my ideas through to fruition.
+For me, the Commodore 64 was my own private world. With just games and manuals I could pick up cheap from local car-boot sales (((think giant open-air thrift markets))), I set about learning everything I could about this machine. And that's what sets 8-bit systems apart today. It is entirely possible to know and understand literally everything there is to know about the C64, right down to the electrical level. With total knowledge of a single machine, the possibilities are endless. But without a scene, without feedback, without encouragement, without direction, I could never achieve anything concrete; always full of ideas, but lacking the disciplined coding skills to take my ideas through to fruition.
 
 Mentorship is the critical difference between a consumer and a creator.
 
@@ -36,7 +36,7 @@ Unlike today's "flavours of x86" PC market, the 8-bit generation of home-microco
 
 The Zilog Z80 CPU -- an independently enhanced Intel 8080, and therefore a "cousin" to x86 -- featured in the ZX Spectrum (Timex Sinclair in the USA), Amstrad CPC, Tandy/RadioShack TRS-80, innumerable CP/M business systems, the MSX standard popular in Japan and later in consoles such as the SEGA Master System and, in a stripped down form, as the Nintendo GameBoy.
 
-Programming the Z80 is fairly easy given its very large number of registers for an 8-bit system (over 20!) and how easily it handles 16-bit operations; the index registers are 16-bit as is the stack. A 16-bit add instruction means that you don't have to.
+Programming the Z80 is fairly easy given its very large number of registers for an 8-bit system (((over 20!))) and how easily it handles 16-bit operations; the index registers are 16-bit as is the stack. A 16-bit add instruction means that you don't have to.
 
 :: In This Issue:
 --------------------------------------------------------------------------------

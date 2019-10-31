@@ -10,7 +10,7 @@
 
 -- article.lua : manages article text transformation
 --------------------------------------------------------------------------------
-require "scripts.line"
+require "scripts.string"
 
 --------------------------------------------------------------------------------
 local hyphenate = require "scripts.hyphenate"
@@ -173,11 +173,16 @@ function Article:readLine(s_text)
     -- line-lenth we'll be breaking against
     local scr_width = 40
 
-    -- create line-object to hold line meta-data
-    local line          = Line:new()
+    local line          = ""    -- current line being built
     local index         = 1     -- current byte index in the line (1-based)
     local word_str      = ""    -- current word (for word-wrapping)
     local word_len      = 0     -- character length of word (not byte-length!)
+    local indent        = 0     -- size of the indent when breaking lines
+
+    -- handles nesting of style class changes;
+    -- the base is the default style
+    local style_stack   = {STYLE_DEFAULT}
+    local style         = STYLE_DEFAULT
 
     -- flag for indicating when we're between / within words, as certain markup
     -- only applies at the beginning of a word, e.g. titles, URLs
@@ -189,6 +194,7 @@ function Article:readLine(s_text)
     local is_bold   = false
     local is_noun   = false
     local is_name   = false
+    local is_soft   = false
     -- indicates that the current word is a URL and therefore
     -- needs to be word-wrapped differently
     local is_url    = false
@@ -202,27 +208,33 @@ function Article:readLine(s_text)
         is_word  = true
     end
 
+    -- (private) change to a new style class, remembering the previous
+    ----------------------------------------------------------------------------
+    function _pushStyle(i_style)
+        ------------------------------------------------------------------------
+        -- push the old style on top of the stack
+        table.insert(style_stack, style)
+        -- change to the new style
+        style = i_style
+        -- return the escape code for the new style
+        return _escStr(style)
+    end
+
+    -- (private) change to the previously used style class
+    ----------------------------------------------------------------------------
+    function _popStyle(i_style)
+        ------------------------------------------------------------------------
+        -- retrieve the previously used style
+        style = table.remove(style_stack, i_style)
+        -- return the escape code for the previous style
+        return _escStr(style)
+    end
+
     -- returns the escape-sequence for a given style class number
     ----------------------------------------------------------------------------
     function _escStr(i_style)
         ------------------------------------------------------------------------
-        if i_style == STYLE_DEFAULT then
-            return ESC_DEFAULT
-        elseif i_style == STYLE_TITLE then
-            return ESC_TITLE
-        elseif i_style == STYLE_BOLD then
-            return ESC_BOLD
-        elseif i_style == STYLE_NOUN then
-            return ESC_NOUN
-        elseif i_style == STYLE_NAME then
-            return ESC_NAME
-        elseif i_style == STYLE_SOFT then
-            return ESC_SOFT
-        elseif i_style == STYLE_URL then
-            return ESC_URL
-        elseif i_style == STYLE_WARN then
-            return ESC_WARN
-        end
+        return ESC..tostring(i_style)
     end
 
     -- (private) append current word to the current line
@@ -234,7 +246,7 @@ function Article:readLine(s_text)
         -- more or less characters than on its own, which is why we do the
         -- line-break check this way
         --
-        local c64_old = line.source
+        local c64_old = line
         local c64_new = ""
         -- add the word to the end of this test line
         c64_new = c64_old .. word_str
@@ -247,12 +259,12 @@ function Article:readLine(s_text)
         --
         if #c64_new <= scr_width then
             --------------------------------------------------------------------
-            if word_len > 0 then line:addString(word_str); end
+            if word_len > 0 then line = line .. word_str; end
             -- if the word fits exactly, we don't want to start
             -- the next line with an errant space
             if #c64_new < scr_width then
                 -- should we add a space after the word?
-                if is_space then line:addString(" "); end
+                if is_space then line = line .. " "; end
             end
 
         -- if the word would not fit on the line,
@@ -281,22 +293,22 @@ function Article:readLine(s_text)
             --#print(before, after)
 
             -- add the part of the word that fits (if any)
-            if #before > 0 then line:addString(before); end
+            if #before > 0 then line = line .. before; end
             -- dispatch the current line
             _addLine()
             -- begin the new line with the remainder of the word, if any
             if #after > 0 then
                 -- the remainder may still be too long!
                 -- (particularly with URLs)
-                if #after > (scr_width-line.indent) then
+                if #after > (scr_width-indent) then
                     word_str = after
                     word_len = #after
                     _addWord()
                     return
                 else
-                    line:addString(after)
+                    line = line .. after
                     -- do we need to append a space?
-                    if is_space then line:addString(" "); end
+                    if is_space then line = line .. " "; end
                 end
             end
         end
@@ -314,34 +326,22 @@ function Article:readLine(s_text)
     function _addLine()
         ------------------------------------------------------------------------
         -- trim any trailing spaces on the line
-        line.source = line.source:gsub("%s+$", "")
-        -- when a line-break occurs, the next line must inherit the style
-        -- of the current line; e.g. titles that span multiple lines
-        local old_indent  = line.indent
-        local old_literal = line.is_literal
-        local old_default = line.default
+        line = line:gsub("%s+$", "")
         -- add line to the article line array
         table.insert(self.lines, line)
         -- start a new line
-        line = Line:new()
-        -- apply the properties from the old line
-        line.indent     = old_indent
-        line.is_literal = old_literal
-        line.default    = old_default
+        line = ""
         -- apply the indent
-        if line.indent > 0 then
-            line:addString(string.rep(" ", line.indent))
-        end
+        if indent > 0 then line = line .. string.rep(" ", indent); end
         -- apply the style from the previous line
         -- e.g. when a long title line-breaks
-        -- TODO: this should use a style class stack
-        if line.default ~= STYLE_DEFAULT then
-            line:addString(_escStr(line.default))
+        --
+        if style ~= STYLE_DEFAULT then
+            -- add the escape code to switch style classes
+            line = line .. _escStr(style)
         end
-        if is_noun  then line:addString(ESC_NOUN); end
-        if is_name  then line:addString(ESC_NAME); end
-        if is_bold  then line:addString(ESC_BOLD); end
-        if is_url   then line:addString(ESC_URL);  end
+        -- begin a new word, allowing for
+        -- start-of-word specific markup
         is_word = false
     end
 
@@ -352,9 +352,9 @@ function Article:readLine(s_text)
         local s_indent = s_text:match("^%s+")
         -- set the property on the line object so that if a line-break occurs
         -- (e.g. word-wrap), the indent is carried on to subsequent lines
-        line.indent = #s_indent
+        indent = #s_indent
         -- add the indent to the output line
-        line:addString(s_indent)
+        line = line .. s_indent
         -- skip these spaces, effectively restarting the line
         -- (this is needed to allow for indent + bullet point, for example)
         index = #s_indent+1
@@ -366,24 +366,21 @@ function Article:readLine(s_text)
     --
     if s_text:match("^:: ", index) then
         ------------------------------------------------------------------------
-        line.default = STYLE_TITLE  -- change the line's default style class
-        line:addString(ESC_TITLE)
-        index = index + 3           -- move the index forward over the marker
+        -- swich to the title style for the rest of the line
+        line = line .. _pushStyle(STYLE_TITLE)
+        -- move the index forward over the marker
+        index = index + 3
 
     -- horizontal bar?
     -- ---------------
     elseif s_text:match("^%-%-%-%-", index) then
         ------------------------------------------------------------------------
-        line.default = STYLE_TITLE  -- change the line's default style class
-        line.is_literal = true      -- set as literal text and do not convert
-
-        line:addString(ESC_TITLE)
-        line:addString(
+        -- swich to the title style for the rest of the line
+        line = line .. ESC_TITLE
             -- build a horizontal bar directly out of screen-codes;
             -- (the escape code, 0x1b, allows embedding screen codes
             --  that won't be converted from ASCII)
-            string.rep(string.char(0x1b, 0xf1), scr_width-line.indent)
-        )
+            .. string.rep(string.char(0x1b, 0xf1), scr_width-indent)
 
        -- no need to process any more of the source line
        -- just add the bar we've given and exit
@@ -395,9 +392,9 @@ function Article:readLine(s_text)
     elseif s_text:match("^%* ", index) then
         ------------------------------------------------------------------------
         -- switch "*" for the bullet-point character
-        line:addString(ESC_BOLD.."•".._escStr(line.default).." ")
+        line = line .. _pushStyle(STYLE_BOLD).."•".._popStyle().." "
         -- indent on line-break
-        line.indent = line.indent + 2
+        indent = indent + 2
         -- begin after the bullet-point
         index = index + 2
 
@@ -405,9 +402,9 @@ function Article:readLine(s_text)
     -- - ...
     elseif s_text:match("^%- ", index) then
         ------------------------------------------------------------------------
-        line:addString(ESC_BOLD.."-".._escStr(line.default).." ")
+        line = line .. _pushStyle(STYLE_BOLD).."–".._popStyle().." "
         -- indent on line-break
-        line.indent = line.indent + 2
+        indent = indent + 2
         -- begin after the bullet-point
         index = index + 2
 
@@ -418,9 +415,9 @@ function Article:readLine(s_text)
         -- get the details
         local s_numeral = s_text:match("^%w+%.", index)
         -- add it to the output line (excluding the space!)
-        line:addString(ESC_BOLD..s_numeral.._escStr(line.default))
+        line = line .. _pushStyle(STYLE_BOLD)..s_numeral.._popStyle()
         -- set the hanging indent for line-breaks
-        line.indent = line.indent + 2
+        indent = indent + 2
         -- skip the detected numeral point
         index = index + #s_numeral + 1
     end
@@ -428,6 +425,10 @@ function Article:readLine(s_text)
     -- convert em-dashes and consume optional spaces either side
     --#s_text = s_text:gsub(" ?%-%- ?", "—") -- note that this is an em-dash!
 
+    -- appending a space to the text being processed gives us an easy solution
+    -- for look-ahead without having to double the regexes for "end-of-line"
+    -- (the additional space is not included in output)
+    --
     s_text = s_text .. " "
     ----------------------------------------------------------------------------
     while index <= #s_text-1 do
@@ -449,10 +450,10 @@ function Article:readLine(s_text)
                 word_len    = #url
                 is_url      = true      -- use URL word-wrapping
                 -- switch to the URL style class
-                line:addString(ESC_URL)
+                line = line .. _pushStyle(STYLE_URL)
                 -- add the URL to line
                 _addWord()
-                line:addString(_escStr(line.default))
+                line = line .. _popStyle()
                 -- skip over the URL text
                 index = index + #match-1
                 -- skip the sigil
@@ -462,7 +463,7 @@ function Article:readLine(s_text)
             --------------------------------------------------------------------
             elseif s_text:match("^%*%g", index) then
                 -- switch to the 'bold' style class
-                line:addString(ESC_BOLD)
+                line = line .. _pushStyle(STYLE_BOLD)
                 -- set the flags for when line-breaks occur
                 is_bold = true
                 is_word = true
@@ -473,7 +474,7 @@ function Article:readLine(s_text)
             --------------------------------------------------------------------
             elseif s_text:match("^%~%g", index) then
                 -- switch to the 'noun' style class
-                line:addString(ESC_NOUN)
+                line = line .. _pushStyle(STYLE_NOUN)
                 -- set the flags for when line-breaks occur
                 is_noun = true
                 is_word = true
@@ -484,13 +485,23 @@ function Article:readLine(s_text)
             --------------------------------------------------------------------
             elseif s_text:match("^%_%g", index) then
                 -- switch to the 'name' style class
-                line:addString(ESC_NAME)
+                line = line .. _pushStyle(STYLE_NAME)
                 -- set the flags for when line-breaks occur
                 is_name = true
                 is_word = true
                 -- skip the sigil
                 index = index + 1
 
+            -- ((soft))
+            --------------------------------------------------------------------
+            elseif s_text:match("^%(%(%g", index) then
+               -- switch to the 'soft' style class
+               line = line .. _pushStyle(STYLE_SOFT)
+               -- set the flags for when line-breaks occur
+               is_soft = true
+               is_word = true
+               -- skip the sigil
+               index = index + 2
             end
         end
 
@@ -504,6 +515,43 @@ function Article:readLine(s_text)
             -- the current word is complete, add it to the line
             -- and handle the trailing space according to word-wrap
             is_space = true; _addWord()
+
+        -- end of bold
+        ------------------------------------------------------------------------
+        elseif s_text:match("^%*[%s%p]", index) then
+            _addWord()
+            is_bold = false
+            line = line .. _popStyle()
+
+        -- end of noun class
+        ------------------------------------------------------------------------
+        elseif s_text:match("^%~[%s%p]", index) then
+            _addWord()
+            is_noun = false
+            line = line .. _popStyle()
+
+        -- end of name class
+        ------------------------------------------------------------------------
+        elseif s_text:match("^%_[%s%p]", index) then
+            _addWord()
+            is_name = false
+            line = line .. _popStyle()
+
+        -- end of soft class
+        ------------------------------------------------------------------------
+        elseif s_text:match("^%)%)", index) then
+            -- special edge case for soft-with-brackets
+            if s_text:match("^%)%)%)", index) then
+                -- append the closing bracket before adding to the line
+                _addChar(ascii)
+                -- skip the additional bracket
+                index = index + 1
+            end
+            _addWord()
+            is_soft = false
+            line = line .. _popStyle()
+            -- skip the additional byte
+            index = index + 1
 
         -- punctuation that line-breaks before (but not after)
         -- e.g. wrapping punctuation such as "(..."
@@ -560,30 +608,6 @@ function Article:readLine(s_text)
             -- skip the extra byte
             index = index + #em-1
 
-        -- end of bold
-        ------------------------------------------------------------------------
-        elseif s_text:match("^%*[%s%p]", index) then
-            _addWord()
-            is_bold = false
-            -- TODO: we need a style stack, as this won't handle nesting
-            line:addString(_escStr(line.default))
-
-        -- end of noun class
-        ------------------------------------------------------------------------
-        elseif s_text:match("^%~[%s%p]", index) then
-            _addWord()
-            is_noun = false
-            -- TODO: we need a style stack, as this won't handle nesting
-            line:addString(_escStr(line.default))
-
-        -- end of name class
-        ------------------------------------------------------------------------
-        elseif s_text:match("^%_[%s%p]", index) then
-            _addWord()
-            is_name = false
-            -- TODO: we need a style stack, as this won't handle nesting
-            line:addString(_escStr(line.default))
-
         else
             --------------------------------------------------------------------
             -- add to the current word
@@ -604,12 +628,7 @@ end
 --------------------------------------------------------------------------------
 function Article:readLiteralLine(s_text)
     ----------------------------------------------------------------------------
-    -- create line-object to hold line meta-data
-    local line      = Line:new()
-    -- set the line to encode as literal when converting to C64 data
-    line.is_literal = true
-
-    line:addString(s_text)
+    local line = s_text
 
     -- add line to the article line array
     table.insert(self.lines, line)
@@ -631,10 +650,11 @@ function Article:write()
 
     -- convert all lines to C64 colour-spans & screen-codes
     local lines = {}
-    for i, line in ipairs(self.lines) do table.insert(lines, {
-        colour  = line:getBinColour(),
-        text    = line:getBinText()
-    }); end
+    for _, line in ipairs(self.lines) do
+        local colour, text = self:encodeLine(line)
+        table.insert(lines, {colour = colour, text = text})
+        --#print(inspect({self:encodeLine(line)}))
+    end
 
     -- the list of line-lengths:
     ----------------------------------------------------------------------------
@@ -663,4 +683,144 @@ function Article:write()
             f_out:write(string.reverse(line.colour..line.text))
         end
     end
+end
+
+-- returns the binary colour data
+--------------------------------------------------------------------------------
+function Article:encodeLine(line)
+    ----------------------------------------------------------------------------
+    if line == "" then return "", ""; end
+
+    -- reverse the columns!
+    --
+    -- most lines are going to have some trailing space before the end of the
+    -- screen; if we construct our colour-spans from the right to the left
+    -- (rather than the natural left-to-right, to suit the text), then we will
+    -- have a first span that will represent the largest amount of skippable
+    -- [for colour] space, in most instances. given that the first byte of
+    -- colour-data is an initial offset to skip, working from right to left
+    -- will give us the best use of the byte -- if working left-to-right,
+    -- a bullet point at the start of the line would be a waste of skipping
+    --
+    -- the string, at this stage, may not fill all 40 columns
+    -- and we will need all in place in order to reverse them
+    -- (lua stops iterating a table when it hits a null!)
+    --
+    local styles = {}
+    for i = 1, 40 do; styles[i] = STYLE_DEFAULT; end
+
+    -- get the C64-encoded text and colour data
+    local s_txt, _styles = line:toC64()
+
+    for char_index, char_style in ipairs(_styles) do
+        -- reverse the column indicies
+        styles[41-char_index] = char_style
+    end
+
+    local view = ""
+    for i = 1, 40 do; view = tostring(styles[i]) .. view; end
+
+    -- batch together the style-classes
+    -- for each character into spans:
+    --
+    local last_index    = 1
+    local span_begin    = 1
+    local span_style    = styles[1]
+    local spans         = {}
+
+    --#print(truncate(line))
+
+    for char_index, char_style in pairs(styles) do
+        ------------------------------------------------------------------------
+        -- if the character style-class has changed then start a new span
+        if char_style ~= span_style then
+            -- construct a span covering the contiguous
+            -- characters of the same style-class
+            table.insert(spans, {
+                first = span_begin, last = last_index,
+                style = span_style
+            })
+            -- begin a new span:
+            span_begin  = char_index
+            span_style  = char_style
+        end
+        -- where the character style remains
+        -- contiguous, we inch forward
+        last_index = char_index
+    end
+    -- given that the line's text may continue past the last style change,
+    -- we must check if there remains one un-finished span
+    table.insert(spans, {
+        -- the whole line must always be coloured to avoid colour-garbage
+        -- from other lines appearing when scrolling on the C64, so the last
+        -- span is extended to the end of the screen
+        first = span_begin, last = 40,
+        style = span_style
+    })
+
+    -- is the whole line a single colour?
+    ----------------------------------------------------------------------------
+    if #spans == 1 then
+        -- default line colour?
+        if span_style > STYLE_DEFAULT then
+            -- indicate the style-class for the whole line,
+            -- by setting the high-bit. the lower 3 bits
+            -- will be taken as the style-class to use
+            return string.char(0x80 + span_style), s_txt
+        else
+            -- a default style-class for the whole line
+            -- does not need any colour data,
+            -- a critical space saver!
+            return "", s_txt
+        end
+    end
+
+    -- convert spans into binary colour-data
+    ----------------------------------------------------------------------------
+    local s_bin = ""
+
+    --#print('"'..line..'"')
+    --#print(view)
+    --#print(#_styles, inspect(_styles))
+
+    for i, span in ipairs(spans) do
+        -- the first byte of the colour-data must be an initial offset
+        -- to the first non-default colour-span:
+        --
+        -- if the first colour-span is the default style,
+        -- then replace it with the initial offset
+        if i == 1 and span.style == STYLE_DEFAULT then
+            -- note that this has to be 1-based to allow for "0" to
+            -- be used for a non-default colour span occuring at the
+            -- beginning of a line, leading to no initial offset
+            s_bin = string.char((span.last-span.first)+1)
+            --#print(">", (span.last-span.first)+1)
+        else
+            -- if the first colour span is not the default style,
+            -- we have to conceed the first byte
+            if i == 1 then s_bin = string.char(0); end
+            -- move the style-class into the upper three bits
+            local span_class = span.style * (2 ^ 5)
+            -- the length of the span occupies the low five bits
+            local span_width = span.last-span.first
+            -- colour spans are limited to 32 chars!
+            -- (0-to-31 represents 1-to-32 on the C64)
+            -- TODO: allow a trailing class to the end of the line
+            --       using lengths 40-47
+            if span_width > 31 then
+                -- split the span into two;
+                -- first write a maximum span of 32
+                s_bin = s_bin .. string.char(31 + span_class)
+                --#print("=", 32, span.style)
+                -- leave the remainder
+                span_width = span_width - 32
+            end
+            -- combine the span style-class and length
+            s_bin = s_bin .. string.char(span_width + span_class)
+            --#print("=", span_width+1, span.style)
+        end
+    end
+
+    --#print("#", #s_bin)
+    return s_bin, s_txt
 end
