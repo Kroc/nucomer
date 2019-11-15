@@ -36,7 +36,6 @@ IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
 REM # assemble the outfit
 REM ============================================================================
-ECHO ----------------------------------------
 <NUL (SET /P "$=Assemble Outfit...                  ")
 
 %ACME% ^

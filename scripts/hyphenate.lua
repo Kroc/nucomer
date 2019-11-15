@@ -9,7 +9,7 @@
 --
 
 -- hyphenate.lua
---
+--------------------------------------------------------------------------------
 -- word-breaking algorithm, published originally in 1983
 -- by Franklin Mark Liang: <https://www.tug.org/docs/liang/liang-thesis.pdf>
 --

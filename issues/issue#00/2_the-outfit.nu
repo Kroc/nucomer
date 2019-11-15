@@ -22,7 +22,7 @@ Of course, we don't live in those days any more, do we?
 
 :: Why nücomer?
 --------------------------------------------------------------------------------
-All of the code that both produces this magazine on the PC, and runs it on the C64, is open-source and available to examine (((much as with the ~Emperor's New Clothes~, everything is on show!)))
+All of the code that both produces this magazine on the PC, and runs it on the C64, is open-source and available to examine (much as with the ~Emperor's New Clothes~, everything is on show!)
 
 * <github.com/Kroc/nucomer>
 

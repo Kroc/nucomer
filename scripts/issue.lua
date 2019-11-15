@@ -21,23 +21,33 @@
 -- # analyse symbols across whole issue(TODO?)
 
 --------------------------------------------------------------------------------
-inspect = require "scripts.inspect"
-
---------------------------------------------------------------------------------
 -- include the JSON library
 -- <https://github.com/rxi/json.lua>
 --
 json = require "scripts.json"
 
+-- easy dumping of tables
+-- why doesn't lua have this built in!!?
+-- <https://github.com/kikito/inspect.lua>
+--
+inspect = require "scripts.inspect"
+
+-- easy, human-readable, file-size strings
+-- <https://github.com/starius/lua-filesize>
+--
+filesize = require "scripts.lua-filesize"
+
+compress = require "scripts.compress"
 require "scripts.article"
 
+--------------------------------------------------------------------------------
 function truncate(str)
-        return string.format("%-36s", string.gsub(
+        return string.format("%-30s", string.gsub(
             str,
             -- keep all chars up to the truncate point;
             -- lua does not support regex range patterns like `.{0,33}`
-            "^(.?.?.?.?.?.?.?.?.?.?.?.?.?.?.?.?.?"
-            ..".?.?.?.?.?.?.?.?.?.?.?.?.?.?.?.?)(.*)$",
+            "^(.?.?.?.?.?.?.?.?.?.?.?.?.?.?"
+            ..".?.?.?.?.?.?.?.?.?.?.?.?.?)(.*)$",
             "%1..."
         ))
 end
@@ -100,21 +110,22 @@ function Issue:build(i_issue)
     -- walk the `articles` table that lists, in-order, the articles to be
     -- included on disk; each of these will need converting to C64 data
     for _,j_article in ipairs(issue["articles"]) do
-        -- notify user of current article being processed...
-        io.stdout:write(truncate(j_article["title"]))
-
+        ------------------------------------------------------------------------
         -- formulate our input & output file paths
         -- (the output is arbitrary binary data so has no file-extension)
         local s_in  = "issues/issue#00/"..j_article["file"]
         local s_out = "build/i00_"..j_article["file"]:gsub("%.nu$", "")
+
+        -- notify user of current article being processed...
+        io.stdout:write(truncate(j_article["title"]))
 
         -- convert the article text
         local article = {}
         article = Article:new()
         article.outfile = s_out
         article:read(s_in)
-        -- add to the table of articles for whole-issue
-        -- analysis and compression later on
+
+        -- add to the table of articles
         table.insert(self.articles, article)
 
         -- add the output file-path to the article
@@ -140,14 +151,13 @@ function Issue:build(i_issue)
         self.offset = self.offset + s_len + 1
         self.y = self.y + 2
 
-        -- article complete, move to the next
-        io.stdout:write("[OK]\n")
-    end
+        -- write the article to disk;
+        -- this will trigger the compression process
+        article:write()
 
-    ----------------------------------------------------------------------------
-    -- write out the converted articles
-    --
-    self:_writeArticles()
+        -- article complete, move to the next
+        print("----------------------------------------")
+    end
 
     ----------------------------------------------------------------------------
     -- write out the data file for outfit integration;
@@ -170,8 +180,9 @@ end
 --------------------------------------------------------------------------------
 function Issue:_writeArticles()
     ----------------------------------------------------------------------------
+    -- for each article...
     for _,article in ipairs(self.articles) do
-        -- write the converted article to disk
+        -- ...write the converted article to disk
         article:write()
     end
 end

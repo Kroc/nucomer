@@ -420,3 +420,196 @@ function string:toC64 ()
 
     return out_str, styles
 end
+
+--------------------------------------------------------------------------------
+scr2str = {
+    ["\x00"]        = " ",
+    ["\x01"]        = "!",
+    ["\x02"]        = '"',      -- right curly-quote
+    ["\x03"]        = "#",
+    ["\x04"]        = "$",
+    ["\x05"]        = "%",
+    ["\x06"]        = "&",
+    ["\x07"]        = "'",
+    ["\x08"]        = "(",
+    ["\x09"]        = ")",
+    ["\x0a"]        = "*",
+    ["\x0b"]        = "+",
+    ["\x0c"]        = ",",
+    ["\x0d"]        = "-",
+    ["\x0e"]        = ".",
+    ["\x0f"]        = "/",
+
+    ["\x10"]        = "0",
+    ["\x11"]        = "1",
+    ["\x12"]        = "2",
+    ["\x13"]        = "3",
+    ["\x14"]        = "4",
+    ["\x15"]        = "5",
+    ["\x16"]        = "6",
+    ["\x17"]        = "7",
+    ["\x18"]        = "8",
+    ["\x19"]        = "9",
+
+    ["\x1a"]        = ":",
+    ["\x1b"]        = ";",
+    ["\x1c"]        = "<",
+    ["\x1d"]        = "=",
+    ["\x1e"]        = ">",
+    ["\x1f"]        = "?",
+    ["\x20"]        = "@",
+
+    ["\x21"]        = "A",
+    ["\x22"]        = "B",
+    ["\x23"]        = "C",
+    ["\x24"]        = "D",
+    ["\x25"]        = "E",
+    ["\x26"]        = "F",
+    ["\x27"]        = "G",
+    ["\x28"]        = "H",
+    ["\x29"]        = "I",
+    ["\x2a"]        = "J",
+    ["\x2b"]        = "K",
+    ["\x2c"]        = "L",
+    ["\x2d"]        = "M",
+    ["\x2e"]        = "N",
+    ["\x2f"]        = "O",
+    ["\x30"]        = "P",
+    ["\x31"]        = "Q",
+    ["\x32"]        = "R",
+    ["\x33"]        = "S",
+    ["\x34"]        = "T",
+    ["\x35"]        = "U",
+    ["\x36"]        = "V",
+    ["\x37"]        = "W",
+    ["\x38"]        = "X",
+    ["\x39"]        = "Y",
+    ["\x3a"]        = "Z",
+
+    ["\x3b"]        = "[",
+    ["\x3c"]        = "\\",
+    ["\x3d"]        = "]",
+    ["\x3e"]        = "^",
+    ["\x3f"]        = "_",
+    ["\x40"]        = "`",
+
+    ["\x41"]        = "a",
+    ["\x42"]        = "b",
+    ["\x43"]        = "c",
+    ["\x44"]        = "d",
+    ["\x45"]        = "e",
+    ["\x46"]        = "f",
+    ["\x47"]        = "g",
+    ["\x48"]        = "h",
+    ["\x49"]        = "i",
+    ["\x4a"]        = "j",
+    ["\x4b"]        = "k",
+    ["\x4c"]        = "l",
+    ["\x4d"]        = "m",
+    ["\x4e"]        = "n",
+    ["\x4f"]        = "o",
+    ["\x50"]        = "p",
+    ["\x51"]        = "q",
+    ["\x52"]        = "r",
+    ["\x53"]        = "s",
+    ["\x54"]        = "t",
+    ["\x55"]        = "u",
+    ["\x56"]        = "v",
+    ["\x57"]        = "w",
+    ["\x58"]        = "x",
+    ["\x59"]        = "y",
+    ["\x5a"]        = "z",
+
+    ["\x5b"]        = "{",
+    ["\x5c"]        = "|",
+    ["\x5d"]        = "}",
+    ["\x5e"]        = "~",
+    ["\x5f"]        = "£",
+    ["\x60"]        = "*",
+    ["\x61"]        = "-",
+    ["\x62"]        = "-",
+    ["\x63"]        = ".",
+    ["\x64"]        = '"',      -- left curly-quote
+    ["\x65"]        = "...",
+    ["\x66"]        = "\xF3",   -- code page 850 for "¾"
+    ["\x67"]        = "\xAB",   -- code page 850 for "½"
+    ["\x68"]        = '"',
+    ["\x69"]        = "'",
+    ["\x6a"]        = "^st",
+    ["\x6b"]        = "^nd",
+    ["\x6c"]        = "^rd",
+    ["\x6d"]        = "^th",
+    ["\x6e"]        = "^tm",
+    ["\x6f"]        = "\xB8",   -- code page 850 for "©"
+
+    ["\x70"]        = " I",
+    ["\x71"]        = "I ",
+    ["\x72"]        = "I'",
+    ["\x73"]        = "'l",
+    ["\x74"]        = "o'",
+    ["\x75"]        = "'r",
+    ["\x76"]        = "'s",
+    ["\x77"]        = "'t",
+    ["\x78"]        = "'v",
+    ["\x79"]        = "['v]e",
+
+    ["\x7b"]        = "\x87", -- code page 850 for "ç",
+    ["\x7c"]        = "\x8A", -- code page 850 for "è",
+    ["\x7d"]        = "\x82", -- code page 850 for "é",
+    ["\x7e"]        = "\x8B", -- code page 850 for "ï",
+    ["\x7f"]        = "\x81", -- code page 850 for "ü",
+}
+
+-- for compression statistics, convert C64 screen-codes to lower-case
+--------------------------------------------------------------------------------
+function string:scr2lower()
+    ----------------------------------------------------------------------------
+    -- screen codes 0x21 to 0x3a are upper-case letters
+    local out = ""
+    for i = 1, #self do
+        local scr = self:byte(i)
+        if scr >= 0x21 and scr <= 0x3a then
+            out = out .. string.char(scr + 0x20)
+        else
+            out = out .. string.char(scr)
+        end
+    end
+    return out
+end
+
+-- for debug purposes, covert C64 screen codes back to ASCII
+--------------------------------------------------------------------------------
+function string:fromC64()
+    ----------------------------------------------------------------------------
+    local out = ""
+    local i = 0
+
+    repeat
+        -- move to the next byte
+        i = i + 1
+
+        -- from the current position,
+        -- try match a multi-byte sequence:
+        --
+        -- "... I  ..."
+        ------------------------------------------------------------------------
+        if self:match("^\x70\x71", i) then
+            -- these two bytes expand to three, so should be matched together,
+            -- if possible. separately they expand to " I" & "I "
+            out = out .. " I "
+            -- skip the additional byte
+            i = i + 1
+
+        ------------------------------------------------------------------------
+        else
+            local ascii = scr2str[self:sub(i, i)]
+            if ascii == nil then
+                ascii = string.format("\\x%02X", self:byte(i))
+            end
+            out = out .. ascii
+        end
+
+    until i >= #self
+
+    return out
+end
