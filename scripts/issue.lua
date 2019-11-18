@@ -24,18 +24,18 @@
 -- include the JSON library
 -- <https://github.com/rxi/json.lua>
 --
-json = require "scripts.json"
+json = require "scripts.lib.json"
 
 -- easy dumping of tables
 -- why doesn't lua have this built in!!?
 -- <https://github.com/kikito/inspect.lua>
 --
-inspect = require "scripts.inspect"
+inspect = require "scripts.lib.inspect"
 
 -- easy, human-readable, file-size strings
 -- <https://github.com/starius/lua-filesize>
 --
-filesize = require "scripts.lua-filesize"
+filesize = require "scripts.lib.lua-filesize"
 
 compress = require "scripts.compress"
 require "scripts.article"
@@ -120,8 +120,7 @@ function Issue:build(i_issue)
         io.stdout:write(truncate(j_article["title"]))
 
         -- convert the article text
-        local article = {}
-        article = Article:new()
+        local article = Article:new()
         article.outfile = s_out
         article:read(s_in)
 

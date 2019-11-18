@@ -58,6 +58,70 @@ function Compress:addLine(src_line)
         screen = out_screen,
         source = src_line,
     })
+
+    --[[
+    -- bit-pack the spaces
+    ----------------------------------------------------------------------------
+    -- a _lot_ of text is just spaces between words. if instead we represented
+    -- the spaces as individual bits we could save a lot of space. early word-
+    -- processors would use the high-bit of a byte to indicate the end of a
+    -- word, and an implicit following space, but we'll need all 256 screen-
+    -- codes at our disposal
+    --
+    -- instead of a high-bit, we'll built a bitmap of the characters in the
+    -- line, where 0 = not a space and 1 = space. even though a full line of
+    -- 40 characters will need 5 bytes (40 bits), most lines of such length
+    -- already average five or more spaces whose bytes won't be needed;
+    --
+    local spaces = 0            -- current bit-pattern of spaces (8 bits)
+    local word = ""             -- we build a set of chars, without spaces
+    local out_chars = ""        -- compressed C64 text data
+
+    --#print('"'..line..'"')
+    --#io.stdout:write(".")
+
+    -- walk through the characters in the line
+    for i = 1, #src_chars do
+        ------------------------------------------------------------------------
+        -- is this character a space?
+        if src_chars:byte(i) == nuspc then
+            -- yes: set a bit in the spaces bitmap; the space
+            -- character doesn't need to be added to the 'word'
+            spaces = spaces * 2
+            spaces = spaces + 1
+            --#io.stdout:write("1")
+        else
+            -- no: add the character to the current 'word'
+            word = word .. src_chars:sub(i, i)
+            -- shift to the next space bit
+            -- without marking a space
+            spaces = spaces * 2
+            --#io.stdout:write("0")
+        end
+        -- is this the 8th character in a row?
+        if i % 8 == 0 then
+            --#io.stdout:write("\n.")
+            -- yes: output the spaces bitmap, and the 8 characters
+            out_chars = out_chars .. string.char(spaces) .. word
+            -- reset the word / spaces bitmap
+            spaces = 0
+            word = ""
+        end
+    end
+    -- when we reach the end of the line, we might not
+    -- have reached 8 charcters yet
+    if #word > 0 then
+        -- output the remaining characters
+        out_chars = out_chars .. string.char(spaces) .. word
+    end
+    --#io.stdout:write("\n")
+
+    -- TODO: pack 7 bits, and use the 8th to indicate "no spaces for 7 chars"?
+    if #out_chars > #src_chars then
+        print('"'..line..'"')
+        print("#", #src_chars, #out_chars)
+    end
+    --]]
 end
 
 -- escape screen codes before compression
@@ -341,6 +405,12 @@ function Compress:compressLines()
     end
 end
 
+-- find exactly how many unique characters are used
+--------------------------------------------------------------------------------
+function Compress:analyseChars()
+    ----------------------------------------------------------------------------
+end
+
 -- find the most commong byte-pair used across all lines
 --------------------------------------------------------------------------------
 function Compress:analyseLines()
@@ -406,13 +476,6 @@ function Compress:analyseLines()
     -- return the most common byte-pair,
     -- (and the quantity)
     return max_pair, max_count
-end
-
--- anaylyse a line of C64 screen codes and add to the internal stats
---------------------------------------------------------------------------------
-function Compress:analyseLine(scr_line)
-    ----------------------------------------------------------------------------
-
 end
 
 -- output compression statistics
