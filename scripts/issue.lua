@@ -130,7 +130,7 @@ function Issue:build(i_issue)
         -- add the output file-path to the article
         j_article["bin"] = s_out
         -- and to the list file used for packing onto 1541
-        table.insert(self.list, s_out..";"..j_article["prg"])
+        table.insert(self.list, s_out..".prg;"..j_article["prg"])
 
         -- we need to integrate the article into the outfit:
         -- the article title for the menu page needs to be converted to C64

@@ -641,26 +641,30 @@ end
 --------------------------------------------------------------------------------
 function Article:write()
     ----------------------------------------------------------------------------
-    local old_size = 0
-
-    -- compress the article
-    ----------------------------------------------------------------------------
-    io.stdout:write("> compressing...              ")
-
+    -- clear the compressor
+    -- (may contain previous article)
     compress:clear()
+    -- populate the compressor with the lines of the article
     for _, src_line in ipairs(self.lines) do
-        -- count number of bytes in the line before compression
-        old_size = old_size + #src_line
+        -- add the line to the compressor
         compress:addLine(src_line)
     end
 
-    print(string.format("%10s", filesize(old_size)))
-
     compress:compressLines()
+
+    -- write converted article as assembly source
+    ----------------------------------------------------------------------------
+    local f_out,err = io.open(self.outfile..".acme", "w")
+    if err then print ("! error: " .. err); os.exit(false); end
+
+    local s_out = compress:acme(self.outfile..".prg")
+
+    f_out:write(s_out)
+    f_out:close()
 
     ----------------------------------------------------------------------------
     -- (attempt) to open the output file
-    local f_out,err = io.open(self.outfile, "wb")
+    local f_out,err = io.open(self.outfile..".prg", "wb")
     -- problem? exit
     if err then print ("! error: " .. err); os.exit(false); end
 

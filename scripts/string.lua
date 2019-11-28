@@ -560,7 +560,7 @@ scr2str = {
     ["\x7f"]        = "\x81", -- code page 850 for "ü",
 }
 
--- for compression statistics, convert C64 screen-codes to lower-case
+-- for compression, convert C64 screen-codes to lower-case
 --------------------------------------------------------------------------------
 function string:scr2lower()
     ----------------------------------------------------------------------------

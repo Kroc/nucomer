@@ -43,20 +43,21 @@ function Compress:addLine(src_line)
     -- convert the line to C64 screen codes and a list of style classes
     local src_screen, src_styles = src_line:toC64()
 
-    -- TODO: bit-pack the spaces, encode case
-    --src_screen = src_screen:gsub("\x00", ""):scr2lower()
-
     -- we compress the colour data right away as this requires
     -- the original screen codes, before they get compressed
     local out_colour = compress:compressColour(src_screen, src_styles)
-    -- the compression scheme will use bytes $80 and above;
-    -- any such bytes already in the line will need to be escaped
-    local out_screen = compress:escapeScr(src_screen)
+
+    -- TODO: bit-pack the spaces, encode case
+    local out_screen = src_screen:gsub("\x00", ""):scr2lower()
+    --#local out_screen = src_screen
+
     -- add the binary data to our internal table
     table.insert(self.lines, {
         colour = out_colour,
         screen = out_screen,
         source = src_line,
+        -- unused initially, but will hold the tokenised version of the line
+        tokens = "",
     })
 
     --[[
@@ -122,16 +123,6 @@ function Compress:addLine(src_line)
         print("#", #src_chars, #out_chars)
     end
     --]]
-end
-
--- escape screen codes before compression
---------------------------------------------------------------------------------
-function Compress:escapeScr(str_scr)
-    ----------------------------------------------------------------------------
-    -- any screen code $80 or above in the original string will conflict
-    -- with the compression scheme, so we escape it with a special byte
-    --
-    return str_scr:gsub("[\x80-\xFF]", "\xFF%0")
 end
 
 -- compress the list of style classes into binary colour data
@@ -322,21 +313,32 @@ function Compress:compressColour(src_screen, src_styles)
     return out_colour
 end
 
--- iteratively compresses the lines until no more tokens are free
+-- iteratively compress the lines until no more tokens are free
 --------------------------------------------------------------------------------
 function Compress:compressLines()
     ----------------------------------------------------------------------------
+    -- before compression, the lines are stored as direct screen codes.
+    -- after compression, all bytes will be some form of token, so the first
+    -- task is find all unqiue characters in the lines and assign these to the
+    -- first "literal" tokens. i.e. instead of a scatter of screen-codes,
+    -- $00-$FF, the lines will be recoded to the minimum number of unqiue
+    -- tokens in packed order. if there were 56 unique characters in the
+    -- article, then only tokens 1 to 56 would be used. these leaves all
+    -- reamining tokens to be used for byte-pair compression
+    --
+    -- note that calling this routine will clear the current token table,
+    -- and will re-encode all lines. the next avaiable token will be returned
+    --
+    local token = self:tokeniseChars()
+
     -- calling this method will always clear the previous result
     self.pairs = {}
-    self.chars = {}
-    self.tokens = {}
-    -- tokens will be assigned from this number onwards
-    local token = 0x80
+
     while token < 0xFF do
         ------------------------------------------------------------------------
-        -- find the most common byte pair
-        -- (this might include existing compressed byte-pairs!)
-        local old_pair, old_count = self:analyseLines()
+        -- find the most common token pair
+        -- (this might include existing compressed token-pairs!)
+        local old_pair, old_count = self:analysePairs()
 
         if old_count > 0 then
             io.stdout:write(string.format(
@@ -357,24 +359,15 @@ function Compress:compressLines()
         --
         for i = 1, #self.lines do
             --------------------------------------------------------------------
-            -- we'll only be modifying the screen codes
-            local old_line = self.lines[i].screen
+            local old_line = self.lines[i].tokens
             -- we'll build the replacement line byte-by-byte
             -- as it'll be shorter than the original
             local new_line = ""
-            -- walk through the byte-pairs
+            -- walk through the token-pairs
             local j = 1
             while j <= #old_line do
-                -- ignore the escape code for un-compressed
-                -- screen codes $80 and above!
-                if old_line:byte(j) == 0xFF then
-                    -- include the escaped byte as-is
-                    new_line = new_line .. old_line:sub(j, j+1)
-                    -- skip both bytes so as not to pair the second byte
-                    j = j + 2
-
                 -- is this the pair?
-                elseif old_line:sub(j, j+1) == old_pair then
+                if old_line:sub(j, j+1) == old_pair then
                     -- yes! use the new token in the output
                     new_line = new_line .. string.char(token)
                     -- skip the old pair
@@ -391,7 +384,7 @@ function Compress:compressLines()
             old_size = old_size + #old_line
             new_size = new_size + #new_line
             -- save the compressed line
-            self.lines[i].screen = new_line
+            self.lines[i].tokens = new_line
         end
 
         print(string.format(
@@ -405,75 +398,135 @@ function Compress:compressLines()
     end
 end
 
--- find exactly how many unique characters are used
+-- assign unique characters to the first initial tokens
 --------------------------------------------------------------------------------
-function Compress:analyseChars()
+function Compress:tokeniseChars()
     ----------------------------------------------------------------------------
-end
+    io.stdout:write("> tokenising...               ")
 
--- find the most commong byte-pair used across all lines
---------------------------------------------------------------------------------
-function Compress:analyseLines()
-    ----------------------------------------------------------------------------
-    -- we only need to know the most common pair
-    local max_pair = ""
-    local max_count = 0
+    -- clear the current token definitions & character statistics.
+    self.tokens = {}
+    self.chars = {}
 
+    -- pre-populate all 256 possible chars, as Lua will stop
+    -- iterating a table at the first 'gap' between indices
+    for i = 0, 255 do self.chars[i] = 0; end
+
+    -- walk all lines of text...
+    --
     for _, t_line in ipairs(self.lines) do
         ------------------------------------------------------------------------
-        -- strip spaces; they'll be stripped from the lines and bit-packed
-        -- to not waste tokens on byte-pairs containing spaces
-        -- (super common, obviously)
+        -- spaces are stripped from lines and bit-packed separately
+        -- since they would out-number all other chars
         --
         local scr_line = t_line.screen
         --#scr_line = scr_line:gsub("\x00", ""):scr2lower()
 
         -- walk the bytes...
-        local i = 1
-        while i <= #scr_line do
+        local j = 1
+        while j <= #scr_line do
             --------------------------------------------------------------------
-            -- ignore the escape code for un-compressed
-            -- screen codes $80 and above!
-            if scr_line:byte(i) == 0xFF then
-                -- skip both bytes so as not to pair the second byte
-                i = i + 2
-            else
-                -- read a pair of bytes:
-                --
-                -- remember that we are reading overlapping pairs,
-                -- not separate pairs; that is, "ab", "bc", "cd"
-                -- instead of "ab", "cd"
-                --
-                local pair = scr_line:sub(i, i+1)
-                -- if at the end of the line, this might be just one character.
-                -- if the second character is an escape for an original screen
-                -- code, then ignore the second character
-                --
-                if #pair == 2 and scr_line:byte(i+1) ~= 0xFF then
-                    -- increase the count for this pair
-                    -- (or add it to the table, if not already present)
-                    self.pairs[pair] = (self.pairs[pair] or 0) + 1
-                    -- is it our top pair?
-                    if self.pairs[pair] > max_count then
-                        -- take the top spot
-                        max_pair = pair
-                        max_count = self.pairs[pair]
-                    end
-                    -- count the second character of the pair
-                    local char = pair:sub(2)
-                    self.chars[char] = (self.chars[char] or 0) + 1
-                end
-                -- count the first character of the pair,
-                -- or where the end of the line leaves a single char
-                local char = pair:sub(1, 1)
-                self.chars[char] = (self.chars[char] or 0) + 1
+            -- count the character
+            char = scr_line:byte(j)
+            --#print(string.format("%q", char))
+            self.chars[char] = (self.chars[char] or 0) + 1
+            -- move to next character
+            j = j + 1
+        end
+        --#print("==>", #self.chars)
+    end
 
-                i = i + 1
-            end
+    -- now we've counted the screen codes, begin assigning them to tokens;
+    -- the order used is not actually important, but could perhaps be
+    -- controlled in the future as part of arithmetic-coding
+    ----------------------------------------------------------------------------
+    local token = 0
+    -- check each of the 256 possible unqiue screen codes...
+    for i = 0, 255 do
+        -- was the screen-code ever used?
+        if self.chars[i] > 0 then
+            -- yes, assign it a token number
+            token = token + 1
+            -- define the token as a literal;
+            -- a null followed by the screen-code
+            self.tokens[token] = string.char(0, i)
+            -- we're going to re-use our count to map the screen-code to
+            -- its token for the complete line re-encoding we'll have to do
+            self.chars[i] = token
+
+            --#print(i, self.chars[i])
         end
     end
 
-    -- return the most common byte-pair,
+    -- re-encode all lines from screen-codes to tokens
+    --
+    for i = 1, #self.lines do
+        ------------------------------------------------------------------------
+        -- our source line, screen-codes
+        local scr_line = self.lines[i].screen
+        -- this will be the token-encoded version of the line
+        local tok_line = ""
+        -- walk each screen-code in the source line
+        for j = 1, #scr_line do
+            -- determine the screen code
+            local scr = scr_line:byte(j)
+            -- get the token for it
+            local tok = self.chars[scr]
+            -- add the token to the output
+            tok_line = tok_line .. string.char(tok)
+        end
+        -- the line has been converted
+        self.lines[i].tokens = tok_line
+    end
+
+    -- return the next available token number,
+    -- this will happen to also be the count of unqiue characters + 1
+    print(string.format("%3u tokens", token-1))
+    return token
+end
+
+-- find the most common token-pair used across all lines
+--------------------------------------------------------------------------------
+function Compress:analysePairs()
+    ----------------------------------------------------------------------------
+    -- we only need to know the most common pair
+    local max_pair = ""
+    local max_count = 0
+
+    self.pairs = {}
+
+    for _, t_line in ipairs(self.lines) do
+        ------------------------------------------------------------------------
+        local tok_line = t_line.tokens
+
+        -- walk the bytes...
+        local i = 1
+        while i <= #tok_line do
+            --------------------------------------------------------------------
+            -- read a pair of bytes:
+            --
+            -- remember that we are reading overlapping pairs,
+            -- not separate pairs; that is, "ab", "bc", "cd"
+            -- instead of "ab", "cd"
+            --
+            local pair = tok_line:sub(i, i+1)
+            -- if at the end of the line, this might be just one token
+            if #pair == 2 then
+                -- increase the count for this pair
+                -- (or add it to the table, if not already present)
+                self.pairs[pair] = (self.pairs[pair] or 0) + 1
+                -- is it our top pair?
+                if self.pairs[pair] > max_count then
+                    -- take the top spot
+                    max_pair = pair
+                    max_count = self.pairs[pair]
+                end
+            end
+            i = i + 1
+        end
+    end
+
+    -- return the most common token-pair,
     -- (and the quantity)
     return max_pair, max_count
 end
@@ -521,6 +574,96 @@ function Compress:printStatistics()
             ))
         end
     end
+end
+
+-- generate an ACME assembly file for the compressed data
+--------------------------------------------------------------------------------
+function Compress:acme(s_outfile)
+    ----------------------------------------------------------------------------
+    local s_out = [[
+; auto-generated file, do not modify!
+
+; set output file:
+!to     "{{OUTFILE}}", cbm
+
+; include constants / memory-layout
+!source "nucomer.acme"
+
+; the first 2 bytes of data are an offset to the end of the list of
+; line-lengths. the load-address is pulled back two bytes so that the
+; list of line-lengths begins at a page boundary ($xx00); this is used
+; to detect when scrolling has hit the top of the article!
+; 
+* = nu_text - 2
+
+        ; as mentioned above, the first word is the size
+        ; of the line-lengths list that appears below
+        !word   (lines-lengths)
+
+lengths:
+;
+; the length, in bytes, for each line in the article
+
+; if a line has colour-data, the upper-bit is set
+LINE_COLOUR = %10000000
+
+{{LENGTHS}}
+        ; this byte marks the end of the list of line-lengths
+        !byte   $80
+
+lines:
+{{LINES}}
+]]
+    s_out = s_out:gsub("%{%{OUTFILE%}%}", s_outfile)
+
+    -- build the list of line-lengths:
+    ----------------------------------------------------------------------------
+    local s_lengths = ""
+    for _, out_line in ipairs(self.lines) do
+        -- is there any colour data?
+        if #out_line.colour > 0 then
+            -- indicate clearly the number of extra bytes used by colour data
+            s_lengths = s_lengths .. string.format(
+                "        !byte   $%02x + ($%02x | LINE_COLOUR)\n",
+                #out_line.screen, #out_line.colour
+            )
+        else
+            s_lengths = s_lengths .. string.format(
+                "        !byte   $%02x\n",
+                #out_line.screen
+            )
+        end
+    end
+    s_out = s_out:gsub("%{%{LENGTHS%}%}", s_lengths)
+
+    -- build the list of line-data:
+    ----------------------------------------------------------------------------
+    local s_lines = ""
+    for i, out_line in ipairs(self.lines) do
+        -- do not output empty lines; on the C64, when a line-length of 0
+        -- is encountered, the line-data pointer is not moved forward
+        if #out_line.screen > 0 then
+            local out_bytes = string.reverse(out_line.colour..out_line.screen)
+
+            s_lines = s_lines .. string.format(
+                "        ; line %u: %q\n",
+                i, out_line.source
+            )
+
+            local hex = ""
+            for c = 1, #out_bytes do hex = hex .. string.format(
+                "%02x ", string.byte(out_bytes, c)
+            ); end
+
+            s_lines = s_lines .. string.format(
+                "        !hex    %s\n",
+                hex
+            )
+        end
+    end
+    s_out = s_out:gsub("%{%{LINES%}%}", s_lines)
+
+    return s_out
 end
 
 return Compress
