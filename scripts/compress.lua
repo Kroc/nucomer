@@ -46,10 +46,7 @@ function Compress:addLine(src_line)
     -- we compress the colour data right away as this requires
     -- the original screen codes, before they get compressed
     local out_colour = compress:compressColour(src_screen, src_styles)
-
-    -- TODO: bit-pack the spaces, encode case
-    local out_screen = src_screen:gsub("\x00", ""):scr2lower()
-    --#local out_screen = src_screen
+    local out_screen = src_screen
 
     -- add the binary data to our internal table
     table.insert(self.lines, {
@@ -324,23 +321,20 @@ function Compress:compressLines()
     -- $00-$FF, the lines will be recoded to the minimum number of unqiue
     -- tokens in packed order. if there were 56 unique characters in the
     -- article, then only tokens 1 to 56 would be used. these leaves all
-    -- reamining tokens to be used for byte-pair compression
+    -- remaining tokens to be used for byte-pair compression
     --
     -- note that calling this routine will clear the current token table,
     -- and will re-encode all lines. the next avaiable token will be returned
     --
     local token = self:tokeniseChars()
 
-    -- calling this method will always clear the previous result
-    self.pairs = {}
-
-    while token < 0xFF do
+    while token <= 0xFF do
         ------------------------------------------------------------------------
         -- find the most common token pair
         -- (this might include existing compressed token-pairs!)
         local old_pair, old_count = self:analysePairs()
 
-        if old_count > 0 then
+        if old_count ~= 0 then
             io.stdout:write(string.format(
                 "  ? $%02X = $%02X,$%02X ",
                 token,
@@ -420,41 +414,37 @@ function Compress:tokeniseChars()
         -- since they would out-number all other chars
         --
         local scr_line = t_line.screen
-        --#scr_line = scr_line:gsub("\x00", ""):scr2lower()
+        scr_line = scr_line:gsub("\x00", ""):scr2lower()
 
         -- walk the bytes...
         local j = 1
         while j <= #scr_line do
             --------------------------------------------------------------------
             -- count the character
-            char = scr_line:byte(j)
-            --#print(string.format("%q", char))
+            local char = scr_line:byte(j)
             self.chars[char] = (self.chars[char] or 0) + 1
             -- move to next character
             j = j + 1
         end
-        --#print("==>", #self.chars)
     end
 
     -- now we've counted the screen codes, begin assigning them to tokens;
     -- the order used is not actually important, but could perhaps be
     -- controlled in the future as part of arithmetic-coding
     ----------------------------------------------------------------------------
-    local token = 0
+    local token = 1
     -- check each of the 256 possible unqiue screen codes...
-    for i = 0, 255 do
+    for i = 1, 255 do
         -- was the screen-code ever used?
         if self.chars[i] > 0 then
-            -- yes, assign it a token number
-            token = token + 1
             -- define the token as a literal;
             -- a null followed by the screen-code
             self.tokens[token] = string.char(0, i)
             -- we're going to re-use our count to map the screen-code to
             -- its token for the complete line re-encoding we'll have to do
             self.chars[i] = token
-
-            --#print(i, self.chars[i])
+            -- move to next token number
+            token = token + 1
         end
     end
 
@@ -464,12 +454,17 @@ function Compress:tokeniseChars()
         ------------------------------------------------------------------------
         -- our source line, screen-codes
         local scr_line = self.lines[i].screen
+        scr_line = scr_line:gsub("\x00", ""):scr2lower()
+
         -- this will be the token-encoded version of the line
         local tok_line = ""
         -- walk each screen-code in the source line
         for j = 1, #scr_line do
             -- determine the screen code
             local scr = scr_line:byte(j)
+            -- ignore spaces?
+            if scr == 0x00 then error("leaked space!"); end
+
             -- get the token for it
             local tok = self.chars[scr]
             -- add the token to the output
@@ -490,7 +485,7 @@ end
 function Compress:analysePairs()
     ----------------------------------------------------------------------------
     -- we only need to know the most common pair
-    local max_pair = ""
+    local max_pair  = nil
     local max_count = 0
 
     self.pairs = {}
@@ -533,48 +528,48 @@ end
 
 -- output compression statistics
 --------------------------------------------------------------------------------
-function Compress:printStatistics()
-    ----------------------------------------------------------------------------
-    print()
-    print("Compression Statistics:")
-    print("----------------------------------------")
-    local byCount = function(a,b)
-        return a[2] > b[2]
-    end
-
-    -- the pairs array cannot be sorted in a 'pair = count' format
-    -- (though this is a fast format when counting the pairs),
-    -- so we copy the data to a different format for sorting
-    local sorted_pairs = {}
-    for pair,count in pairs(self.pairs) do
-        table.insert(sorted_pairs, {pair:fromC64(), count})
-    end
-    table.sort(sorted_pairs, byCount)
-
-    local sorted_chars = {}
-    for char,count in pairs(self.chars) do
-        table.insert(sorted_chars, {char:fromC64(), count})
-    end
-    table.sort(sorted_chars, byCount)
-
-    for i = 1, 128 do
-        if sorted_chars[i] then
-            print(string.format(
-                "%3u: %-9s x %4u | %-9s x %4u", i,
-                sorted_pairs[i][1],
-                sorted_pairs[i][2],
-                sorted_chars[i][1],
-                sorted_chars[i][2]
-            ))
-        elseif sorted_pairs[i] then
-            print(string.format(
-                "%3u: %-9s x %4u |", i,
-                sorted_pairs[i][1],
-                sorted_pairs[i][2]
-            ))
-        end
-    end
-end
+--#function Compress:printStatistics()
+--#    -------------------------------------------------------------------------
+--#    print()
+--#    print("Compression Statistics:")
+--#    print("----------------------------------------")
+--#    local byCount = function(a,b)
+--#        return a[2] > b[2]
+--#    end
+--#
+--#    -- the pairs array cannot be sorted in a 'pair = count' format
+--#    -- (though this is a fast format when counting the pairs),
+--#    -- so we copy the data to a different format for sorting
+--#    local sorted_pairs = {}
+--#    for pair,count in pairs(self.pairs) do
+--#        table.insert(sorted_pairs, {pair:fromC64(), count})
+--#    end
+--#    table.sort(sorted_pairs, byCount)
+--#
+--#    local sorted_chars = {}
+--#    for char,count in pairs(self.chars) do
+--#        table.insert(sorted_chars, {char:fromC64(), count})
+--#    end
+--#    table.sort(sorted_chars, byCount)
+--#
+--#    for i = 1, 128 do
+--#        if sorted_chars[i] then
+--#            print(string.format(
+--#                "%3u: %-9s x %4u | %-9s x %4u", i,
+--#                sorted_pairs[i][1],
+--#                sorted_pairs[i][2],
+--#                sorted_chars[i][1],
+--#                sorted_chars[i][2]
+--#            ))
+--#        elseif sorted_pairs[i] then
+--#            print(string.format(
+--#                "%3u: %-9s x %4u |", i,
+--#                sorted_pairs[i][1],
+--#                sorted_pairs[i][2]
+--#            ))
+--#        end
+--#    end
+--#end
 
 -- generate an ACME assembly file for the compressed data
 --------------------------------------------------------------------------------
