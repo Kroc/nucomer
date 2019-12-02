@@ -1485,10 +1485,11 @@ read_set_colour_after:
         rts
 
 ;===============================================================================
-; decompress text
+; decompress text:
 ;
 ; params:
 ;       Y = number of [compressed] bytes to read
+;           (value is clobbered on return)
 ;
 ; returns:
 ;       X = number of characters in the buffer to print
@@ -1497,20 +1498,54 @@ read_decompress:
         ;-----------------------------------------------------------------------
         ; initialise our position within the decompression buffer
         ;
-        ldx # 0
-        stx zp_read_buffer_index
+        lda # 0
+        sta zp_read_buffer_index
 
-@read:  lda (zp_read_char), y   ; read a byte from the token string
+        iny
+
+        ;-----------------------------------------------------------------------
+        ; the stack has been emptied, fetch more tokens:
+        ;
+@fetch: dey                     ; move to next token
+        beq @done               ; if we reach the end, stop decompressing
+        
+        ; rather than check the height of the stack, it's easier and faster
+        ; to just push a zero on the bottom and when it comes out, push it
+        ; back in again. this way we don't have to numerically examine the
+        ; stack pointer
+        ;
+        pha
+
+        lda (zp_read_char), y   ; read a token
+        pha                     ; push the token onto the stack for decoding
+
+        ;-----------------------------------------------------------------------
+        ; are there any tokens waiting to be decoded?
+        ;
+        ; a zero is placed on the bottom of the stack to indicate
+        ; when there are no more tokens on the stack
+        ;
+@next:  pla
+        beq @fetch              ; go fetch more tokens
 
         ; examine the token:
+        ;-----------------------------------------------------------------------
         tax
+        ; check the left-hand byte in the token
         lda nu_tokens_lo, x
-
-        ;;bne +
+        ; if this is zero, it indicates that the token is literal,
+        ; and the right-hand byte contains the screen-code
+        beq @lit
+        
+        ; process token-pair; the left-hand and right-hand bytes
+        ; both represent additional tokens; push them onto the
+        ; stack for further decoding
+        ; TODO:
+        brk
 
         ; token is a literal:
-        ; read the screen-code
-        lda nu_tokens_hi, x
+        ; read the screen-code from the right-hand byte
+@lit:   lda nu_tokens_hi, x
 
         ; put into the buffer
         ldx zp_read_buffer_index
@@ -1518,9 +1553,9 @@ read_decompress:
         ; move to the next byte in the output buffer
         inc zp_read_buffer_index
 
-        dey                     ; move to next data-byte
-        bne @read               ; keep decompressing whilst data remains
+        bne @next
+        brk
 
-        ; before we return, note that X is the length of the buffer, less 1
-
-        rts
+        ;-----------------------------------------------------------------------
+        ; before we return, note that X is the length of the buffer (0-based)
+@done:  rts
