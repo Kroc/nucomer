@@ -1501,6 +1501,8 @@ read_decompress:
         lda # 0
         sta zp_read_buffer_index
 
+        ; compensate for the pre-decrement
+        ; nature of reading tokens
         iny
 
         ;-----------------------------------------------------------------------
@@ -1531,27 +1533,27 @@ read_decompress:
         ; examine the token:
         ;-----------------------------------------------------------------------
         tax
-        ; check the left-hand byte in the token
-        lda nu_tokens_lo, x
-        ; if this is zero, it indicates that the token is literal,
-        ; and the right-hand byte contains the screen-code
-        beq @lit
-        
-        ; process token-pair; the left-hand and right-hand bytes
-        ; both represent additional tokens; push them onto the
-        ; stack for further decoding
-        ; TODO:
-        brk
+        ; check the right-hand byte in the token
+        lda nu_tokens_hi, x
+        bne @pair
 
-        ; token is a literal:
-        ; read the screen-code from the right-hand byte
-@lit:   lda nu_tokens_hi, x
-
-        ; put into the buffer
+        ; if right-hand byte is zero, it indicates that the token is literal,
+        ; and the left-hand byte contains the screen-code
+@lit:   lda nu_tokens_lo, x
         ldx zp_read_buffer_index
         sta zp_read_buffer, x
         ; move to the next byte in the output buffer
         inc zp_read_buffer_index
+
+        bne @next
+        brk
+
+        ; process token-pair; the left-hand and right-hand bytes
+        ; both represent additional tokens; push them onto the
+        ; stack for further decoding
+@pair:  pha                     ; push right-hand byte first (already read)
+        lda nu_tokens_lo, x     ; read the left-hand byte
+        pha                     ; push that to the top
 
         bne @next
         brk

@@ -328,8 +328,6 @@ function Compress:compressLines()
     --
     local token = self:tokeniseChars()
 
-    if 1 then return; end
-
     while token <= 0xFF do
         ------------------------------------------------------------------------
         -- find the most common token pair
@@ -443,8 +441,8 @@ function Compress:tokeniseChars()
         -- was the screen-code ever used?
         if self.chars[i] > 0 then
             -- define the token as a literal;
-            -- a null followed by the screen-code
-            self.tokens[token] = string.char(0, i)
+            -- the screen-code followed by a null
+            self.tokens[token] = string.char(i, 0)
             -- we're going to re-use our count to map the screen-code to
             -- its token for the complete line re-encoding we'll have to do
             self.chars[i] = token
