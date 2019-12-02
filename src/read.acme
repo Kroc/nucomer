@@ -49,15 +49,10 @@
 
 !addr {
 ;===============================================================================
-; vertical scrolling register value to write at each vblank:
-; this ensures that the change to the vertical smooth-scroll
-; offset only ever occurs offscreen
-zp_read_vert            = $20
-
 ; number of lines in the complete article:
-zp_read_lines           = $21
-zp_read_lines_lo        = $21
-zp_read_lines_hi        = $22
+zp_read_lines           = $20
+zp_read_lines_lo        = $20
+zp_read_lines_hi        = $21
 
 ; height of the complete article -- in pixels! this is used to determine the
 ; exact point to clip smooth scrolling when scrolling quickly. the high-bit
@@ -65,62 +60,78 @@ zp_read_lines_hi        = $22
 ; is limited to $7FFF (32'767) pixels high, equivalant to 4'095 lines,
 ; or 170 screens high!
 ;
-zp_read_vlen            = $23
-zp_read_vlen_lo         = $23
-zp_read_vlen_hi         = $24
+zp_read_vlen            = $22
+zp_read_vlen_lo         = $22
+zp_read_vlen_hi         = $23
 
 ; exact scroll position -- in pixels!
-zp_read_vpos            = $25
-zp_read_vpos_lo         = $25
-zp_read_vpos_hi         = $26
+zp_read_vpos            = $24
+zp_read_vpos_lo         = $24
+zp_read_vpos_hi         = $25
 
 ; scroll accumulator, used for changing the speed
 ; of smooth scrolling; a signed byte
-zp_read_scroll          = $27
+zp_read_scroll          = $26
 
 ; flag to indicate to disallow upward scrolling
 ; (prevents smooth scrolling at top of article)
-zp_read_stop_up         = $28   ; $00 = go, $FF = stop
+zp_read_stop_up         = $27   ; $00 = go, $FF = stop
 ; flag to indicate to disallow downward scrolling
 ; (prevents smooth scrolling at bottom of article)
-zp_read_stop_dn         = $29   ; $00 = go, $FF = stop
+zp_read_stop_dn         = $28   ; $00 = go, $FF = stop
 
 ; pointer into the line-length array:
-zp_read_lens            = $2a
-zp_read_lens_lo         = $2a
-zp_read_lens_hi         = $2b
+zp_read_lens            = $29
+zp_read_lens_lo         = $29
+zp_read_lens_hi         = $2a
 ; address of the line data that appears at the top of the screen:
 ; (changes only when scrolling, not during printing)
-zp_read_top             = $2c
-zp_read_top_lo          = $2c
-zp_read_top_hi          = $2d
+zp_read_top             = $2b
+zp_read_top_lo          = $2b
+zp_read_top_hi          = $2c
 ; number of rows to print: (1-based)
-zp_read_rows            = $2e
+zp_read_rows            = $2d
 ; current row on screen being printed: (0-26)
-zp_read_row             = $2f
+zp_read_row             = $2e
 ; pointer to the current row's line-data;
 ; this is always where line-data is read from
-zp_read_char            = $30
-zp_read_char_lo         = $30
-zp_read_char_hi         = $31
+zp_read_char            = $2f
+zp_read_char_lo         = $2f
+zp_read_char_hi         = $30
 ; current line data-length, in bytes:
-zp_read_len             = $32
+zp_read_len             = $31
 ; indexes used when processing line colour-data (it's faster in this
 ; instance to use zero-page than use the stack or self-modifying-code)
-zp_read_index_data      = $33
-zp_read_index_col       = $34
+zp_read_index_data      = $32
+zp_read_index_col       = $33
 ; address of the line that appears at the bottom of the screen:
 ; (changes only when scrolling, not during printing)
-zp_read_bot             = $35
-zp_read_bot_lo          = $35
-zp_read_bot_hi          = $36
+zp_read_bot             = $34
+zp_read_bot_lo          = $34
+zp_read_bot_hi          = $35
+
+; for text decompression, a buffer of 40 bytes is required; located in
+; the zero-page for maximum speed. we _could_ decompress directly into
+; screen RAM, but it would cause visual glitching when the beam goes
+; through a line wilst un-packing
+;
+; TODO: make this 80-bytes, and we can use this buffer for
+;       the temporary line copy during screen scrolling
+;
+zp_read_buffer          = $80
+zp_read_buffer_len      = 40
+
+; re-use the colour-data index for the decompression buffer,
+; as the two won't ever be used at the same time
+;
+zp_read_buffer_index    = zp_read_index_col
 
 }
 ;===============================================================================
 read_screen_rows:
 ;-------------------------------------------------------------------------------
 ; this is a lookup table of row-number to screen address, but the screen is
-; 27 rows high, this means that when printing row '0', it will be off-screen
+; 27 rows high; this means that when printing row '0', it will be off-screen
 ; and likewise with row '26'
 ;
 read_screen_rows_lo:
@@ -344,7 +355,6 @@ read_screen:
         ;-----------------------------------------------------------------------
         ; reset the smooth scrolling variables
         ldx # $00
-        ;;stx zp_read_vert        ; set initial smooth-scroll offset
         stx zp_read_scroll      ; scroll-speed = 0
         stx zp_read_stop_dn     ; allow scrolling down; $00 = go, $FF = stop
         stx zp_read_vpos_lo     ; set the exact pixel vertical position
@@ -481,7 +491,6 @@ read_irq_top:
         ;-----------------------------------------------------------------------
         ;;inc .VIC_BORDER
         
-        ;;lda zp_read_vert
         lda zp_read_vpos_lo
         and # %00000111
         eor # %00000111
@@ -618,7 +627,6 @@ read_irq_scroll:
         inx                     ; X = $00
         stx zp_read_vpos_lo     ; set scroll position within article
         stx zp_read_vpos_hi     ; to $0000
-        ;;stx zp_read_vert        ; reset vertical smooth-scroll register
 
 @done:  ;;dec .VIC_BORDER
         rts
@@ -646,14 +654,9 @@ read_irq_scroll:
         lda zp_read_vlen_hi
         sta zp_read_vpos_hi
         
-        ; soft/hard-scroll the screen:
-        ;-----------------------------------------------------------------------
-        ; soft-scroll:
-@scroll ;;lda zp_read_vpos_lo     ; retrieve the article scroll position
-        ;;sta zp_read_vert        ; set the smooth-scrolling register at vblank
-
         ; do we need to hard-scroll?
-        tya                     ; article scroll position *before* scroll
+        ;-----------------------------------------------------------------------
+@scroll tya                     ; article scroll position *before* scroll
         and # %00000111
         sta zp_read_row         ; (temporary use)
 
@@ -1131,6 +1134,7 @@ read_print:
         ; print a line:
         ;-----------------------------------------------------------------------
 @line:  ldy zp_read_row         ; current row...
+
         ; set the screen address from the row number
         lda read_screen_rows_lo, y
         sta @out+1
@@ -1148,9 +1152,9 @@ read_print:
         ;
         ; instead, the upper-bit of the line-length is used to indicate the
         ; presence of colour-data in the line-data. the compare instruction
-        ; that follows will check the high-bit of the line-length; if 0,
+        ; that follows will check the high-bit of the line-length; if it's 0,
         ; carry is set; if 1, carry is cleared. we use this as our indicator
-        ; if colour-data should be read and processed from the line-data
+        ; for reading & processing colour-data from the line-data
         ;
         cmp # %10000000         ; check for high-bit on the byte-count
         beq @eof                ; terminator mark ($80), article ends
@@ -1159,7 +1163,8 @@ read_print:
 
         tay                     ; Y = length of line-data (in bytes)
         ; whilst we count Y down to zero, we keep a copy of the line-length
-        ; to move the character pointer forward to the next line
+        ; to move the character pointer forward to the next line (the flags
+        ; in the upper bits have been been stripped now)
         sty zp_read_len
 
         ; skip a zero-length line
@@ -1176,18 +1181,17 @@ read_print:
         lda read_style0_colour
         jsr read_colour_row
 
+        ; decompress the line into the zero-page buffer;
         ;-----------------------------------------------------------------------
-        ; screen memory offset for the line: (increases as each character
-        ; is printed), not equivilent to Y which counts data-bytes and
-        ; will not be in lock-step with X (data is compressed)
-        ;
-@print  ldx # 0
+        ; Y is the number of compressed bytes remaining to read; these will
+        ; be decompressed into a buffer of screen-codes ready to print.
+        ; the number of characters to print (0-based) will be returned in X
+@print: jsr read_decompress
 
-@char   lda (zp_read_char), y   ; read a byte from the binary string
+-       lda zp_read_buffer, x   ; read a character from the buffer
 @out    sta nu_screen, x        ; print the character
-        inx                     ; move to next column on screen
-        dey                     ; move to next data-byte
-        bne @char               ; keep printing whilst data remains
+        dex                     ; more characters remain in the buffer?
+        bpl -                   ; keep printing whilst characters remain
 
         ; end-of-line:
         ;-----------------------------------------------------------------------
@@ -1478,4 +1482,45 @@ read_set_colour_after:
         sta nu_colour_after+38, x       ; jsr + 114: colour 2 chars
         sta nu_colour_after+39, x       ; jsr + 117: colour 1 char
         
+        rts
+
+;===============================================================================
+; decompress text
+;
+; params:
+;       Y = number of [compressed] bytes to read
+;
+; returns:
+;       X = number of characters in the buffer to print
+;
+read_decompress:
+        ;-----------------------------------------------------------------------
+        ; initialise our position within the decompression buffer
+        ;
+        ldx # 0
+        stx zp_read_buffer_index
+
+@read:  lda (zp_read_char), y   ; read a byte from the token string
+
+        ; examine the token:
+        tax
+        lda nu_tokens_lo, x
+
+        ;;bne +
+
+        ; token is a literal:
+        ; read the screen-code
+        lda nu_tokens_hi, x
+
+        ; put into the buffer
+        ldx zp_read_buffer_index
+        sta zp_read_buffer, x
+        ; move to the next byte in the output buffer
+        inc zp_read_buffer_index
+
+        dey                     ; move to next data-byte
+        bne @read               ; keep decompressing whilst data remains
+
+        ; before we return, note that X is the length of the buffer, less 1
+
         rts

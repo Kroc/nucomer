@@ -320,13 +320,15 @@ function Compress:compressLines()
     -- first "literal" tokens. i.e. instead of a scatter of screen-codes,
     -- $00-$FF, the lines will be recoded to the minimum number of unqiue
     -- tokens in packed order. if there were 56 unique characters in the
-    -- article, then only tokens 1 to 56 would be used. these leaves all
+    -- article, then only tokens 1 to 56 would be used. this leaves all
     -- remaining tokens to be used for byte-pair compression
     --
     -- note that calling this routine will clear the current token table,
     -- and will re-encode all lines. the next avaiable token will be returned
     --
     local token = self:tokeniseChars()
+
+    if 1 then return; end
 
     while token <= 0xFF do
         ------------------------------------------------------------------------
@@ -514,7 +516,7 @@ function Compress:analysePairs()
                 -- (or add it to the table, if not already present)
                 self.pairs[pair] = (self.pairs[pair] or 0) + 1
                 -- is it our top pair?
-                if self.pairs[pair] > max_count then
+                if self.pairs[pair] >= max_count then
                     -- take the top spot
                     max_pair = pair
                     max_count = self.pairs[pair]
@@ -642,15 +644,15 @@ lines:
             s_temp = s_temp .. string.format(
                 "        !byte   $%02x + ($%02x | LINE_COLOUR)"..
                 "       ; line %u: %u bytes\n",
-                #out_line.screen, #out_line.colour,
-                i, (#out_line.screen + #out_line.colour)
+                #out_line.tokens, #out_line.colour,
+                i, (#out_line.tokens + #out_line.colour)
             )
         else
             s_temp = s_temp .. string.format(
                 "        !byte   $%02x"..
                 "                             ; line %u: %u bytes\n",
-                #out_line.screen,
-                i, (#out_line.screen + #out_line.colour)
+                #out_line.tokens,
+                i, (#out_line.tokens + #out_line.colour)
             )
         end
     end
@@ -662,8 +664,10 @@ lines:
     for i, out_line in ipairs(self.lines) do
         -- do not output empty lines; on the C64, when a line-length of 0
         -- is encountered, the line-data pointer is not moved forward
-        if #out_line.screen > 0 then
-            local out_bytes = string.reverse(out_line.colour..out_line.screen)
+        if #out_line.tokens > 0 then
+            -- the bytes are output in reverse order for the benefit
+            -- of the C64 as counting toward zero is faster / simpler
+            local out_bytes = string.reverse(out_line.colour..out_line.tokens)
 
             s_temp = s_temp .. string.format(
                 "        ; line %u: %q\n",
@@ -692,7 +696,7 @@ lines:
     for i = 0, 255 do
         -- if the token is undefined fill it in blank
         -- as the tables must align
-        local i_left = (self.tokens[i] or ""):byte(1) or 0
+        local i_left  = (self.tokens[i] or ""):byte(1) or 0
         local i_right = (self.tokens[i] or ""):byte(2) or 0
 
         s_left = s_left .. string.format(
