@@ -31,8 +31,22 @@ NU_VIC_BANK             = 3     ; the VIC bank used by the outfit
 
 nu_main                 = $b000 ; address of the main outfit code
 nu_song                 = $1000 ; address of SID song
-nu_text                 = $4000 ; address of the article text
 
+; articles are loaded in from this point, though note that this includes
+; some meta-data, compression tables and not just straight text beginning
+; at this point
+nu_text                 = $4000
+
+; the compression table is 512 bytes and comes first due to its fixed size
+nu_tokens               = nu_text
+nu_tokens_lo            = nu_text + $000
+nu_tokens_hi            = nu_text + $100
+
+; the list of line-lengths comes next.
+; this is not a fixed length, so no constant addresses follow
+nu_lengths              = nu_tokens + $200
+
+;-------------------------------------------------------------------------------
 nu_font                 = $e000 ; location of the custom font; 4 KB
 nu_font_up              = $e000 ; upper-case half of the font; 2 KB
 nu_font_lo              = $e800 ; lower-case half of the font; 2 KB
@@ -60,18 +74,6 @@ nu_colour_after         = $f4c8
 nu_sprites              = $f500 ; sprite gfx
 
 }
-
-;-------------------------------------------------------------------------------
-; style colours:
-;
-NU_STYLE0               = .VIC_DKGREY   ; default text colour
-NU_STYLE1               = .VIC_BLACK    ; title / horizontal bar
-NU_STYLE2               = .VIC_WHITE    ; <unassigned>
-NU_STYLE3               = .VIC_WHITE    ; <unassigned>
-NU_STYLE4               = .VIC_WHITE    ; <unassigned>
-NU_STYLE5               = .VIC_WHITE    ; <unassigned>
-NU_STYLE6               = .VIC_WHITE    ; <unassigned>
-NU_STYLE7               = .VIC_WHITE    ; <unassigned>
 
 ;-------------------------------------------------------------------------------
 ; BSOD64 integration; not the actual BSOD64 code

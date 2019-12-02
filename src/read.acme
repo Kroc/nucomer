@@ -259,9 +259,9 @@ read_screen:
         sta zp_print_colour
         jsr clear_screen
 
-        ; whilst the lines before and after screen RAM will hold text
-        ; waiting to be scrolled into view, we do need to fill these with
-        ; spaces to begin with in case the first lines to be placed there
+        ; whilst the off-screen lines will hold text waiting to be
+        ; scrolled into view, we do need to fill these with spaces
+        ; to begin with in case the first lines to be placed there
         ; do not fill 40-chars and we get screen garabge scrolling in
         ldx # 40-1
         lda # ' '
@@ -272,26 +272,39 @@ read_screen:
 
         ; initialise printing:
         ;-----------------------------------------------------------------------
-        ; the first two bytes are the size of the line-length array;
-        ; in other words, how many lines in the article there are,
-        ; and how far forward to skip to find the text data.
-        ; we set the address of the first line to print
+        ; the first two bytes are the size of the line-lengths array; in other
+        ; words, how many lines in the article there are, and how far forward
+        ; to skip to find the text data. we set the address of the first line
+        ; to print
+        ;
+        ;       +--------------+  $4000
+        ;       | tokens  (lo) |
+        ;       |--------------|  $4100
+        ;       | tokens  (hi) |
+        ;       +--------------+  $4200
+        ;       |              |
+        ;       | line lengths |  (variable length)
+        ;       :              :
+        ;       +--------------+
+        ;       |              |
+        ;       | text data    |  (variable length)
+        ;       :              :
         clc
-        lda nu_text-2
-        adc #< (nu_text-2)
-        sta zp_read_char_lo
-        sta zp_read_top_lo
-        lda nu_text-1
-        adc #> (nu_text-1)
+        lda nu_text-2           ; lo-byte of no.lines
+        adc #< (nu_lengths-2)   ; start of text data will come after lengths
+        sta zp_read_char_lo     ; also park the reading head here
+        sta zp_read_top_lo      ; and this will be the line above the screen
+        lda nu_text-1           ; hi-byte of no.lines
+        adc #> (nu_lengths-1)
         sta zp_read_char_hi
         sta zp_read_top_hi
 
-        ; ergo, the line-length array begins two bytes in
+        ; the line-length array begins after the token dictionary,
         ; and this is our intial pointer in the array
         ; -- we begin printing at article line 1
-        lda #< nu_text
+        lda #< nu_lengths
         sta zp_read_lens_lo
-        lda #> nu_text
+        lda #> nu_lengths
         sta zp_read_lens_hi
 
         ; for the smooth scrolling to not overshoot the bottom of the article,

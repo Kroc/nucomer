@@ -595,8 +595,22 @@ function Compress:toACME(s_outfile)
 * = nu_text - 2
 
         ; as mentioned above, the first word is the size
-        ; of the line-lengths list that appears below
+        ; of the line-lengths list that appears below the
+        ; tokens table (fixed size)
+        ;
         !word   (lines-lengths)+1
+
+tokens_lo:
+        ;-----------------------------------------------------------------------
+        ; the lo-byte halves of the token-pairs (exactly 256 bytes)
+        ;
+{{TOKENS_LO}}
+
+tokens_hi:
+        ;-----------------------------------------------------------------------
+        ; the hi-byte halves of the token-pairs (exactly 256 bytes)
+        ;
+{{TOKENS_HI}}
 
 ; if a line has colour-data, the upper-bit is set
 LINE_COLOUR = %10000000
@@ -612,18 +626,6 @@ lengths:
 lines:
         ;-----------------------------------------------------------------------
 {{LINES}}
-
-tokens_lo:
-        ;-----------------------------------------------------------------------
-        ; the lo-byte halves of the token-pairs (exactly 256 bytes)
-        ;
-{{TOKENS_LO}}
-
-tokens_hi:
-        ;-----------------------------------------------------------------------
-        ; the hi-byte halves of the token-pairs (exactly 256 bytes)
-        ;
-{{TOKENS_HI}}
 ]]
     -- insert the output file name into the assembly file;
     -- this means that it does not need to be provided by the build-script,
