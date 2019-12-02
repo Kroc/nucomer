@@ -657,48 +657,8 @@ function Article:write()
     local f_out,err = io.open(self.outfile..".acme", "w")
     if err then print ("! error: " .. err); os.exit(false); end
 
-    local s_out = compress:acme(self.outfile..".prg")
+    local s_out = compress:toACME(self.outfile..".prg")
 
     f_out:write(s_out)
     f_out:close()
-
-    ----------------------------------------------------------------------------
-    -- (attempt) to open the output file
-    local f_out,err = io.open(self.outfile..".prg", "wb")
-    -- problem? exit
-    if err then print ("! error: " .. err); os.exit(false); end
-
-    -- write the PRG header
-    f_out:write(string.pack("<I2", 0x3FFE))
-
-    -- how long the line-lengths list is (2-bytes)
-    f_out:write(string.pack("<I2", #self.lines+2))
-
-    -- the list of line-lengths:
-    ----------------------------------------------------------------------------
-    for _, out_line in ipairs(compress.lines) do
-        -- the length of the line-data, in bytes:
-        local line_len = #out_line.colour + #out_line.screen
-        -- the presence of colour data is indicated by the high-bit
-        -- (so that we don't need an extra byte for every uncoloured line)
-        if #out_line.colour > 0 then line_len = line_len + 0x80; end
-        -- write the line-length byte to the file
-        f_out:write(string.pack("B", line_len))
-    end
-    -- the lines-length table is suffixed with 0x80
-    -- to indicate when to stop scrolling downwards
-    f_out:write(string.pack("B", 0x80))
-
-    -- and then the binary line-data:
-    ----------------------------------------------------------------------------
-    for _, out_line in ipairs(compress.lines) do
-        -- do not output empty lines; on the C64, when a line-length of 0
-        -- is encountered, the line-data pointer is not moved forward
-        if #out_line.screen > 0 then
-            -- note that lines are written into the binary backwards!
-            -- this is so that the line length can be used as a count-down
-            -- index which is faster for 6502s to process
-            f_out:write(string.reverse(out_line.colour..out_line.screen))
-        end
-    end
 end

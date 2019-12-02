@@ -345,6 +345,9 @@ function Compress:compressLines()
             break
         end
 
+        -- define the new token as a pair of old tokens
+        self.tokens[token] = old_pair
+
         local old_size = 0
         local new_size = 0
 
@@ -414,7 +417,7 @@ function Compress:tokeniseChars()
         -- since they would out-number all other chars
         --
         local scr_line = t_line.screen
-        scr_line = scr_line:gsub("\x00", ""):scr2lower()
+        --#scr_line = scr_line:gsub("\x00", ""):scr2lower()
 
         -- walk the bytes...
         local j = 1
@@ -430,11 +433,11 @@ function Compress:tokeniseChars()
 
     -- now we've counted the screen codes, begin assigning them to tokens;
     -- the order used is not actually important, but could perhaps be
-    -- controlled in the future as part of arithmetic-coding
+    -- controlled in the future as some kind of arithmetic-coding
     ----------------------------------------------------------------------------
     local token = 1
-    -- check each of the 256 possible unqiue screen codes...
-    for i = 1, 255 do
+    -- check each of the possible unqiue screen codes...
+    for i = 0, 255 do
         -- was the screen-code ever used?
         if self.chars[i] > 0 then
             -- define the token as a literal;
@@ -454,7 +457,7 @@ function Compress:tokeniseChars()
         ------------------------------------------------------------------------
         -- our source line, screen-codes
         local scr_line = self.lines[i].screen
-        scr_line = scr_line:gsub("\x00", ""):scr2lower()
+        --#scr_line = scr_line:gsub("\x00", ""):scr2lower()
 
         -- this will be the token-encoded version of the line
         local tok_line = ""
@@ -463,7 +466,7 @@ function Compress:tokeniseChars()
             -- determine the screen code
             local scr = scr_line:byte(j)
             -- ignore spaces?
-            if scr == 0x00 then error("leaked space!"); end
+            --#if scr == 0x00 then error("leaked space!"); end
 
             -- get the token for it
             local tok = self.chars[scr]
@@ -573,7 +576,7 @@ end
 
 -- generate an ACME assembly file for the compressed data
 --------------------------------------------------------------------------------
-function Compress:acme(s_outfile)
+function Compress:toACME(s_outfile)
     ----------------------------------------------------------------------------
     local s_out = [[
 ; auto-generated file, do not modify!
@@ -593,54 +596,74 @@ function Compress:acme(s_outfile)
 
         ; as mentioned above, the first word is the size
         ; of the line-lengths list that appears below
-        !word   (lines-lengths)
-
-lengths:
-;
-; the length, in bytes, for each line in the article
+        !word   (lines-lengths)+1
 
 ; if a line has colour-data, the upper-bit is set
 LINE_COLOUR = %10000000
 
+lengths:
+        ;-----------------------------------------------------------------------
+        ; the length, in bytes, for each line in the article
+        ;
 {{LENGTHS}}
         ; this byte marks the end of the list of line-lengths
         !byte   $80
 
 lines:
+        ;-----------------------------------------------------------------------
 {{LINES}}
+
+tokens_lo:
+        ;-----------------------------------------------------------------------
+        ; the lo-byte halves of the token-pairs (exactly 256 bytes)
+        ;
+{{TOKENS_LO}}
+
+tokens_hi:
+        ;-----------------------------------------------------------------------
+        ; the hi-byte halves of the token-pairs (exactly 256 bytes)
+        ;
+{{TOKENS_HI}}
 ]]
+    -- insert the output file name into the assembly file;
+    -- this means that it does not need to be provided by the build-script,
+    -- minimising the amount of data we have to share between environments
     s_out = s_out:gsub("%{%{OUTFILE%}%}", s_outfile)
 
     -- build the list of line-lengths:
     ----------------------------------------------------------------------------
-    local s_lengths = ""
-    for _, out_line in ipairs(self.lines) do
+    local s_temp = ""
+    for i, out_line in ipairs(self.lines) do
         -- is there any colour data?
         if #out_line.colour > 0 then
             -- indicate clearly the number of extra bytes used by colour data
-            s_lengths = s_lengths .. string.format(
-                "        !byte   $%02x + ($%02x | LINE_COLOUR)\n",
-                #out_line.screen, #out_line.colour
+            s_temp = s_temp .. string.format(
+                "        !byte   $%02x + ($%02x | LINE_COLOUR)"..
+                "       ; line %u: %u bytes\n",
+                #out_line.screen, #out_line.colour,
+                i, (#out_line.screen + #out_line.colour)
             )
         else
-            s_lengths = s_lengths .. string.format(
-                "        !byte   $%02x\n",
-                #out_line.screen
+            s_temp = s_temp .. string.format(
+                "        !byte   $%02x"..
+                "                             ; line %u: %u bytes\n",
+                #out_line.screen,
+                i, (#out_line.screen + #out_line.colour)
             )
         end
     end
-    s_out = s_out:gsub("%{%{LENGTHS%}%}", s_lengths)
+    s_out = s_out:gsub("%{%{LENGTHS%}%}", s_temp)
+    s_temp = ""
 
     -- build the list of line-data:
     ----------------------------------------------------------------------------
-    local s_lines = ""
     for i, out_line in ipairs(self.lines) do
         -- do not output empty lines; on the C64, when a line-length of 0
         -- is encountered, the line-data pointer is not moved forward
         if #out_line.screen > 0 then
             local out_bytes = string.reverse(out_line.colour..out_line.screen)
 
-            s_lines = s_lines .. string.format(
+            s_temp = s_temp .. string.format(
                 "        ; line %u: %q\n",
                 i, out_line.source
             )
@@ -650,13 +673,35 @@ lines:
                 "%02x ", string.byte(out_bytes, c)
             ); end
 
-            s_lines = s_lines .. string.format(
+            s_temp = s_temp .. string.format(
                 "        !hex    %s\n",
                 hex
             )
         end
     end
-    s_out = s_out:gsub("%{%{LINES%}%}", s_lines)
+    s_out = s_out:gsub("%{%{LINES%}%}", s_temp)
+    s_temp = ""
+
+    -- build the token lists:
+    ----------------------------------------------------------------------------
+    local s_left = ""
+    local s_right = ""
+
+    for i = 0, 255 do
+        -- if the token is undefined fill it in blank
+        -- as the tables must align
+        local i_left = (self.tokens[i] or ""):byte(1) or 0
+        local i_right = (self.tokens[i] or ""):byte(2) or 0
+
+        s_left = s_left .. string.format(
+            "        !byte   $%02x\n", i_left
+        )
+        s_right = s_right .. string.format(
+            "        !byte   $%02x\n", i_right
+        )
+    end
+    s_out = s_out:gsub("%{%{TOKENS_LO%}%}", s_left)
+    s_out = s_out:gsub("%{%{TOKENS_HI%}%}", s_right)
 
     return s_out
 end

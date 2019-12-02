@@ -8,8 +8,8 @@
 --   (contact the author for a commercial licence)
 --
 
--- issua.lua : produces the build artefacts for an issue
-
+-- issue.lua : produces the build artefacts for an issue
+--------------------------------------------------------------------------------
 -- theory of operation: (WIP)
 --
 -- # read issue meta-data
@@ -17,8 +17,10 @@
 --   # split to lines
 --   # word-wrap & hyphenate
 --   # convert text to screen codes
---   # remove and bit-pack spaces(TODO?)
--- # analyse symbols across whole issue(TODO?)
+--   # compress:
+--     # remove and bit-pack spaces(TODO?)
+--     # tokenise screen-codes
+--     # iteratively pair tokens
 
 --------------------------------------------------------------------------------
 -- include the JSON library
@@ -57,8 +59,7 @@ Issue = {
     -- this issue's number
     issue = 0,
     -- for each article processed, we add it to a list file that will be read
-    -- by the build batch file to write the articles to C64 disk image. we do
-    -- the exomizing and 1541 creation from the OS-side rather than inside lua
+    -- by the build batch file to assemble and write to C64 disk image
     list = {},
     -- the table of contents is a list of offsets into the database
     -- and screen positions for each menu entry
@@ -93,28 +94,56 @@ function Issue:build(i_issue)
     self:reset()
     self.issue = i_issue
 
+    -- the issue's source path:
+    -- (where articles and other meta-data live)
+    local issue_path = string.format("issues/issue#%02u/", i_issue)
+
     -- read the JSON meta-data file for the issue:
     -- this describes the contents of the issue and any associated
     -- properties to customise the layout on the C64
-    local f_json,err = io.open(
-        "issues/issue#" .. string.format("%02u", i_issue) .."/issue.json", "r"
-    )
+    local f_json,err = io.open(issue_path .. "issue.json", "r")
     -- problem? exit
     if err then io.stderr:write("! error: " .. err); os.exit(false); end
     -- read and decode the whole file in one go
-    local issue,err = json.decode(f_json:read("*all"))
+    local j_issue,err = json.decode(f_json:read("*all"))
     if err then io.stderr:write ("! error: " .. err); os.exit(false); end
     -- the JSON file is no longer needed once parsed
     f_json:close()
 
+    -- each article will be packed onto a 1541 disk image by way of `c1541`;
+    -- a list of commands is built specifically for this issue to remove the
+    -- need for the build script's environment (Batch) to have to know any
+    -- of these details
+    --
+    local f_c1541,err = io.open("build/c1541.txt", "w")
+    if err then io.stderr:write ("! error: " .. err); os.exit(false); end
+    -- provide the beginning of the script to initialise the disk-image
+    -- and add the minimum required binaries
+    f_c1541:write(string.format([[
+format "nucomer,%02u" d64 "%s"
+write "build/boot.prg"          "boot"
+write "build/intro.prg"         "intro"
+write "build/nucomer.prg"       "nucomer"
+write "build/nucomer-exo.prg"   "nucomer-exo"
+write "build/nucomer-pu.prg"    "nucomer-pu"
+write "src/bsod64/bsod64.prg"   "bsod64"
+write "build/admiral64.prg"     "admiral64"
+]],     i_issue, "build/nucomer.d64"
+    ))
+
+    -- the base-path & file-name used for producing build-artefacts
+    local build_path = string.format("build/i%02u_", i_issue)
+
     -- walk the `articles` table that lists, in-order, the articles to be
     -- included on disk; each of these will need converting to C64 data
-    for _,j_article in ipairs(issue["articles"]) do
+    --
+    for _,j_article in ipairs(j_issue["articles"]) do
         ------------------------------------------------------------------------
-        -- formulate our input & output file paths
-        -- (the output is arbitrary binary data so has no file-extension)
-        local s_in  = "issues/issue#00/"..j_article["file"]
-        local s_out = "build/i00_"..j_article["file"]:gsub("%.nu$", "")
+        -- formulate our input & output file paths;
+        -- the output path is a base-name without extension as multiple files
+        -- will be produced with the same name, e.g. ".acme", ".prg"
+        local s_in  = issue_path .. j_article["file"]
+        local s_out = build_path .. j_article["file"]:gsub("%.%w+$", "")
 
         -- notify user of current article being processed...
         io.stdout:write(truncate(j_article["title"]))
@@ -129,8 +158,14 @@ function Issue:build(i_issue)
 
         -- add the output file-path to the article
         j_article["bin"] = s_out
-        -- and to the list file used for packing onto 1541
-        table.insert(self.list, s_out..".prg;"..j_article["prg"])
+
+        -- add to the list of articles to be assembled
+        table.insert(self.list, s_out..".acme")
+        -- add to the list of files to go on the 1541 disk
+        f_c1541:write(string.format(
+            'write "%s" "%s"\n',
+            s_out..".prg", j_article["prg"]
+        ))
 
         -- we need to integrate the article into the outfit:
         -- the article title for the menu page needs to be converted to C64
@@ -167,23 +202,17 @@ function Issue:build(i_issue)
     ----------------------------------------------------------------------------
     -- write out the list file:
     --
-    local f_lst,err = io.open("build/i00.lst", "wb")
+    local f_lst,err = io.open("build/issue.lst", "wb")
     if err then io.stderr:write("! error: " .. err); os.exit(false); end
     -- dump filepaths, a line each (use CRLF for Windows Batch compatibility)
     for _,i in ipairs(self.list) do f_lst:write(i .. "\r\n"); end
 
     f_lst:close()
-end
 
--- write all articles in the issue to disk
---------------------------------------------------------------------------------
-function Issue:_writeArticles()
-    ----------------------------------------------------------------------------
-    -- for each article...
-    for _,article in ipairs(self.articles) do
-        -- ...write the converted article to disk
-        article:write()
-    end
+    -- end the commands file for putting
+    -- files on the 1541 disk-image
+    f_c1541:write("quit")
+    f_c1541:close()
 end
 
 -- output the menu database used to integrate the issue into the outfit

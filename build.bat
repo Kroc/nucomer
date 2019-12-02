@@ -116,6 +116,19 @@ IF ERRORLEVEL 1 (
      ECHO FAIL
      EXIT /B %ERRORLEVEL%
 )
+
+REM # assemble articles
+REM ----------------------------------------------------------------------------
+REM # walk through the list of articles and assemble each
+FOR /F "eol=* delims=* tokens=*" %%A IN (build\issue.lst) DO (
+     REM # assemble the article into its binary
+     %ACME% "%%A"
+     REM # ok?
+     IF ERRORLEVEL 1 (
+          ECHO FAIL
+          EXIT /B %ERRORLEVEL%
+     )
+)
 ECHO [OK]
 
 REM # exomize content:
@@ -141,40 +154,10 @@ REM # package disks
 REM ============================================================================
 <NUL (SET /P "$=Create D64...                       ")
 
-REM # TODO: build the disk commands in the Lua scripts,
-REM #       i.e. c1541 < commands.txt
-
-IF EXIST "build\nucomer.d64" DEL "build\nucomer.d64"
-
-REM # prepare the disk image
-%C1541% ^
-     -silent -verbose off ^
-     -format "nucomer,00" d64 "build\nucomer.d64" ^
-     -write "build\boot.prg"            "boot" ^
-     -write "build\intro.prg"           "intro" ^
-     -write "build\nucomer.prg"         "nucomer" ^
-     -write "build\nucomer-exo.prg"     "nucomer-exo" ^
-     -write "build\nucomer-pu.prg"      "nucomer-pu" ^
-     -write "src\bsod64\bsod64.prg"     "bsod64" ^
-     -write "build\admiral64.prg"       "admiral64" ^
-     1>NUL
+%C1541% < "build\c1541.txt"  1>NUL
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
      EXIT /B %ERRORLEVEL%
-)
-
-REM # walk through the list of articles and add them to the disk
-FOR /F "eol=* delims=; tokens=1,2" %%A IN (build\i00.lst) DO (
-     REM # add the C64-compressed article data to the disk image
-     %C1541% "build\nucomer.d64" ^
-          -silent -verbose off ^
-          -write "%%A" "%%B" ^
-          1>NUL
-     
-     IF ERRORLEVEL 1 (
-          ECHO FAIL
-          EXIT /B %ERRORLEVEL%
-     )
 )
 ECHO [OK]
