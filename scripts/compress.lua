@@ -30,9 +30,9 @@ local Compress = {
 --------------------------------------------------------------------------------
 function Compress:clear()
     ----------------------------------------------------------------------------
-    self.lines = {}
-    self.pairs = {}
-    self.chars = {}
+    self.lines  = {}
+    self.pairs  = {}
+    self.chars  = {}
     self.tokens = {}
 end
 
@@ -49,28 +49,21 @@ function Compress:addLine(src_line)
     local out_screen = src_screen
 
     -- add the binary data to our internal table
+    --
     table.insert(self.lines, {
+        source = src_line,
         colour = out_colour,
         screen = out_screen,
-        source = src_line,
-        -- unused initially, but will hold the tokenised version of the line
+        -- where spaces will be extracted to be bit-packed
+        spaces = {},
+        -- unused initially, but will hold the tokenised
+        -- version of the line when we begin compressing
         tokens = "",
     })
 
     --[[
     -- bit-pack the spaces
     ----------------------------------------------------------------------------
-    -- a _lot_ of text is just spaces between words. if instead we represented
-    -- the spaces as individual bits we could save a lot of space. early word-
-    -- processors would use the high-bit of a byte to indicate the end of a
-    -- word, and an implicit following space, but we'll need all 256 screen-
-    -- codes at our disposal
-    --
-    -- instead of a high-bit, we'll built a bitmap of the characters in the
-    -- line, where 0 = not a space and 1 = space. even though a full line of
-    -- 40 characters will need 5 bytes (40 bits), most lines of such length
-    -- already average five or more spaces whose bytes won't be needed;
-    --
     local spaces = 0            -- current bit-pattern of spaces (8 bits)
     local word = ""             -- we build a set of chars, without spaces
     local out_chars = ""        -- compressed C64 text data
@@ -328,6 +321,9 @@ function Compress:compressLines()
     --
     local token = self:tokeniseChars()
 
+    io.stdout:write("> compressing...              ")
+    print()
+
     while token <= 0xFF do
         ------------------------------------------------------------------------
         -- find the most common token pair
@@ -345,8 +341,18 @@ function Compress:compressLines()
             break
         end
 
-        -- define the new token as a pair of old tokens
-        self.tokens[token] = old_pair
+        -- define the new token
+        -- as a pair of old tokens:
+        --
+        self.tokens[token] = {
+            pair = old_pair,
+            -- combine the sizes of the two tokens. we need to know
+            -- how many chars a token expands to for bit-packing spaces
+            size = (
+                self.tokens[old_pair:byte(1)].size +
+                self.tokens[old_pair:byte(2)].size
+            )
+        }
 
         local old_size = 0
         local new_size = 0
@@ -385,7 +391,8 @@ function Compress:compressLines()
         end
 
         print(string.format(
-            "      %5d %10s",
+            " %3s %5d %10s",
+            self.tokens[token].size,
             new_size-old_size,
             filesize(new_size)
         ))
@@ -393,6 +400,14 @@ function Compress:compressLines()
         -- move to the next token number
         token = token + 1
     end
+
+    -- calculate the new size
+    local i_size = 0
+    for _, line in ipairs(self.lines) do
+        i_size = i_size + #line.colour + #line.tokens
+    end
+
+    print(string.format("%10s", filesize(i_size)))
 end
 
 -- assign unique characters to the first initial tokens
@@ -403,28 +418,44 @@ function Compress:tokeniseChars()
 
     -- clear the current token definitions & character statistics.
     self.tokens = {}
-    self.chars = {}
+    self.chars  = {}
 
-    -- pre-populate all 256 possible chars, as Lua will stop
-    -- iterating a table at the first 'gap' between indices
-    for i = 0, 255 do self.chars[i] = 0; end
+    for i = 0, 255 do
+        -- pre-populate all 256 possible chars, as Lua will stop
+        -- iterating a table at the first 'gap' between indices
+        self.chars[i]  = 0
+        self.tokens[i] = {pair = "", size = 0}
+    end
 
     -- walk all lines of text...
     --
-    for _, t_line in ipairs(self.lines) do
+    for _, line in ipairs(self.lines) do
         ------------------------------------------------------------------------
-        -- spaces are stripped from lines and bit-packed separately
-        -- since they would out-number all other chars
-        --
-        local scr_line = t_line.screen
-        --#scr_line = scr_line:gsub("\x00", ""):scr2lower()
-
         -- walk the bytes...
         local j = 1
-        while j <= #scr_line do
+        while j <= #line.screen do
             --------------------------------------------------------------------
+            -- extract the spaces:
+            --
+            -- a _lot_ of text is just spaces between words. if instead we
+            -- represented the spaces as individual bits we could save a lot
+            -- of space. early word-processors would use the high-bit of a byte
+            -- to indicate the end of a word, and an implicit following space,
+            -- but we'll need all 256 screen-codes at our disposal
+            --
+            -- instead of a high-bit, we'll build a bitmap of the characters
+            -- in the line, where 0 = not a space and 1 = space. even though
+            -- a full line of 40 characters will need 5 bytes (40 bits), most
+            -- lines of such length already average five or more spaces whose
+            -- bytes won't be needed;
+            --
+            -- for now we only need to capture the column number of each space,
+            -- the bit-packing will occur during the compression stage
+            --
+            line.spaces[j] = (line.screen:byte(j) == str2scr[" "])
+
             -- count the character
-            local char = scr_line:byte(j)
+            local char = line.screen:byte(j)
             self.chars[char] = (self.chars[char] or 0) + 1
             -- move to next character
             j = j + 1
@@ -434,15 +465,21 @@ function Compress:tokeniseChars()
     -- now we've counted the screen codes, begin assigning them to tokens;
     -- the order used is not actually important, but could perhaps be
     -- controlled in the future as some kind of arithmetic-coding
-    ----------------------------------------------------------------------------
+    --
     local token = 1
     -- check each of the possible unqiue screen codes...
-    for i = 0, 255 do
+    -- NOTE: beginning at 1 skips the space (0x00) character
+    --
+    for i = 1, 255 do
+        ------------------------------------------------------------------------
         -- was the screen-code ever used?
         if self.chars[i] > 0 then
             -- define the token as a literal;
             -- the screen-code followed by a null
-            self.tokens[token] = string.char(i, 0)
+            self.tokens[token] = {
+                pair = string.char(i, 0),
+                size = 1
+            }
             -- we're going to re-use our count to map the screen-code to
             -- its token for the complete line re-encoding we'll have to do
             self.chars[i] = token
@@ -457,7 +494,6 @@ function Compress:tokeniseChars()
         ------------------------------------------------------------------------
         -- our source line, screen-codes
         local scr_line = self.lines[i].screen
-        --#scr_line = scr_line:gsub("\x00", ""):scr2lower()
 
         -- this will be the token-encoded version of the line
         local tok_line = ""
@@ -465,13 +501,13 @@ function Compress:tokeniseChars()
         for j = 1, #scr_line do
             -- determine the screen code
             local scr = scr_line:byte(j)
-            -- ignore spaces?
-            --#if scr == 0x00 then error("leaked space!"); end
-
-            -- get the token for it
-            local tok = self.chars[scr]
-            -- add the token to the output
-            tok_line = tok_line .. string.char(tok)
+            -- don't include spaces in the token output
+            if scr ~= 0x00 then
+                -- get the token for it
+                local tok = self.chars[scr]
+                -- add the token to the output
+                tok_line = tok_line .. string.char(tok)
+            end
         end
         -- the line has been converted
         self.lines[i].tokens = tok_line
@@ -693,9 +729,10 @@ lines:
 
     for i = 0, 255 do
         -- if the token is undefined fill it in blank
-        -- as the tables must align
-        local i_left  = (self.tokens[i] or ""):byte(1) or 0
-        local i_right = (self.tokens[i] or ""):byte(2) or 0
+        -- as the tables must fill 256 bytes each
+        --
+        local i_left  = self.tokens[i].pair:byte(1) or 0
+        local i_right = self.tokens[i].pair:byte(2) or 0
 
         s_left = s_left .. string.format(
             "        !byte   $%02x\n", i_left
