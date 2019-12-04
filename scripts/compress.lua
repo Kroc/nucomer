@@ -375,7 +375,7 @@ function Compress:compressLines()
                 -- as contains that many non-spaces!
                 while len > 0 do
                     -- fetch a byte of spaces
-                    local spc = table.remove(self.lines[i].spaces.bits, 1)
+                    local spc = table.remove(self.lines[i].spaces, 1)
                     -- add the byte of spaces into the output
                     out_line = out_line .. string.char(spc)
                     -- subtract the number of non-space characters
@@ -465,7 +465,6 @@ function Compress:tokeniseChars()
         -- this will be the token-encoded version of the line
         local tok_line = ""
         -- used for bit-packing the spaces
-        local spc_cols = {}
         local spc_bits = {}
         local spc      = 0
 
@@ -483,15 +482,10 @@ function Compress:tokeniseChars()
             end
             -- determine the screen code
             local scr = scr_line:byte(j)
-            -- is this a space? extract and bit-pack
-            if scr == str2scr[" "] then
-                -- mark column as a space
-                -- (leave a zero in the space bitmap)
-                spc_cols[j] = true
-            else
-                -- not a space
-                spc_cols[j] = false
+            -- not a space?
+            if scr ~= str2scr[" "] then
                 -- set the bit in the space bitmap
+                -- to indicate a non-space
                 spc = spc + 2 ^ ((j-1) % 8) | 0
                 -- get the token for the screen-code
                 local tok = self.chars[scr]
@@ -504,10 +498,7 @@ function Compress:tokeniseChars()
 
         -- the line has been converted
         self.lines[i].tokens = tok_line
-        self.lines[i].spaces = {
-            cols = spc_cols,
-            bits = spc_bits
-        }
+        self.lines[i].spaces = spc_bits
     end
 
     -- return the next available token number,
