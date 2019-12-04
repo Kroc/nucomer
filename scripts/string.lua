@@ -212,9 +212,9 @@ function string:toC64 ()
 
         -- em-dash: "--"
         ------------------------------------------------------------------------
-        elseif self:match("^%-%-", i) then
+        elseif self:match("^ ?%-%- ?", i) then
             -- how many bytes is that?
-            local em = self:match("^%-%-", i)
+            local em = self:match("^ ?%-%- ?", i)
             -- add as two C64 screen-codes!
             out_str = out_str .. string.char(0x61, 0x62)
             -- add style class for the added character(s)
