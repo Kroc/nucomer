@@ -38,13 +38,6 @@ REM # assemble the outfit
 REM ============================================================================
 <NUL (SET /P "$=Assemble Outfit...                  ")
 
-%ACME% ^
-     --format cbm --setpc 0x0334^
-     --report "build/load.txt" ^
-     --outfile "build/load.prg" ^
-     -- "src\load\load_cfg_unp.acme" ^
-        "src\load\load.acme"
-
 REM # assemble fonts
 REM ----------------------------------------------------------------------------
 %ACME% "src\fonts\admiral64.acme"

@@ -34,11 +34,6 @@ intro_boot:
 ;
 !sl     "build/intro_symbols.acme"
 
-!if OPTION_USE_FASTLOADER != 0 {
-        ;///////////////////////////////////////////////////////////////////////
-        !source "loader.acme"
-}       ;///////////////////////////////////////////////////////////////////////
-
 ; we need to have safe interrupt-handlers in place before we can disable
 ; BASIC & KERNAL ROMs! the shared code must include our stable IRQ routines,
 ; as the main outfit code will be loaded into the RAM under BASIC ROM and we
@@ -74,17 +69,6 @@ intro_init:
         jsr irqs_init
 
         ;-----------------------------------------------------------------------
-        ; initialise the fast-loader:
-        ;
-        ; this will detect the type of drive and upload the fast-loader code
-        ; where possible
-        ;
-        !if OPTION_USE_FASTLOADER != 0 {
-                ;///////////////////////////////////////////////////////////////
-                jsr initloader
-        }       ;///////////////////////////////////////////////////////////////
-
-        ;-----------------------------------------------------------------------
         jsr logo_screen
         
         ; load the main outfit
@@ -98,49 +82,37 @@ intro_init:
         ;;and # %11111100
         ;;sta CPU_CONTROL
         dec .CPU_CONTROL
-        
-        !if OPTION_USE_FASTLOADER != 0 {
-                ;///////////////////////////////////////////////////////////////
-                ldx #< @filename_pu
-                ldy #> @filename_pu
-                jsr loadfile_pucrunch
 
-                ldx #< @filename_bsod64
-                ldy #> @filename_bsod64
-                jsr loadfile
+        ldx .ZP_KERNAL_DEV      ; last-used KERNAL device number
+        bne +                   ; not 0? good
+        ldx # .DEV_DRV8         ; default to drive 8
++       ldy # $01               ; use PRG load-address
+        tya                     ; logical file number
+        jsr .KERNAL_SETLFS
 
-                ldx #< @filename_font
-                ldy #> @filename_font
-                jmp loadfile
+        ldx #< @filename_bsod64
+        ldy #> @filename_bsod64
+        lda # 6                 ; A is string-length
+        jsr .KERNAL_SETNAM      ; set KERNAL file name
+        lda # 0                 ; load, not verify
+        jsr .KERNAL_LOAD
 
-        } else {;///////////////////////////////////////////////////////////////
+        ldx #< @filename_font
+        ldy #> @filename_font
+        lda # 9                 ; A is string-length
+        jsr .KERNAL_SETNAM      ; set KERNAL file name
+        lda # 0                 ; load, not verify
+        jsr .KERNAL_LOAD
 
-                ldx ZP_KERNAL_DEV       ; last-used KERNAL device number
-                bne +                   ; not 0? good
-                ldx # DEV_DRV8          ; default to drive 8
-+               ldy # $01               ; use PRG load-address
-                tya                     ; logical file number
-                jsr .KERNAL_SETLFS
+        ldx #< @filename_outfit
+        ldy #> @filename_outfit
+        lda # 7                 ; A is string-length
+        jsr .KERNAL_SETNAM      ; set KERNAL file name
+        lda # 0                 ; load, not verify
+        jsr .KERNAL_LOAD
 
-                ldx #< @filename_outfit
-                ldy #> @filename_outfit
-                lda # 7                 ; A is string-length
-                jsr .KERNAL_SETNAM       ; set KERNAL file name
-
-                lda # 0                 ; load, not verify
-                ;;ldx #< nu_main
-                ;;ldy #> nu_main
-                jsr .KERNAL_LOAD
-                bcc +
-
-                ; jump to the main outfit
-+               jmp nu_main
-
-        }       ;///////////////////////////////////////////////////////////////
-@filename_exo:
-        !pet    "nucomer-exo", 0
-@filename_pu:
-        !pet    "nucomer-pu", 0
+        ; jump to the main outfit
+        jmp nu_main
 
 @filename_outfit:
         ;-----------------------------------------------------------------------
@@ -153,7 +125,6 @@ intro_init:
 @filename_font:
         ;-----------------------------------------------------------------------
         !pet    "admiral64", 0
-
 
 
 ;===============================================================================

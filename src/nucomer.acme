@@ -8,8 +8,6 @@
 ;   (contact the author for a commercial licence)
 ;
 ;===============================================================================
-OPTION_USE_FASTLOADER   = 1
-
 !source "c64/c64.acme"          ; C64 hardware / software constants
 
 ;-------------------------------------------------------------------------------
