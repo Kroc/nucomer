@@ -262,10 +262,7 @@ read_screen:
         ; set screen colour
         lda # .THEME_BORDER
         sta .VIC_BORDER
-        ; (save a couple of bytes if the background/border are the same)
-        !if .THEME_BORDER != .THEME_BACK {
         lda # .THEME_BACK
-        }
         sta .VIC_BACKGROUND
 
         ; erase the text-screen
@@ -305,11 +302,11 @@ read_screen:
         ;       :              :
         clc
         lda nu_text-2           ; lo-byte of no.lines
-        adc #< (nu_lengths-2)   ; start of text data will come after lengths
+        adc #< nu_lengths       ; start of text data will come after lengths
         sta zp_read_char_lo     ; also park the reading head here
         sta zp_read_top_lo      ; and this will be the line above the screen
         lda nu_text-1           ; hi-byte of no.lines
-        adc #> (nu_lengths-1)
+        adc #> nu_lengths
         sta zp_read_char_hi
         sta zp_read_top_hi
 
@@ -326,10 +323,10 @@ read_screen:
         ; the number of lines multiplied by 8
         ;
         lda nu_text-2
-        ; subtract 27 to account for where the top of the screen
+        ; subtract 26 to account for where the top of the screen
         ; is when the bottom of the article is reached
         sec
-        sbc # 27
+        sbc # 26
         sta zp_read_vlen_lo
         lda nu_text-1
         sbc # 0

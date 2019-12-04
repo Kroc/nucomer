@@ -622,7 +622,7 @@ function Compress:toACME(s_outfile)
         ; of the line-lengths list that appears below the
         ; tokens table (fixed size)
         ;
-        !word   (lines-lengths)+1
+        !word   (lines-lengths)-1
 
 tokens_lo:
         ;-----------------------------------------------------------------------
@@ -723,10 +723,10 @@ lines:
         local i_right = self.tokens[i].pair:byte(2) or 0
 
         s_left = s_left .. string.format(
-            "        !byte   $%02x\n", i_left
+            "        !byte   $%02x     ; token $%02x\n", i_left, i
         )
         s_right = s_right .. string.format(
-            "        !byte   $%02x\n", i_right
+            "        !byte   $%02x     ; token $%02x\n", i_right, i
         )
     end
     s_out = s_out:gsub("%{%{TOKENS_LO%}%}", s_left)
