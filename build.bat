@@ -6,8 +6,6 @@ SET LUA="bin\lua\lua53.exe"
 SET LUA_ARTICLE=%LUA% "scripts\article.lua"
 
 SET ACME=bin\acme\acme.exe -I "src"
-SET EXOMIZER="bin\exomizer\exomizer.exe"
-SET PUCRUNCH="bin\pucrunch\pucrunch.exe"
 SET C1541="bin\vice\c1541.exe"
 
 REM # assemble BSOD64 debugger
@@ -121,25 +119,6 @@ FOR /F "eol=* delims=* tokens=*" %%A IN (build\issue.lst) DO (
           ECHO FAIL
           EXIT /B %ERRORLEVEL%
      )
-)
-ECHO [OK]
-
-REM # exomize content:
-REM ============================================================================
-<NUL (SET /P "$=Exomize...                          ")
-
-%EXOMIZER% mem -l $b000 -B -q ^
-     -o "build\nucomer-exo.prg" ^
-     -- "build\nucomer.prg"
-
-%PUCRUNCH% -f -c0 ^
-     "build\nucomer.prg" ^
-     "build\nucomer-pu.prg" ^
-     2>NUL
-
-IF ERRORLEVEL 1 (
-     ECHO FAIL
-     EXIT /B %ERRORLEVEL%
 )
 ECHO [OK]
 

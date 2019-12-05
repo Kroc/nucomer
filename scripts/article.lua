@@ -431,9 +431,6 @@ function Article:readLine(src_line)
         index = index + #s_numeral + 1
     end
 
-    -- convert em-dashes and consume optional spaces either side
-    --#src_line = src_line:gsub(" ?%-%- ?", "—") -- note that this is an em-dash!
-
     -- appending a space to the text being processed gives us an easy solution
     -- for look-ahead without having to double the regexes for "end-of-line"
     -- (the additional space is not included in output)
