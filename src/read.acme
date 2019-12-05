@@ -121,9 +121,6 @@ zp_read_bot_hi          = $35
 zp_read_buffer          = $80
 zp_read_buffer_len      = 40
 
-zp_read_spc_count       = $36
-zp_read_spc_bits        = $37
-
 ; re-use the colour-data index for the decompression buffer,
 ; as the two won't ever be used at the same time
 ;
@@ -1499,9 +1496,6 @@ read_decompress:
         lda # 0
         ; initialise our position within the decompression buffer
         sta zp_read_buffer_index
-        ; mark the bit-packed space queue as 'empty'
-        ; so that a byte of spaces is read pre-emptively
-        sta zp_read_spc_count
 
         ; compensate for the pre-decrement
         ; nature of reading tokens
@@ -1526,8 +1520,8 @@ read_decompress:
         ;-----------------------------------------------------------------------
         ; are there any tokens waiting to be decoded?
         ;
-        ; a zero is placed on the bottom of the stack to indicate
-        ; when there are no more tokens on the stack
+        ; (a zero on the bottom of the stack to indicate
+        ;  when there are no more tokens on the stack)
         ;
 @next:  pla
         beq @fetch              ; go fetch more tokens
@@ -1539,7 +1533,7 @@ read_decompress:
         ; if right-hand byte is zero, it indicates that the token is literal,
         ; and the left-hand byte contains the screen-code
         lda nu_tokens_hi, x
-        beq @lit
+        beq @print
 
         ; process token-pair; the left-hand and right-hand bytes
         ; both represent additional tokens; push them onto the
@@ -1548,67 +1542,28 @@ read_decompress:
         lda nu_tokens_lo, x     ; read the left-hand byte
         pha                     ; push that to the top
 
-        bne @next
-        brk
-
         ; micro-optimisation:
         ;
         ; where normally I would write `bne @next` to go back to reading
         ; from the stack, we can duplicate part of that code here to avoid
         ; the branch
 
-        ;;pla
-        ;;beq @fetch
-        ;;tax
-        ;;lda nu_tokens_hi, x
-        ;;bne @pair
+        ;;bne @next
+        ;;brk
+
+        pla
+        beq @fetch
+        tax
+        lda nu_tokens_hi, x
+        bne @pair
 
         ; literal token:
         ;-----------------------------------------------------------------------
-        ; read the literal's screen-code, but put it aside
-        ; until we've handled printing any spaces needed
-@lit:   lda nu_tokens_lo, x
-        pha
-
-        ; print spaces:
-        ;-----------------------------------------------------------------------
-        ; firstly, do we have a byte of bit-packed spaces to hand?
-@spc:   lda zp_read_spc_count
-        bne +
-
-        ; fetch a byte of bit-packed spaces
-        dey
-        lda (zp_read_char), y
-        sta zp_read_spc_bits
-        ; indicate that we have 8 columns of bit-packed spaces
-        dec zp_read_spc_count   ; =$FF, i.e. can shift 8-times
-
-        ; we're about to print a character, so pop off a bit
-        ; to see if a space comes first
-+       ldx zp_read_buffer_index
-        lsr zp_read_spc_count   ; reduce no. of bits remaining in space byte
-        lsr zp_read_spc_bits    ; read a bit from the space byte
-        bcs @print              ; if 1, not a space, print the character now
-
-        ; print a space:
-        ;
-        lda # $00
-        sta zp_read_buffer, x
-        ; move to the next byte in the output buffer
-        inc zp_read_buffer_index
-        
-        ; do we need to print more contiguous spaces?
-        bne @spc
-
-        ;-----------------------------------------------------------------------
-@print: pla                     ; retrieve the literal screen-code
+@print: lda nu_tokens_lo, x     ; read the literal's screen-code
+        ldx zp_read_buffer_index
         sta zp_read_buffer, x   ; add to the output buffer
         ; move to the next byte in the output buffer
         inc zp_read_buffer_index
 
         bne @next
         brk
-
-        ;-----------------------------------------------------------------------
-        ; before we return, note that X is the length of the buffer (0-based)
-@done:  rts
