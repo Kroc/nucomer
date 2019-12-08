@@ -11,7 +11,7 @@
 -- compress.lua : text analysis and compression
 --------------------------------------------------------------------------------
 local Compress = {
-    -- the table of lines (in screen codes) being compressed
+    -- the table of lines being compressed
     lines = {},
     -- table of byte-pair quantities;
     -- the key is the byte-pair (string), and the value

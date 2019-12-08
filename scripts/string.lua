@@ -202,6 +202,19 @@ function string:toC64 ()
                 table.insert(styles, style)
             end
 
+        -- footnote marker
+        ------------------------------------------------------------------------
+        elseif self:match("^%[%^.+%]", i) then
+            -- capture the text
+            local fn = self:match("^%[%^(.+)%]", i)
+            -- convert the footnote ordinal into
+            -- screen codes, and then reverse
+            local scr = fn:toC64():scr2reverse()
+            -- build the reverse marker
+            out_str = out_str .. string.char(0xda)..scr..string.char(0xd9)
+            -- skip over
+            i = i + #fn + 2
+
         -- opening "smart" quote
         ------------------------------------------------------------------------
         elseif self:match("^\"%w", i) then
@@ -560,7 +573,7 @@ scr2str = {
     ["\x7f"]        = "\x81", -- code page 850 for "ü",
 }
 
--- for compression, convert C64 screen-codes to lower-case
+-- convert C64 screen-codes to lower-case
 --------------------------------------------------------------------------------
 function string:scr2lower()
     ----------------------------------------------------------------------------
@@ -572,6 +585,32 @@ function string:scr2lower()
             out = out .. string.char(scr + 0x20)
         else
             out = out .. string.char(scr)
+        end
+    end
+    return out
+end
+
+-- convert C64 screen codes to reverse (solid-background) chars
+--------------------------------------------------------------------------------
+function string:scr2reverse()
+    ----------------------------------------------------------------------------
+    local out = ""
+    for i = 1, #self do
+        -- read a single screen code
+        local scr = self:byte(i)
+        -- there are no lower-case chars in the reverse set
+        if scr >= str2scr["a"] and scr <= str2scr["z"] then
+            -- convert lower-case to upper-case
+            out = out .. string.char(scr - 0x20)
+
+        -- screen-codes 0x60 and above have no reverse counter-part
+        elseif scr >= 0x60 then
+            -- add the error mark
+            out = out .. string.char(0xff)
+
+        else
+            -- edge cases handled, just remap into upper-range
+            out = out .. string.char(scr + 0x80)
         end
     end
     return out
