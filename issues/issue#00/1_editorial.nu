@@ -16,7 +16,7 @@ Mentorship is the critical difference between a consumer and a creator.
 
 30 years after I began my C64 journey, I'm more aware of my adeptness at learning whatever tool is necessary for the job and to retain detailed technical information. I have no doubt that, had I access to the scene at the time and a mentor to guide me, I could be just as good a demo-coder as any other.
 
-For every skill I learned and every community I discovered, I have always appraised myself as the outsider looking in, bringing with myself the experience of a newcomer -- tripping over the broken stairs[*] -- but critically, determined to build up the path behind me so that others do not have as hard a time as I had finding the way.
+For every skill I learned and every community I discovered, I have always appraised myself as the outsider looking in, bringing with myself the experience of a newcomer -- tripping over the broken stairs -- but critically, determined to build up the path behind me so that others do not have as hard a time as I had finding the way.
 
 This publication exists to implore, educate and demonstrate the satisfaction that comes from 8-bit systems and software. It is my sincere hope that you, the reader, have had to expend the least amount of effort in getting to this point. Maybe you're reading this in an emulator, in a web browser, and that is fine with me.
 
@@ -28,7 +28,7 @@ In reality, modern hardware and the Internet are where people are productive tod
 ----------------------------------------------
 Why not 16-bit? Why not just go all the way and write 64-bit ARM assembly for modern phones?
 
-There's a reason that it takes 100s of people years and $millions to make a modern computer game, and yet in the '80s a bedroom-coder could earn $millions making a game single-handidly in a matter of weeks!
+There's a reason that it takes 100s of people years and $millions to make a modern computer game, and yet in the '80s a bedroom-coder could earn $millions making a game single-handily in a matter of weeks!
 
 As you go from 8, to 16, to 32-bit, the system's capabilities quickly outstrip an individual's ability to produce content for it!
 

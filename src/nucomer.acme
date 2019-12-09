@@ -34,11 +34,14 @@ nu_song                 = $1000 ; address of SID song
 ; some meta-data, compression tables and not just straight text beginning
 ; at this point
 nu_text                 = $4000
+nu_text_length          = nu_text
+nu_text_length_lo       = nu_text+0
+nu_text_length_hi       = nu_text+1
 
 ; the compression table is 512 bytes and comes first due to its fixed size
-nu_tokens               = nu_text
-nu_tokens_lo            = nu_text + $000
-nu_tokens_hi            = nu_text + $100
+nu_tokens               = nu_text + 2
+nu_tokens_lo            = nu_tokens + $000
+nu_tokens_hi            = nu_tokens + $100
 
 ; the list of line-lengths comes next.
 ; this is not a fixed length, so no constant addresses follow

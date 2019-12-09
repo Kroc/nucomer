@@ -262,7 +262,8 @@ function Compress:compressLines()
     -- remaining tokens to be used for byte-pair compression
     --
     -- note that calling this routine will clear the current token table,
-    -- and will re-encode all lines. the next avaiable token will be returned
+    -- and will re-encode all lines. the next avaiable token will be returned,
+    -- this in turn will be provided to the C64 for recognising literal tokens
     --
     local token = self:tokeniseChars()
 
@@ -553,16 +554,12 @@ function Compress:toACME(s_outfile)
 ; include constants / memory-layout
 !source "nucomer.acme"
 
-; the first 2 bytes of data are an offset to the end of the list of
-; line-lengths. the load-address is pulled back two bytes so that the
-; list of line-lengths begins at a page boundary ($xx00); this is used
-; to detect when scrolling has hit the top of the article!
-; 
-* = nu_text - 2
+; articles all begin at the same place in RAM
+;
+* = nu_text
 
-        ; as mentioned above, the first word is the size
-        ; of the line-lengths list that appears below the
-        ; tokens table (fixed size)
+        ; the first word is the size of the line-lengths list
+        ; that appears below the tokens table (fixed size)
         ;
         !word   (lines-lengths)-1
 
@@ -633,6 +630,7 @@ lines:
             -- of the C64 as counting toward zero is faster / simpler
             local out_bytes = string.reverse(out_line.colour..out_line.tokens)
 
+            -- TODO: convert source line to utf-8
             s_temp = s_temp .. string.format(
                 "        ; line %u: %q\n",
                 i, out_line.source

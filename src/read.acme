@@ -9,7 +9,7 @@
 ;
 ; read.acme:
 ;===============================================================================
-; the screen used when reading articles
+; the screen used for reading articles
 
 .THEME_GREY_BACK        = .VIC_LTGREY
 .THEME_GREY_BORDER      = .THEME_GREY_BACK
@@ -252,6 +252,7 @@ read_style7_colour:     !byte   .THEME_WARN     ; warning / error
 read_screen:
         ;-----------------------------------------------------------------------
         ; setup the screen:
+        ;
         ; turn the screen off whilst we clear it
         lda # %00000000
         sta .VIC_SCREEN_VERT
@@ -298,11 +299,11 @@ read_screen:
         ;       | text data    |  (variable length)
         ;       :              :
         clc
-        lda nu_text-2           ; lo-byte of no.lines
+        lda nu_text_length_lo   ; lo-byte of no.lines
         adc #< nu_lengths       ; start of text data will come after lengths
         sta zp_read_char_lo     ; also park the reading head here
         sta zp_read_top_lo      ; and this will be the line above the screen
-        lda nu_text-1           ; hi-byte of no.lines
+        lda nu_text_length_hi   ; hi-byte of no.lines
         adc #> nu_lengths
         sta zp_read_char_hi
         sta zp_read_top_hi
@@ -319,13 +320,13 @@ read_screen:
         ; we need to calculate the height of the article in pixels; this is
         ; the number of lines multiplied by 8
         ;
-        lda nu_text-2
+        lda nu_text_length_lo
         ; subtract 26 to account for where the top of the screen
         ; is when the bottom of the article is reached
         sec
         sbc # 26
         sta zp_read_vlen_lo
-        lda nu_text-1
+        lda nu_text_length_hi
         sbc # 0
         sta zp_read_vlen_hi
         ; begin multiplying
@@ -351,6 +352,7 @@ read_screen:
 
         ;-----------------------------------------------------------------------
         ; reset the smooth scrolling variables
+        ;
         ldx # $00
         stx zp_read_scroll      ; scroll-speed = 0
         stx zp_read_stop_dn     ; allow scrolling down; $00 = go, $FF = stop
@@ -654,12 +656,13 @@ read_irq_scroll:
         ; do we need to hard-scroll?
         ;-----------------------------------------------------------------------
 @scroll tya                     ; article scroll position *before* scroll
-        and # %00000111
+        and # %00000111         ; get just the smooth scroll offset (0-7)
         sta zp_read_row         ; (temporary use)
 
         lda zp_read_vpos_lo     ; article scroll position *after* scroll
-        and # %00000111
-        bit zp_read_scroll
+        and # %00000111         ; get just the smooth scroll offset (0-7)
+        
+        bit zp_read_scroll      ; check direction of scroll
         bpl +
 
         cmp zp_read_row         ; (temporary use)
