@@ -115,11 +115,9 @@ zp_read_bot_hi          = $35
 ; screen RAM, but it would cause visual glitching when the beam goes
 ; through a line wilst un-packing
 ;
-; TODO: make this 80-bytes, and we can use this buffer for
-;       the temporary line copy during screen scrolling
-;
-zp_read_buffer          = $80
-zp_read_buffer_len      = 40
+zp_read_buffer          = $40
+zp_read_buffer_screen   = zp_read_buffer
+zp_read_buffer_colour   = zp_read_buffer_screen + 40
 
 ; re-use the colour-data index for the decompression buffer,
 ; as the two won't ever be used at the same time
@@ -267,17 +265,6 @@ read_screen:
         lda # .THEME_FORE
         sta zp_print_colour
         jsr clear_screen
-
-        ; whilst the off-screen lines will hold text waiting to be
-        ; scrolled into view, we do need to fill these with spaces
-        ; to begin with in case the first lines to be placed there
-        ; do not fill 40-chars and we get screen garabge scrolling in
-        ldx # 40-1
-        lda # ' '
--       sta nu_screen_before, x
-        sta nu_screen_after, x
-        dex
-        bpl -
 
         ; initialise printing:
         ;-----------------------------------------------------------------------
@@ -833,14 +820,6 @@ read_scroll_down:
 
         ; begin printing the new row
         ;-----------------------------------------------------------------------
-        ; blank the off-screen row so that we don't scroll in garbage
-        ; if the new line is shorter than the previous line
-        ldx # 40
-        lda # ' '
--       sta nu_screen_after-1, x
-        dex
-        bne -                   ; stop when X = 0 (important for later!)
-
         ; read the length of the current line at the top of the screen,
         ; and move the line-pointer for the top screen line to the next line
         ;
@@ -872,7 +851,7 @@ read_scroll_down:
         bne +
         inc zp_read_lens_hi
 
-+       inx                     ; X = 1; number of lines to print
++       ldx # 1                 ; number of lines to print
         jmp read_print          ; note that Y = 26, row to print from
 
 ;===============================================================================
@@ -896,9 +875,9 @@ read_scroll_up:
         ldy # 39                ; as always, loop backwards for speed
         ; row 9 -> row ...
 -       lda read_screen_row9, y
-        sta nu_screen_temp, y
+        sta zp_read_buffer_screen, y    ; (zero-page, saves 40 cycles)
         lda read_colour_row9, y
-        sta nu_colour_temp, y
+        sta zp_read_buffer_colour, y    ; (zero-page, saves 40 cycles)
         ; row 8 -> row 9
         lda read_screen_row8, y
         sta read_screen_row9, y
@@ -999,9 +978,9 @@ read_scroll_up:
         lda read_colour_row10, y
         sta read_colour_row11, y
         ; row ... -> row 10
-        lda nu_screen_temp, y
+        lda zp_read_buffer_screen, y    ; (zero-page, saves 40 cycles)
         sta read_screen_row10, y
-        lda nu_colour_temp, y
+        lda zp_read_buffer_colour, y    ; (zero-page, saves 40 cycles)
         sta read_colour_row10, y
         dey
         bpl -
@@ -1058,12 +1037,6 @@ read_scroll_up:
 
         ; print the next row in the off-screen space
         ;-----------------------------------------------------------------------
-        ldx # 40
-        lda # ' '
--       sta nu_screen_before-1, x
-        dex
-        bne -                   ; stop when X = 0 (important for later!)
-
         sec
         lda zp_read_lens_lo     ; move the index in the line-lengths array...
         sbc # 1                 ; ...back one line
@@ -1111,7 +1084,7 @@ read_scroll_up:
         dec zp_read_bot_hi
 
 +       ldy # 0                 ; starting row
-        inx                     ; X = 1; number of rows to print
+        ldx # 1                 ; number of rows to print
 
 ;===============================================================================
 ; print a number of lines from the article to the screen:
@@ -1169,7 +1142,7 @@ read_print:
 
         ; skip a zero-length line
         ; (line-length must be recorded first)
-        beq @eol
+        beq @blank
 
         ; if colour data is present, go process it first
         ; (note that the carry bit has not been modified
@@ -1188,6 +1161,7 @@ read_print:
         ; the number of characters to print (0-based) will be returned in X
 @print: jsr read_decompress
 
+        ldx # 39
 -       lda zp_read_buffer, x   ; read a character from the buffer
 @out    sta nu_screen, x        ; print the character
         dex                     ; more characters remain in the buffer?
@@ -1209,8 +1183,18 @@ read_print:
         bcc @line
         inc zp_read_char_hi
         bne @line
-
         brk
+
+        ; print blank line:
+        ;-----------------------------------------------------------------------
+        ; we don't have to erase the characters already in the line
+        ; if we just colour the line blank, which is slightly faster
+        ;
+@blank: lda # .THEME_BACK       ; colour text same as background
+        jsr read_colour_row     ; colour whole row quickly
+
+        beq @eol
+        bne @eol
 
 @eof:   rts
 
@@ -1226,7 +1210,12 @@ read_print:
         ; begin printing text:
         dey                     ; move to the next line-data byte
         bne @print              ; (always branches, Y != 0)
+        brk
 
+        ; finished colour-data, begin printing text:
+        ;-----------------------------------------------------------------------
+@cdone: ldy zp_read_index_data  ; retrieve the data-index for reading bytes
+        bne @print              ; (always branches, Y != 0)
         brk
 
         ; decode colour-data:
@@ -1269,7 +1258,6 @@ read_print:
         dey                     ; (adjust to 0-based for the colouring loop)
         lda read_style0_colour  ; use the default line colour
         bne @clram              ; (always branches, != 0)
-
         brk
 
         ; process colour-spans:
@@ -1308,179 +1296,145 @@ read_print:
         
         stx zp_read_index_col   ; remember current column for the next span
         bmi @cread              ; read the next span from the colour-data?
-
         brk
-
-        ; finished colour-data, begin printing text:
-        ;-----------------------------------------------------------------------
-@cdone: ldy zp_read_index_data  ; retrieve the data-index for reading bytes
-        bne @print              ; (always branches, Y != 0)
-        
-        brk
-        !byte   $42
-        !pet    "impossible branch!", 0
 
 ;===============================================================================
 ; colour a whole row:
 ;
-;       A = colour
-;       (Y is preserved)
+; rows 1-25 use a slower, general method:
+;-------------------------------------------------------------------------------
+-       pha                     ; put colour aside
+
+        ; look up the address to write to
+        ; (X is the current row)
+        lda read_colour_rows_lo, x
+        sta @clrow+1
+        lda read_colour_rows_hi, x
+        sta @clrow+2
+
+        pla                     ; get the colour back
+        ldx # 40-1              ; colour 40 columns...
+@clrow  sta $d800, x
+        dex
+        bpl @clrow
+
+        rts
+
+; this is the routine you want to call,
+; it'll use the fastest path available for the row number
 ;
 read_colour_row:
         ;-----------------------------------------------------------------------
         ; which row are we on?
         ; (there are speed-paths for the off-screen rows)
         ldx zp_read_row
-        beq @before             ; row = 0, colour off-screen row above screen
-        cpx # 26                ; row = 26?
-        beq @after              ; row = 26, colour off-screen row below screen
+        ; row = 0? colour off-screen row above screen
+        beq read_colour_before
+        ; row = 26? colour off-screen row below screen
+        cpx # 26
+        bne -
 
-        ; rows 1-25: use the general slow path:
-        ;-----------------------------------------------------------------------
-        pha                     ; put colour aside
-
-        ; look up the address to write to
-        ; (X is the current row)
-        lda read_colour_rows_lo, x
-        sta @color+1
-        lda read_colour_rows_hi, x
-        sta @color+2
-
-        pla                     ; get the colour back
-        ldx # 40-1              ; colour 40 columns...
-@color  sta $d800, x
-        dex
-        bpl @color
-
-        rts
-
-        ; colour offscreen row after screen:
-        ;-----------------------------------------------------------------------
-@after  ; fast-fill the row colour:
-        ; (A = colour)
-        ; (X offset = start of row)
-        ; (JSR offset = colour 40 chars)
-        ldx # 0
-        jmp read_set_colour_after+0
-
-        ; colour offscreen row before screen:
-        ;-----------------------------------------------------------------------
-@before ; fast-fill the row colour:
-        ; (A = colour)
-        ; (X offset = start of row), note that X is already 0
-        ; (JSR offset = colour 40 chars)
-        ;
-        ;;jmp read_set_colour_before+0
-
-;===============================================================================
-; set the colour for some, or all, of the off-screen top row:
+; set the colour for the off-screen bottom row:
 ;
-; this is a "fast path" to set a colour on the characters of the off-screen
-; row above the screen; the idea is to jump into the routine at the point
-; where the number of characters you want to colour remain; X can be used
-; to offset from the first column
+; this is a "fast path" to set a colour on the characters
+; of the off-screen row below the screen
 ;
 ;       A = colour
-;       X = character offset
 ;
-read_set_colour_before:
+read_colour_after:
         ;-----------------------------------------------------------------------
-        sta nu_colour_before+0,  x      ; jsr +   0: colour 40 chars
-        sta nu_colour_before+1,  x      ; jsr +   3: colour 39 chars
-        sta nu_colour_before+2,  x      ; jsr +   6: colour 38 chars
-        sta nu_colour_before+3,  x      ; jsr +   9: colour 37 chars
-        sta nu_colour_before+4,  x      ; jsr +  12: colour 36 chars
-        sta nu_colour_before+5,  x      ; jsr +  15: colour 35 chars
-        sta nu_colour_before+6,  x      ; jsr +  18: colour 34 chars
-        sta nu_colour_before+7,  x      ; jsr +  21: colour 33 chars
-        sta nu_colour_before+8,  x      ; jsr +  24: colour 32 chars
-        sta nu_colour_before+9,  x      ; jsr +  27: colour 31 chars
-        sta nu_colour_before+10, x      ; jsr +  30: colour 30 chars
-        sta nu_colour_before+11, x      ; jsr +  33: colour 29 chars
-        sta nu_colour_before+12, x      ; jsr +  36: colour 28 chars
-        sta nu_colour_before+13, x      ; jsr +  39: colour 27 chars
-        sta nu_colour_before+14, x      ; jsr +  42: colour 26 chars
-        sta nu_colour_before+15, x      ; jsr +  45: colour 25 chars
-        sta nu_colour_before+16, x      ; jsr +  48: colour 24 chars
-        sta nu_colour_before+17, x      ; jsr +  51: colour 23 chars
-        sta nu_colour_before+18, x      ; jsr +  54: colour 22 chars
-        sta nu_colour_before+19, x      ; jsr +  57: colour 21 chars
-        sta nu_colour_before+20, x      ; jsr +  60: colour 20 chars
-        sta nu_colour_before+21, x      ; jsr +  63: colour 19 chars
-        sta nu_colour_before+22, x      ; jsr +  66: colour 18 chars
-        sta nu_colour_before+23, x      ; jsr +  69: colour 17 chars
-        sta nu_colour_before+24, x      ; jsr +  72: colour 16 chars
-        sta nu_colour_before+25, x      ; jsr +  75: colour 15 chars
-        sta nu_colour_before+26, x      ; jsr +  78: colour 14 chars
-        sta nu_colour_before+27, x      ; jsr +  81: colour 13 chars
-        sta nu_colour_before+28, x      ; jsr +  84: colour 12 chars
-        sta nu_colour_before+29, x      ; jsr +  87: colour 11 chars
-        sta nu_colour_before+30, x      ; jsr +  90: colour 10 chars
-        sta nu_colour_before+31, x      ; jsr +  93: colour 9 chars
-        sta nu_colour_before+32, x      ; jsr +  96: colour 8 chars
-        sta nu_colour_before+33, x      ; jsr +  99: colour 7 chars
-        sta nu_colour_before+34, x      ; jsr + 102: colour 6 chars
-        sta nu_colour_before+35, x      ; jsr + 105: colour 5 chars
-        sta nu_colour_before+36, x      ; jsr + 108: colour 4 chars
-        sta nu_colour_before+37, x      ; jsr + 111: colour 3 chars
-        sta nu_colour_before+38, x      ; jsr + 114: colour 2 chars
-        sta nu_colour_before+39, x      ; jsr + 117: colour 1 char
+        sta nu_colour_after+0
+        sta nu_colour_after+1
+        sta nu_colour_after+2
+        sta nu_colour_after+3
+        sta nu_colour_after+4
+        sta nu_colour_after+5
+        sta nu_colour_after+6
+        sta nu_colour_after+7
+        sta nu_colour_after+8
+        sta nu_colour_after+9
+        sta nu_colour_after+10
+        sta nu_colour_after+11
+        sta nu_colour_after+12
+        sta nu_colour_after+13
+        sta nu_colour_after+14
+        sta nu_colour_after+15
+        sta nu_colour_after+16
+        sta nu_colour_after+17
+        sta nu_colour_after+18
+        sta nu_colour_after+19
+        sta nu_colour_after+20
+        sta nu_colour_after+21
+        sta nu_colour_after+22
+        sta nu_colour_after+23
+        sta nu_colour_after+24
+        sta nu_colour_after+25
+        sta nu_colour_after+26
+        sta nu_colour_after+27
+        sta nu_colour_after+28
+        sta nu_colour_after+29
+        sta nu_colour_after+30
+        sta nu_colour_after+31
+        sta nu_colour_after+32
+        sta nu_colour_after+33
+        sta nu_colour_after+34
+        sta nu_colour_after+35
+        sta nu_colour_after+36
+        sta nu_colour_after+37
+        sta nu_colour_after+38
+        sta nu_colour_after+39
         
         rts
 
-;===============================================================================
-; set the colour for some, or all, of the off-screen bottom row:
+; set the colour for the off-screen top row:
 ;
-; this is a "fast path" to set a colour on the characters of the off-screen
-; row below the screen; the idea is to jump into the routine at the point
-; where the number of characters you want to colour remain; X can be used
-; to offset from the first column
+; this is a "fast path" to set a colour on the characters
+; of the off-screen row above the screen
 ;
 ;       A = colour
-;       X = character offset
 ;
-read_set_colour_after:
+read_colour_before:
         ;-----------------------------------------------------------------------
-        sta nu_colour_after+0,  x       ; jsr +   0: colour 40 chars
-        sta nu_colour_after+1,  x       ; jsr +   3: colour 39 chars
-        sta nu_colour_after+2,  x       ; jsr +   6: colour 38 chars
-        sta nu_colour_after+3,  x       ; jsr +   9: colour 37 chars
-        sta nu_colour_after+4,  x       ; jsr +  12: colour 36 chars
-        sta nu_colour_after+5,  x       ; jsr +  15: colour 35 chars
-        sta nu_colour_after+6,  x       ; jsr +  18: colour 34 chars
-        sta nu_colour_after+7,  x       ; jsr +  21: colour 33 chars
-        sta nu_colour_after+8,  x       ; jsr +  24: colour 32 chars
-        sta nu_colour_after+9,  x       ; jsr +  27: colour 31 chars
-        sta nu_colour_after+10, x       ; jsr +  30: colour 30 chars
-        sta nu_colour_after+11, x       ; jsr +  33: colour 29 chars
-        sta nu_colour_after+12, x       ; jsr +  36: colour 28 chars
-        sta nu_colour_after+13, x       ; jsr +  39: colour 27 chars
-        sta nu_colour_after+14, x       ; jsr +  42: colour 26 chars
-        sta nu_colour_after+15, x       ; jsr +  45: colour 25 chars
-        sta nu_colour_after+16, x       ; jsr +  48: colour 24 chars
-        sta nu_colour_after+17, x       ; jsr +  51: colour 23 chars
-        sta nu_colour_after+18, x       ; jsr +  54: colour 22 chars
-        sta nu_colour_after+19, x       ; jsr +  57: colour 21 chars
-        sta nu_colour_after+20, x       ; jsr +  60: colour 20 chars
-        sta nu_colour_after+21, x       ; jsr +  63: colour 19 chars
-        sta nu_colour_after+22, x       ; jsr +  66: colour 18 chars
-        sta nu_colour_after+23, x       ; jsr +  69: colour 17 chars
-        sta nu_colour_after+24, x       ; jsr +  72: colour 16 chars
-        sta nu_colour_after+25, x       ; jsr +  75: colour 15 chars
-        sta nu_colour_after+26, x       ; jsr +  78: colour 14 chars
-        sta nu_colour_after+27, x       ; jsr +  81: colour 13 chars
-        sta nu_colour_after+28, x       ; jsr +  84: colour 12 chars
-        sta nu_colour_after+29, x       ; jsr +  87: colour 11 chars
-        sta nu_colour_after+30, x       ; jsr +  90: colour 10 chars
-        sta nu_colour_after+31, x       ; jsr +  93: colour 9 chars
-        sta nu_colour_after+32, x       ; jsr +  96: colour 8 chars
-        sta nu_colour_after+33, x       ; jsr +  99: colour 7 chars
-        sta nu_colour_after+34, x       ; jsr + 102: colour 6 chars
-        sta nu_colour_after+35, x       ; jsr + 105: colour 5 chars
-        sta nu_colour_after+36, x       ; jsr + 108: colour 4 chars
-        sta nu_colour_after+37, x       ; jsr + 111: colour 3 chars
-        sta nu_colour_after+38, x       ; jsr + 114: colour 2 chars
-        sta nu_colour_after+39, x       ; jsr + 117: colour 1 char
+        sta nu_colour_before+0
+        sta nu_colour_before+1
+        sta nu_colour_before+2
+        sta nu_colour_before+3
+        sta nu_colour_before+4
+        sta nu_colour_before+5
+        sta nu_colour_before+6
+        sta nu_colour_before+7
+        sta nu_colour_before+8
+        sta nu_colour_before+9
+        sta nu_colour_before+10
+        sta nu_colour_before+11
+        sta nu_colour_before+12
+        sta nu_colour_before+13
+        sta nu_colour_before+14
+        sta nu_colour_before+15
+        sta nu_colour_before+16
+        sta nu_colour_before+17
+        sta nu_colour_before+18
+        sta nu_colour_before+19
+        sta nu_colour_before+20
+        sta nu_colour_before+21
+        sta nu_colour_before+22
+        sta nu_colour_before+23
+        sta nu_colour_before+24
+        sta nu_colour_before+25
+        sta nu_colour_before+26
+        sta nu_colour_before+27
+        sta nu_colour_before+28
+        sta nu_colour_before+29
+        sta nu_colour_before+30
+        sta nu_colour_before+31
+        sta nu_colour_before+32
+        sta nu_colour_before+33
+        sta nu_colour_before+34
+        sta nu_colour_before+35
+        sta nu_colour_before+36
+        sta nu_colour_before+37
+        sta nu_colour_before+38
+        sta nu_colour_before+39
         
 -       rts
 
@@ -1496,9 +1450,50 @@ read_set_colour_after:
 ;
 read_decompress:
         ;-----------------------------------------------------------------------
-        lda # 0
+        lda # 0                                                         ;+2=2
         ; initialise our position within the decompression buffer
-        sta zp_read_buffer_index
+        sta zp_read_buffer_index                                        ;+3=5
+        ; pre-fill the buffer with spaces
+        sta zp_read_buffer+0                                            ;+3=8
+        sta zp_read_buffer+1                                            ;+3=11
+        sta zp_read_buffer+2                                            ;+3=14
+        sta zp_read_buffer+3                                            ;+3=17
+        sta zp_read_buffer+4                                            ;+3=20
+        sta zp_read_buffer+5                                            ;+3=23
+        sta zp_read_buffer+6                                            ;+3=26
+        sta zp_read_buffer+7                                            ;+3=29
+        sta zp_read_buffer+8                                            ;+3=32
+        sta zp_read_buffer+9                                            ;+3=35
+        sta zp_read_buffer+10                                           ;+3=38
+        sta zp_read_buffer+11                                           ;+3=41
+        sta zp_read_buffer+12                                           ;+3=44
+        sta zp_read_buffer+13                                           ;+3=47
+        sta zp_read_buffer+14                                           ;+3=50
+        sta zp_read_buffer+15                                           ;+3=53
+        sta zp_read_buffer+16                                           ;+3=56
+        sta zp_read_buffer+17                                           ;+3=59
+        sta zp_read_buffer+18                                           ;+3=62
+        sta zp_read_buffer+19                                           ;+3=65
+        sta zp_read_buffer+20                                           ;+3=68
+        sta zp_read_buffer+21                                           ;+3=71
+        sta zp_read_buffer+22                                           ;+3=74
+        sta zp_read_buffer+23                                           ;+3=77
+        sta zp_read_buffer+24                                           ;+3=80
+        sta zp_read_buffer+25                                           ;+3=83
+        sta zp_read_buffer+26                                           ;+3=86
+        sta zp_read_buffer+27                                           ;+3=89
+        sta zp_read_buffer+28                                           ;+3=92
+        sta zp_read_buffer+29                                           ;+3=95
+        sta zp_read_buffer+30                                           ;+3=98
+        sta zp_read_buffer+31                                           ;+3=101
+        sta zp_read_buffer+32                                           ;+3=104
+        sta zp_read_buffer+33                                           ;+3=107
+        sta zp_read_buffer+34                                           ;+3=110
+        sta zp_read_buffer+35                                           ;+3=113
+        sta zp_read_buffer+36                                           ;+3=116
+        sta zp_read_buffer+37                                           ;+3=119
+        sta zp_read_buffer+38                                           ;+3=122
+        sta zp_read_buffer+39                                           ;+3=125
 
         ; compensate for the pre-decrement
         ; nature of reading tokens
