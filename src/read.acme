@@ -1545,7 +1545,7 @@ read_decompress:
 @left   lda $8888, x            ; read the left-hand byte
         pha                     ; push that to the top (1st out)
 
-        bne @next
+        bcs @next
         brk
 
         ; literal token:
@@ -1556,7 +1556,7 @@ read_decompress:
         ; move to the next byte in the output buffer
         inc zp_read_buffer_index
 
-        bne @next
+        bcc @next
         brk
 
 !addr   .read_literal_count     = @count+1

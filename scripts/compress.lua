@@ -531,11 +531,15 @@ function Compress:toACME(s_outfile)
         ;
         !byte   {{TOKENS_LITERALS_COUNT}}
 
-        ; address of the token-pairs table (left-bytes)
-        !word   .tokens_left
-
+        ; address of the token-pairs table: (left-bytes)
+        ;
+        ; note that the address is pulled back by the number of token literals
+        ; so that the first non-literal token index is effectively index zero
+        ;
+        !word   .tokens_left - {{TOKENS_LITERALS_COUNT}}
+        
         ; address of the token-pairs table (right-bytes)
-        !word   .tokens_right
+        !word   .tokens_right - {{TOKENS_LITERALS_COUNT}}
 
         ; address of the list of line-lengths
         !word   .lengths
@@ -559,13 +563,13 @@ function Compress:toACME(s_outfile)
         ;-----------------------------------------------------------------------
         ; the lo-byte halves of the token-pairs
         ;
-{{TOKENS_LO}}
+{{TOKENS_LEFT}}
 
 .tokens_right:
         ;-----------------------------------------------------------------------
         ; the hi-byte halves of the token-pairs
         ;
-{{TOKENS_HI}}
+{{TOKENS_RIGHT}}
 
 ; if a line has colour-data, the upper-bit is set
 LINE_COLOUR = %10000000
@@ -600,6 +604,28 @@ LINE_COLOUR = %10000000
     s_temp = ""
     -- provide the literal token count (1-based)
     s_out = s_out:gsub("%{%{TOKENS_LITERALS_COUNT%}%}", self.literals)
+
+    -- build the token-pairs lists:
+    ----------------------------------------------------------------------------
+    local s_left = ""
+    local s_right = ""
+
+    for i = self.literals, 255 do
+        -- if not all tokens were used, end the list early
+        if self.tokens[i].size == 0 then break; end
+
+        local i_left  = self.tokens[i].pair:byte(1)
+        local i_right = self.tokens[i].pair:byte(2)
+
+        s_left = s_left .. string.format(
+            "        !byte   $%02x     ; token $%02x\n", i_left, i
+        )
+        s_right = s_right .. string.format(
+            "        !byte   $%02x     ; token $%02x\n", i_right, i
+        )
+    end
+    s_out = s_out:gsub("%{%{TOKENS_LEFT%}%}", s_left)
+    s_out = s_out:gsub("%{%{TOKENS_RIGHT%}%}", s_right)
 
     -- build the list of line-lengths:
     ----------------------------------------------------------------------------
@@ -654,28 +680,6 @@ LINE_COLOUR = %10000000
     end
     s_out = s_out:gsub("%{%{LINES%}%}", s_temp)
     s_temp = ""
-
-    -- build the token lists:
-    ----------------------------------------------------------------------------
-    local s_left = ""
-    local s_right = ""
-
-    for i = 0, 255 do
-        -- if the token is undefined fill it in blank
-        -- as the tables must fill 256 bytes each
-        --
-        local i_left  = self.tokens[i].pair:byte(1) or 0
-        local i_right = self.tokens[i].pair:byte(2) or 0
-
-        s_left = s_left .. string.format(
-            "        !byte   $%02x     ; token $%02x\n", i_left, i
-        )
-        s_right = s_right .. string.format(
-            "        !byte   $%02x     ; token $%02x\n", i_right, i
-        )
-    end
-    s_out = s_out:gsub("%{%{TOKENS_LO%}%}", s_left)
-    s_out = s_out:gsub("%{%{TOKENS_HI%}%}", s_right)
 
     return s_out
 end
