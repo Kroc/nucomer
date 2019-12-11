@@ -258,8 +258,8 @@ end
 local here = debug.getinfo(1).source:sub(2):match("(.*[/\\])")
 
 Hyphenate:addLanguage("en-gb",
-    here.."hyphens.en-gb.patterns.lst",
-    here.."hyphens.en-gb.exceptions.lst"
+    here.."lib/hyphens.en-gb.patterns.lst",
+    here.."lib/hyphens.en-gb.exceptions.lst"
 )
 
 return Hyphenate
