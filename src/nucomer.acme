@@ -10,6 +10,37 @@
 ;===============================================================================
 !source "c64/c64.acme"          ; C64 hardware / software constants
 
+lo = 0
+hi = 1
+
+; variable for address allocation:
+!set    alloc  = $0000
+
+; set the allocation address:
+!macro  alloc   .addr {
+        ; set the new address to begin allocating
+        !set    alloc  = .addr
+}
+; allocate, without advancing the address:
+!macro  addr    ~.label {
+        !addr   .label  = alloc
+}
+; allocate a byte:
+!macro  byte    ~.label {
+        !addr   .label  = alloc
+        !set    alloc   = alloc + 1
+}
+; allocate a custom number of bytes:
+!macro  bytes   ~.label, .size {
+        !addr   .label  = alloc
+        !set    alloc   = alloc + .size
+}
+; allocate a word:
+!macro  word    ~.label {
+        !addr   .label  = alloc
+        !set    alloc   = alloc + 2
+}
+
 ;-------------------------------------------------------------------------------
 ; memory map:
 ;
@@ -25,29 +56,28 @@
 nu_intro                = $0334 ; address of the shared / intro code
 nu_intro_screen         = $3c00 ; address of the intro screen
 
-NU_VIC_BANK             = 3     ; the VIC bank used by the outfit
-
 nu_main                 = $b000 ; address of the main outfit code
 nu_song                 = $1000 ; address of SID song
 
+;-------------------------------------------------------------------------------
 ; articles are loaded in from this point, though note that this includes
 ; some meta-data, compression tables and not just straight text beginning
 ; at this point
-nu_text                 = $4000
-nu_text_length          = nu_text
-nu_text_length_lo       = nu_text+0
-nu_text_length_hi       = nu_text+1
+;
++alloc  $4000
 
-; the compression table is 512 bytes and comes first due to its fixed size
-nu_tokens               = nu_text + 2
-nu_tokens_lo            = nu_tokens + $000
-nu_tokens_hi            = nu_tokens + $100
-
-; the list of line-lengths comes next.
-; this is not a fixed length, so no constant addresses follow
-nu_lengths              = nu_tokens + $200
++addr   ~nu_text                ; beginning of article header + data
++word   ~nu_text_literals       ; pointer to table of token literals
++byte   ~nu_text_literals_count ; number of literal tokens
++word   ~nu_text_tokens_left    ; pointer to token-pairs table (left-bytes)
++word   ~nu_text_tokens_right   ; pointer to token-pairs table (right-bytes)
++word   ~nu_text_lines          ; pointer to list of line-lengths
++word   ~nu_text_length         ; number of lines in the article
++word   ~nu_text_data           ; pointer to compressed text
 
 ;-------------------------------------------------------------------------------
+NU_VIC_BANK             = 3     ; the VIC bank used by the outfit
+
 nu_font                 = $e000 ; location of the custom font; 4 KB
 nu_font_up              = $e000 ; upper-case half of the font; 2 KB
 nu_font_lo              = $e800 ; lower-case half of the font; 2 KB

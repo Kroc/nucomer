@@ -24,16 +24,19 @@ local Compress = {
     -- tokens are newly assigned bytes to represent pairs of bytes;
     -- this is the 'dictionary' used for decompressing the data
     tokens = {},
+    -- number of tokens defined as literals
+    literals = 0,
 }
 
 -- clear the current compression stats
 --------------------------------------------------------------------------------
 function Compress:clear()
     ----------------------------------------------------------------------------
-    self.lines  = {}
-    self.pairs  = {}
-    self.chars  = {}
-    self.tokens = {}
+    self.lines    = {}
+    self.pairs    = {}
+    self.chars    = {}
+    self.tokens   = {}
+    self.literals = 0
 end
 
 -- add a line of text to the compressor
@@ -362,11 +365,12 @@ end
 --------------------------------------------------------------------------------
 function Compress:tokeniseChars()
     ----------------------------------------------------------------------------
-    io.stdout:write("> tokenising...               ")
+    io.stdout:write("> tokenising...             ")
 
     -- clear the current token definitions & character statistics.
-    self.tokens = {}
-    self.chars  = {}
+    self.tokens   = {}
+    self.chars    = {}
+    self.literals = 0
 
     for i = 0, 255 do
         -- pre-populate all 256 possible chars, as Lua will stop
@@ -417,6 +421,10 @@ function Compress:tokeniseChars()
         end
     end
 
+    -- we now know how many tokens are literals; this information
+    -- is used by the C64 to minimise the size of the tokens table
+    self.literals = token
+
     -- re-encode all lines from screen-codes to tokens
     --
     for i = 1, #self.lines do
@@ -445,8 +453,8 @@ function Compress:tokeniseChars()
     end
 
     -- return the next available token number,
-    -- this will happen to also be the count of unqiue characters + 1
-    print(string.format("%3u tokens", token-1))
+    -- this will happen to also be the count of unqiue characters
+    print(string.format("%3u literals", token))
     return token
 end
 
@@ -496,51 +504,6 @@ function Compress:analysePairs()
     return max_pair, max_count
 end
 
--- output compression statistics
---------------------------------------------------------------------------------
---#function Compress:printStatistics()
---#    -------------------------------------------------------------------------
---#    print()
---#    print("Compression Statistics:")
---#    print("----------------------------------------")
---#    local byCount = function(a,b)
---#        return a[2] > b[2]
---#    end
---#
---#    -- the pairs array cannot be sorted in a 'pair = count' format
---#    -- (though this is a fast format when counting the pairs),
---#    -- so we copy the data to a different format for sorting
---#    local sorted_pairs = {}
---#    for pair,count in pairs(self.pairs) do
---#        table.insert(sorted_pairs, {pair:fromC64(), count})
---#    end
---#    table.sort(sorted_pairs, byCount)
---#
---#    local sorted_chars = {}
---#    for char,count in pairs(self.chars) do
---#        table.insert(sorted_chars, {char:fromC64(), count})
---#    end
---#    table.sort(sorted_chars, byCount)
---#
---#    for i = 1, 128 do
---#        if sorted_chars[i] then
---#            print(string.format(
---#                "%3u: %-9s x %4u | %-9s x %4u", i,
---#                sorted_pairs[i][1],
---#                sorted_pairs[i][2],
---#                sorted_chars[i][1],
---#                sorted_chars[i][2]
---#            ))
---#        elseif sorted_pairs[i] then
---#            print(string.format(
---#                "%3u: %-9s x %4u |", i,
---#                sorted_pairs[i][1],
---#                sorted_pairs[i][2]
---#            ))
---#        end
---#    end
---#end
-
 -- generate an ACME assembly file for the compressed data
 --------------------------------------------------------------------------------
 function Compress:toACME(s_outfile)
@@ -558,27 +521,56 @@ function Compress:toACME(s_outfile)
 ;
 * = nu_text
 
-        ; the first word is the size of the line-lengths list
-        ; that appears below the tokens table (fixed size)
-        ;
-        !word   (lines-lengths)-1
+        ; address of the token literals table:
+        !word   .tokens_literals
 
-tokens_lo:
+        ; the number of literal tokens:
+        ; this is used to automatically recognise tokens containing literals
+        ; by their index. when compressing, all unique characters in the
+        ; article are assigned to the first 'n' tokens
+        ;
+        !byte   {{TOKENS_LITERALS_COUNT}}
+
+        ; address of the token-pairs table (left-bytes)
+        !word   .tokens_left
+
+        ; address of the token-pairs table (right-bytes)
+        !word   .tokens_right
+
+        ; address of the list of line-lengths
+        !word   .lengths
+
+        ; size of the line-lengths list;
+        ; i.e. number of lines in article
+        ;
+        !word   (.lines-.lengths)-1
+
+        ; address of the compressed text-data, less one byte --
+        ; this is so that the length [in bytes] of each line can
+        ; be 1-based
+        ; 
+        !word   .lines-1
+
+.tokens_literals:
         ;-----------------------------------------------------------------------
-        ; the lo-byte halves of the token-pairs (exactly 256 bytes)
+{{TOKENS_LITERALS}}
+
+.tokens_left:
+        ;-----------------------------------------------------------------------
+        ; the lo-byte halves of the token-pairs
         ;
 {{TOKENS_LO}}
 
-tokens_hi:
+.tokens_right:
         ;-----------------------------------------------------------------------
-        ; the hi-byte halves of the token-pairs (exactly 256 bytes)
+        ; the hi-byte halves of the token-pairs
         ;
 {{TOKENS_HI}}
 
 ; if a line has colour-data, the upper-bit is set
 LINE_COLOUR = %10000000
 
-lengths:
+.lengths:
         ;-----------------------------------------------------------------------
         ; the length, in bytes, for each line in the article
         ;
@@ -586,7 +578,7 @@ lengths:
         ; this byte marks the end of the list of line-lengths
         !byte   $80
 
-lines:
+.lines:
         ;-----------------------------------------------------------------------
 {{LINES}}
 ]]
@@ -594,10 +586,23 @@ lines:
     -- this means that it does not need to be provided by the build-script,
     -- minimising the amount of data we have to share between environments
     s_out = s_out:gsub("%{%{OUTFILE%}%}", s_outfile)
+    local s_temp = ""
+
+    -- build the list of token literals
+    ----------------------------------------------------------------------------
+    for i = 0, self.literals-1 do
+        s_temp = s_temp .. string.format(
+            "        !byte   $%02x     ; token $%02x\n",
+            self.tokens[i].pair:byte(1) or 0, i
+        )
+    end
+    s_out = s_out:gsub("%{%{TOKENS_LITERALS%}%}", s_temp)
+    s_temp = ""
+    -- provide the literal token count (1-based)
+    s_out = s_out:gsub("%{%{TOKENS_LITERALS_COUNT%}%}", self.literals)
 
     -- build the list of line-lengths:
     ----------------------------------------------------------------------------
-    local s_temp = ""
     for i, out_line in ipairs(self.lines) do
         -- is there any colour data?
         if #out_line.colour > 0 then
@@ -674,5 +679,50 @@ lines:
 
     return s_out
 end
+
+-- output compression statistics
+--------------------------------------------------------------------------------
+--#function Compress:printStatistics()
+--#    -------------------------------------------------------------------------
+--#    print()
+--#    print("Compression Statistics:")
+--#    print("----------------------------------------")
+--#    local byCount = function(a,b)
+--#        return a[2] > b[2]
+--#    end
+--#
+--#    -- the pairs array cannot be sorted in a 'pair = count' format
+--#    -- (though this is a fast format when counting the pairs),
+--#    -- so we copy the data to a different format for sorting
+--#    local sorted_pairs = {}
+--#    for pair,count in pairs(self.pairs) do
+--#        table.insert(sorted_pairs, {pair:fromC64(), count})
+--#    end
+--#    table.sort(sorted_pairs, byCount)
+--#
+--#    local sorted_chars = {}
+--#    for char,count in pairs(self.chars) do
+--#        table.insert(sorted_chars, {char:fromC64(), count})
+--#    end
+--#    table.sort(sorted_chars, byCount)
+--#
+--#    for i = 1, 128 do
+--#        if sorted_chars[i] then
+--#            print(string.format(
+--#                "%3u: %-9s x %4u | %-9s x %4u", i,
+--#                sorted_pairs[i][1],
+--#                sorted_pairs[i][2],
+--#                sorted_chars[i][1],
+--#                sorted_chars[i][2]
+--#            ))
+--#        elseif sorted_pairs[i] then
+--#            print(string.format(
+--#                "%3u: %-9s x %4u |", i,
+--#                sorted_pairs[i][1],
+--#                sorted_pairs[i][2]
+--#            ))
+--#        end
+--#    end
+--#end
 
 return Compress

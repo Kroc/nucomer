@@ -113,7 +113,7 @@ zp_read_bot_hi          = $35
 ; for text decompression, a buffer of 40 bytes is required; located in
 ; the zero-page for maximum speed. we _could_ decompress directly into
 ; screen RAM, but it would cause visual glitching when the beam goes
-; through a line wilst un-packing
+; through a line whilst un-packing
 ;
 zp_read_buffer          = $40
 zp_read_buffer_screen   = zp_read_buffer
@@ -251,7 +251,8 @@ read_screen:
         ;-----------------------------------------------------------------------
         ; setup the screen:
         ;
-        ; turn the screen off whilst we clear it
+        ; turn the screen off whilst we
+        ; populate the first screen of text
         lda # %00000000
         sta .VIC_SCREEN_VERT
 
@@ -261,59 +262,57 @@ read_screen:
         lda # .THEME_BACK
         sta .VIC_BACKGROUND
 
-        ; erase the text-screen
-        lda # .THEME_FORE
-        sta zp_print_colour
-        jsr clear_screen
-
         ; initialise printing:
         ;-----------------------------------------------------------------------
-        ; the first two bytes are the size of the line-lengths array; in other
-        ; words, how many lines in the article there are, and how far forward
-        ; to skip to find the text data. we set the address of the first line
-        ; to print
-        ;
-        ;       +--------------+  $4000
-        ;       | tokens  (lo) |
-        ;       |--------------|  $4100
-        ;       | tokens  (hi) |
-        ;       +--------------+  $4200
-        ;       |              |
-        ;       | line lengths |  (variable length)
-        ;       :              :
-        ;       +--------------+
-        ;       |              |
-        ;       | text data    |  (variable length)
-        ;       :              :
-        clc
-        lda nu_text_length_lo   ; lo-byte of no.lines
-        adc #< nu_lengths       ; start of text data will come after lengths
-        sta zp_read_char_lo     ; also park the reading head here
-        sta zp_read_top_lo      ; and this will be the line above the screen
-        lda nu_text_length_hi   ; hi-byte of no.lines
-        adc #> nu_lengths
-        sta zp_read_char_hi
-        sta zp_read_top_hi
+        ; set the address of the table of token literals
+        lda nu_text_literals+lo
+        ldx nu_text_literals+hi
+        sta .read_token_literals+lo
+        stx .read_token_literals+hi
+        ; set the number of token literals, this will be used to decide
+        ; what tokens contain screen-codes and what ones are token-pairs
+        ; (for further decompression)
+        lda nu_text_literals_count
+        sta .read_literal_count
+        ; set the address of the table of token-pairs (left-bytes)
+        lda nu_text_tokens_left+lo
+        ldx nu_text_tokens_left+hi
+        sta .read_tokens_left+lo
+        stx .read_tokens_left+hi
+        ; set the address of the table of token-pairs (right-bytes)
+        lda nu_text_tokens_right+lo
+        ldx nu_text_tokens_right+hi
+        sta .read_tokens_right+lo
+        stx .read_tokens_right+hi
 
-        ; the line-length array begins after the token dictionary,
-        ; and this is our intial pointer in the array
-        ; -- we begin printing at article line 1
-        lda #< nu_lengths
+        ; set the address of the compressed text-data
+        lda nu_text_data+lo
+        ldx nu_text_data+hi
+        ; set the reading head to the first line
+        sta zp_read_char_lo
+        stx zp_read_char_hi
+        ; and this doubles as the first line on the screen
+        ; (used to know what line to print when scrolling upwards)
+        sta zp_read_top_lo
+        stx zp_read_top_hi
+
+        ; set the address of the list of line-lengths
+        lda nu_text_lines+lo
+        ldx nu_text_lines+hi
         sta zp_read_lens_lo
-        lda #> nu_lengths
-        sta zp_read_lens_hi
+        stx zp_read_lens_hi
 
         ; for the smooth scrolling to not overshoot the bottom of the article,
         ; we need to calculate the height of the article in pixels; this is
         ; the number of lines multiplied by 8
         ;
-        lda nu_text_length_lo
+        lda nu_text_length+lo
         ; subtract 26 to account for where the top of the screen
         ; is when the bottom of the article is reached
         sec
         sbc # 26
         sta zp_read_vlen_lo
-        lda nu_text_length_hi
+        lda nu_text_length+hi
         sbc # 0
         sta zp_read_vlen_hi
         ; begin multiplying
@@ -1134,10 +1133,10 @@ read_print:
         
         and # %00111111         ; (strip flags from byte-count)
 
-        tay                     ; Y = length of line-data (in bytes)
         ; whilst we count Y down to zero, we keep a copy of the line-length
         ; to move the character pointer forward to the next line (the flags
         ; in the upper bits have been been stripped now)
+        tay                     ; Y = length of line-data (in bytes)
         sty zp_read_len
 
         ; skip a zero-length line
@@ -1154,13 +1153,14 @@ read_print:
         lda read_style0_colour
         jsr read_colour_row
 
-        ; decompress the line into the zero-page buffer;
+        ; print line:
         ;-----------------------------------------------------------------------
         ; Y is the number of compressed bytes remaining to read; these will
         ; be decompressed into a buffer of screen-codes ready to print.
         ; the number of characters to print (0-based) will be returned in X
 @print: jsr read_decompress
 
+        ; TODO:
         ldx # 39
 -       lda zp_read_buffer, x   ; read a character from the buffer
 @out    sta nu_screen, x        ; print the character
@@ -1438,6 +1438,9 @@ read_colour_before:
         
 -       rts
 
+;;-       !byte $22
+;;        rts
+
 ;===============================================================================
 ; decompress text:
 ;
@@ -1499,6 +1502,9 @@ read_decompress:
         ; nature of reading tokens
         iny
 
+        ; (note that A must be 0 at this point, so as
+        ;  to place the terminator on the stack below)
+
         ;-----------------------------------------------------------------------
         ; the stack has been emptied, fetch more tokens:
         ;
@@ -1518,46 +1524,33 @@ read_decompress:
         ;-----------------------------------------------------------------------
         ; are there any tokens waiting to be decoded?
         ;
-        ; (a zero on the bottom of the stack to indicate
+        ; (a zero on the bottom of the stack indicates
         ;  when there are no more tokens on the stack)
         ;
 @next:  pla
-        beq @fetch              ; go fetch more tokens
+        beq @fetch              ; no? go fetch more tokens
 
         ; examine the token:
         ;-----------------------------------------------------------------------
-        tax
-        ; check the right-hand byte in the token:
-        ; if right-hand byte is zero, it indicates that the token is literal,
-        ; and the left-hand byte contains the screen-code
-        lda nu_tokens_hi, x
-        beq @print
+        tax                     ; index the token
+@count  cpx # $88               ; (placeholder value)
+        bcc @print              ; is literal, print it
 
         ; process token-pair; the left-hand and right-hand bytes
         ; both represent additional tokens; push them onto the
         ; stack for further decoding
-@pair:  pha                     ; push right-hand byte first (already read)
-        lda nu_tokens_lo, x     ; read the left-hand byte
-        pha                     ; push that to the top
-
-        ; micro-optimisation:
         ;
-        ; where normally I would write `bne @next` to go back to reading
-        ; from the stack, we can duplicate part of that code here to avoid
-        ; the branch
+@right  lda $8888, x            ; read the right-hand byte
+        pha                     ; push right-hand byte first (2nd out)
+@left   lda $8888, x            ; read the left-hand byte
+        pha                     ; push that to the top (1st out)
 
-        ;;bne @next
-        ;;brk
-
-        pla
-        beq @fetch
-        tax
-        lda nu_tokens_hi, x
-        bne @pair
+        bne @next
+        brk
 
         ; literal token:
         ;-----------------------------------------------------------------------
-@print: lda nu_tokens_lo, x     ; read the literal's screen-code
+@print: lda $8888, x            ; read the literal's screen-code
         ldx zp_read_buffer_index
         sta zp_read_buffer, x   ; add to the output buffer
         ; move to the next byte in the output buffer
@@ -1565,3 +1558,8 @@ read_decompress:
 
         bne @next
         brk
+
+!addr   .read_literal_count     = @count+1
+!addr   .read_tokens_left       = @left+1
+!addr   .read_tokens_right      = @right+1
+!addr   .read_token_literals    = @print+1
