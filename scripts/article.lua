@@ -20,7 +20,13 @@ for _, s_exception in pairs({
     -- "Collins Gem Dictionary Of English Spelling", 1994 reprint,
     -- ISBN: 0-00-458725-1
     --
-    "al-tered", "de-fined", "every-thing", "pri-vate", "with-out"
+    "al-tered", "de-fined", "every-thing", "pri-vate", "pro-vid-ed",
+    "with-out",
+
+    -- currently unchecked hyphenations:
+    -- (to be cross-checked with dictionary)
+    --
+    -- x
 }) do
     hyphenate:insertException("en-gb", s_exception)
 end
@@ -93,9 +99,11 @@ end
 
 --------------------------------------------------------------------------------
 Article = {
-    infile      = "",
-    outfile     = "",
-    lines       = {}
+    infile    = "",
+    outfile   = "",
+    lines     = {},
+    length    = 0,
+    footnotes = {}
 }
 
 -- create a new instance of the Article class
@@ -104,9 +112,11 @@ function Article:new()
     ----------------------------------------------------------------------------
     -- crate new, empty, instance
     local article = {
-        infile  = "",
-        outfile = "",
-        lines   = {}    -- table of converted lines in the article
+        infile    = "",
+        outfile   = "",
+        lines     = {},
+        length    = 0,          -- no. of lines in the article, sans footnotes!
+        footnotes = {}
     }
     setmetatable(article, self) -- set new instance to inherit from prototype
     self.__index = self         -- bind "self"
@@ -118,16 +128,21 @@ function Article:read(s_infile)
     ----------------------------------------------------------------------------
     -- remember my name
     self.infile = s_infile
-    -- get a line-reading iterator
+
+    -- open the provided source file
     local f_in,err = io.open(self.infile, "r")
+    if err then print ("! error: " .. err); os.exit(false); end
+
     -- seek to the end, to get the file size
     print(string.format("%10s", filesize(f_in:seek("end"))))
     print("----------------------------------------")
+    f_in:seek("set") -- (return to start of file)
 
-    f_in:seek("set")
+    -- get a line-reading iterator and read all lines in.
+    -- the file will automatically close when all lines are read
     local f_lines = f_in:lines()
-    -- problem? exit
-    if err then print ("! error: " .. err); os.exit(false); end
+    local src_lines = {}
+    for src_line in f_lines do table.insert(src_lines, src_line); end
 
     io.stdout:write("> word-wrapping...           ")
 
@@ -136,51 +151,131 @@ function Article:read(s_infile)
     -- blank line before the article and one-blank line after, though we
     -- strip excess leading / trailing lines first
     --
-    -- add the leading line to account for the off-screen top row
-    self:readLine("")
-
-    local is_block = false
+    -- add the leading line to account for the off-screen top row:
+    --
+    -- NOTE: in Lua, you cannot pass an empty table to a function
+    --       as it gets optimised away into nil, so this line here
+    --       is actually critical!
+    --
+    table.insert(self.lines, "")
+    -- add the trailing line to the lines yet to be processed;
+    -- this gives us an effective one-line "look-ahead"
+    -- without having to check for nil
+    table.insert(src_lines, "")
 
     -- walk each source line:
-    -- (each source line may produce, 0, 1, or more output lines)
+    -- (each source line may produce, 0, 1, or more output lines!)
     --
-    for s_line in f_lines do
+    local i = 1
+    while i <= #src_lines do
         ------------------------------------------------------------------------
-        -- is this a literal block?
-        if s_line:sub(1, 3) == "```" then
-            -- if already within a literal block
-            if is_block == true then
+        local src_line = src_lines[i]
+        local is_block = false
+
+        -- are we currently processing a literal block?
+        --
+        if is_block then
+            --------------------------------------------------------------------
+            -- has the literal block ended?
+            --
+            if src_line:sub(1, 3) == "```" then
                 -- this ends the block
                 is_block = false
-            else
-                -- this is the beginning of a literal-block;
-                -- process the following lines as literal characters,
-                -- i.e. ASCII / PETSCII and don't use text-compression
-                is_block = true
-            end
-            -- note how the literal block marker
-            -- is never output to the C64
-        else
-            -- which mode of text are we processing?
-            if is_block == false then
-                -- process as regular text
-                self:readLine(s_line)
+                -- note how the literal block marker
+                -- is never output to the C64
             else
                 -- process as literal text
-                self:readLiteralLine(s_line)
+                self:readLiteralLine(self.lines, src_line)
             end
+
+        -- is this a literal block?
+        --
+        elseif src_line:sub(1, 3) == "```" then
+            --------------------------------------------------------------------
+            -- this is the beginning of a literal-block;
+            -- process the following lines as literal characters,
+            -- i.e. ASCII / PETSCII and don't use text-compression
+            is_block = true
+            -- note how the literal block marker
+            -- is never output to the C64
+
+        -- [^n]: footnote definition
+        --
+        elseif src_line:match("^%[%^.+%]:") then
+            --------------------------------------------------------------------
+            -- we don't need to modify the line, just mark this as a footnote.
+            -- first extract the footnote's identifier:
+            local id = src_line:match("^%[%^(.+)%]:")
+
+            -- footnotes can be defined "in-line", rather than having to be at
+            -- the end of the article. we extract the footnote and append it
+            -- to the end of the article for you, therefore define a temporary
+            -- holding space for the footnote text separate from the article
+            --
+            -- NOTE: an empty table cannot be passed into a function,
+            --       it'll appear as nil!
+            --
+            local fn_txt = {""}
+
+            -- process the footnote (source) line, this will likely
+            -- be split into multiple (output) lines
+            self:readLine(fn_txt, src_line)
+
+            -- add an entry to the footnote table
+            table.insert(self.footnotes, {
+                id     = id,
+                lines  = fn_txt,
+                -- when the footnotes are appended to the article,
+                -- these properties will be assigned:
+                begin  = 0,     -- starting line number of footnote
+                length = 0,     -- number of lines to print
+            })
+
+            -- to allow for in-lining of footnotes, we need to ignore the
+            -- blank line following the footnote text used to separate
+            -- the footnote, but not desired as part of the article
+            i = i + 1
+
+        else
+            --------------------------------------------------------------------
+            -- process as regular text
+            self:readLine(self.lines, src_line)
+        end
+
+        -- note that in Lua, you can't manually increment
+        -- the index in a for-loop!
+        i = i + 1
+    end
+
+    -- append the footnotes to the end of the article:
+    ----------------------------------------------------------------------------
+    -- at this point we know the length of the article, sans footnotes.
+    -- this value is what will be given to the C64 to set the scrolling
+    -- limits so that the footnotes do not scroll into view
+    -- (they can only be accessed by their keys)
+    --
+    self.length = #self.lines
+
+    -- walk the defined footnotes (if any)
+    --
+    for _, fn in ipairs(self.footnotes) do
+        ------------------------------------------------------------------------
+        -- set the footnote's beginning line & length
+        fn.begin  = #self.lines+1
+        fn.length = #fn.lines-1
+        -- append the footnote to the article
+        for j = 2, #fn.lines do
+            table.insert(self.lines, fn.lines[j])
         end
     end
-    -- add the trailing line to account for the off-screen bottom row
-    self:readLine("")
 
-    -- article read, output the number of lines produced
+    -- article read, print the number of lines produced, including footnotes
     io.stdout:write(string.format("%5u lines\n", #self.lines-2))
 end
 
--- take an input line of ASCII text and create C64 line(s)
+-- take an input line of ASCII text and create C64-length line(s)
 --------------------------------------------------------------------------------
-function Article:readLine(src_line)
+function Article:readLine(out_lines, src_line)
     ----------------------------------------------------------------------------
     -- line-lenth we'll be breaking against
     local scr_width = 40
@@ -336,8 +431,8 @@ function Article:readLine(src_line)
         -- trim any trailing spaces on the line
         line = line:gsub("%s+$", "")
 
-        -- add the line to the article's line array
-        table.insert(self.lines, line)
+        -- add the line to the given line array
+        table.insert(out_lines, line)
         -- start a new line
         line = ""
         -- apply the indent
@@ -375,7 +470,7 @@ function Article:readLine(src_line)
     --
     if src_line:match("^:: ", index) then
         ------------------------------------------------------------------------
-        -- swich to the title style for the rest of the line
+        -- switch to the title style for the rest of the line
         line = line .. _pushStyle(STYLE_TITLE)
         -- move the index forward over the marker
         index = index + 3
@@ -629,10 +724,10 @@ function Article:readLine(src_line)
 end
 
 --------------------------------------------------------------------------------
-function Article:readLiteralLine(line)
+function Article:readLiteralLine(out_lines, line)
     ----------------------------------------------------------------------------
     -- add line to the article line array
-    table.insert(self.lines, line)
+    table.insert(out_lines, line)
 end
 
 --------------------------------------------------------------------------------

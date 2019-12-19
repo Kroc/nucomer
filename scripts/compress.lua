@@ -28,7 +28,7 @@ local Compress = {
     literals = 0,
 }
 
--- clear the current compression stats
+-- clear the current compressor state
 --------------------------------------------------------------------------------
 function Compress:clear()
     ----------------------------------------------------------------------------
@@ -544,8 +544,9 @@ function Compress:toACME(s_outfile)
         ; address of the list of line-lengths
         !word   .lengths
 
-        ; size of the line-lengths list;
-        ; i.e. number of lines in article
+        ; number of lines (less 1 for 0-based counting) of the article,
+        ; *sans footnotes*. this is used to calculate the scroll limits,
+        ; so the footnotes don't appear at the bottom of the article
         ;
         !word   (.lines-.lengths)-1
 
