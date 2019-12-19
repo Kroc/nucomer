@@ -399,6 +399,14 @@ function string:toC64 ()
             -- skip the extra bytes
             i = i + 2
 
+        -- trade mark "TM" symbol
+        ------------------------------------------------------------------------
+        elseif self:match("^%^[tT][mM]", i) then
+            -- add the specialised "TM" character
+            out_str = out_str .. string.char(0x6e)
+            -- skip the extra bytes
+            i = i + 2
+
         -- utf-8 characters that map to one c64 screen-code:
         ------------------------------------------------------------------------
         elseif self:match("^"..utf8.charpattern, i) then
