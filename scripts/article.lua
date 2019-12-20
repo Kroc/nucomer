@@ -146,10 +146,10 @@ function Article:read(s_infile)
 
     io.stdout:write("> word-wrapping...           ")
 
-    -- TODO:
     -- due to the off-screen scrolling used on the C64, we need to add one
-    -- blank line before the article and one-blank line after, though we
-    -- strip excess leading / trailing lines first
+    -- blank line before the article and one-blank line after
+    --
+    -- TODO: we need to strip excess leading / trailing lines first
     --
     -- add the leading line to account for the off-screen top row:
     --
@@ -158,11 +158,6 @@ function Article:read(s_infile)
     --       is actually critical!
     --
     self:addLine("")
-
-    -- add the trailing line to the lines yet to be processed;
-    -- this gives us an effective one-line "look-ahead"
-    -- without having to check for nil
-    table.insert(src_lines, "")
 
     -- walk each source line:
     -- (each source line may produce, 0, 1, or more output lines!)
@@ -247,6 +242,11 @@ function Article:read(s_infile)
         -- the index in a for-loop!
         i = i + 1
     end
+
+    -- make sure there's a blank line at the end of the article
+    -- to account for the off-screen row, otherwise we might try
+    -- to decompress random memory!
+    if self.lines[#self.lines].source ~= "" then self:addLine(""); end
 
     -- append the footnotes to the end of the article:
     ----------------------------------------------------------------------------

@@ -524,11 +524,11 @@ function Article:toACME(s_outfile)
         ; address of the list of line-lengths
         !word   .lengths
 
-        ; number of lines (less 1 for 0-based counting) of the article,
-        ; *sans footnotes*. this is used to calculate the scroll limits,
-        ; so the footnotes don't appear at the bottom of the article
+        ; number of lines in the article, *sans footnotes*.
+        ; this is used to calculate the scroll limits, so that
+        ; footnotes don't appear at the bottom of the article
         ;
-        !word   (.lines-.lengths)-1
+        !word   {{LENGTH}}
 
         ; address of the compressed text-data, less one byte --
         ; this is so that the length [in bytes] of each line can
@@ -630,6 +630,7 @@ LINE_COLOUR = %10000000
         end
     end
     s_out = s_out:gsub("%{%{LENGTHS%}%}", s_temp)
+    s_out = s_out:gsub("%{%{LENGTH%}%}", self.length)
     s_temp = ""
 
     -- build the list of line-data:
