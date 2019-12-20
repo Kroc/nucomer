@@ -44,7 +44,7 @@ end
 function Compress:addLine(src_line)
     ----------------------------------------------------------------------------
     -- convert the line to C64 screen codes and a list of style classes
-    local src_screen, src_styles = src_line:toC64()
+    local src_screen, src_styles = src_line.source:toC64()
 
     -- we compress the colour data right away as this requires
     -- the original screen codes, before they get compressed
@@ -54,7 +54,7 @@ function Compress:addLine(src_line)
     -- add the binary data to our internal table
     --
     table.insert(self.lines, {
-        source = src_line,
+        source = src_line.source,
         colour = out_colour,
         screen = out_screen,
         -- unused initially, but will hold the tokenised

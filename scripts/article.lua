@@ -157,7 +157,8 @@ function Article:read(s_infile)
     --       as it gets optimised away into nil, so this line here
     --       is actually critical!
     --
-    table.insert(self.lines, "")
+    self:addLine("")
+
     -- add the trailing line to the lines yet to be processed;
     -- this gives us an effective one-line "look-ahead"
     -- without having to check for nil
@@ -215,7 +216,7 @@ function Article:read(s_infile)
             -- NOTE: an empty table cannot be passed into a function,
             --       it'll appear as nil!
             --
-            local fn_txt = {""}
+            local fn_txt = {{source = ""}}
 
             -- process the footnote (source) line, this will likely
             -- be split into multiple (output) lines
@@ -271,6 +272,18 @@ function Article:read(s_infile)
 
     -- article read, print the number of lines produced, including footnotes
     io.stdout:write(string.format("%5u lines\n", #self.lines-2))
+end
+
+-- add a line of source (ASCII) text to article
+--------------------------------------------------------------------------------
+function Article:addLine(src_line)
+    ----------------------------------------------------------------------------
+    -- trim any trailing spaces on the line
+    src_line = src_line:gsub("%s+$", "")
+    -- add to the internal lines table
+    table.insert(self.lines, {
+        source = src_line
+    })
 end
 
 -- take an input line of ASCII text and create C64-length line(s)
@@ -428,11 +441,11 @@ function Article:readLine(out_lines, src_line)
     ----------------------------------------------------------------------------
     function _addLine()
         ------------------------------------------------------------------------
-        -- trim any trailing spaces on the line
-        line = line:gsub("%s+$", "")
-
         -- add the line to the given line array
-        table.insert(out_lines, line)
+        table.insert(out_lines, {
+            -- trim any trailing spaces
+            source = line:gsub("%s+$", ""),
+        })
         -- start a new line
         line = ""
         -- apply the indent
@@ -727,7 +740,9 @@ end
 function Article:readLiteralLine(out_lines, line)
     ----------------------------------------------------------------------------
     -- add line to the article line array
-    table.insert(out_lines, line)
+    table.insert(out_lines, {
+        source = line
+    })
 end
 
 --------------------------------------------------------------------------------
