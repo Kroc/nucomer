@@ -8,64 +8,154 @@
 --   (contact the author for a commercial licence)
 --
 
--- compress.lua : text analysis and compression
+-- article_compress.lua : text analysis and compression
 --------------------------------------------------------------------------------
-local Compress = {
-    -- the table of lines being compressed
-    lines = {},
-    -- table of byte-pair quantities;
-    -- the key is the byte-pair (string), and the value
-    -- is the number of times it has occurred
-    pairs = {},
-    -- table of single-character quantities;
-    -- the key is the character (string), and the value
-    -- is the number of times it has occurred
-    chars = {},
-    -- tokens are newly assigned bytes to represent pairs of bytes;
-    -- this is the 'dictionary' used for decompressing the data
-    tokens = {},
-    -- number of tokens defined as literals
-    literals = 0,
-}
+-- table of byte-pair quantities; the key is the byte-pair (string),
+-- and the value is the number of times it has occurred
+Article.pairs = {}
 
--- clear the current compressor state
+-- table of single-character quantities; the key is the character (string),
+-- and the value is the number of times it has occurred
+Article.chars = {}
+
+-- tokens are newly assigned bytes to represent pairs of bytes;
+-- this is the 'dictionary' used for decompressing the data
+Article.tokens = {}
+
+-- number of tokens defined as literals
+Article.literals = 0
+
+-- iteratively compress the lines until no more tokens are free
 --------------------------------------------------------------------------------
-function Compress:clear()
+function Article:compress()
     ----------------------------------------------------------------------------
-    self.lines    = {}
-    self.pairs    = {}
-    self.chars    = {}
-    self.tokens   = {}
-    self.literals = 0
-end
-
--- add a line of text to the compressor
---------------------------------------------------------------------------------
-function Compress:addLine(src_line)
-    ----------------------------------------------------------------------------
-    -- convert the line to C64 screen codes and a list of style classes
-    local src_screen, src_styles = src_line.source:toC64()
-
-    -- we compress the colour data right away as this requires
-    -- the original screen codes, before they get compressed
-    local out_colour = compress:compressColour(src_screen, src_styles)
-    local out_screen = src_screen
-
-    -- add the binary data to our internal table
+    -- convert the ASCII lines to
+    -- C64 screen-codes & colour-data
     --
-    table.insert(self.lines, {
-        source = src_line.source,
-        colour = out_colour,
-        screen = out_screen,
-        -- unused initially, but will hold the tokenised
-        -- version of the line when we begin compressing
-        tokens = "",
-    })
+    for i = 1, #self.lines do
+        ------------------------------------------------------------------------
+        local src_screen, src_styles = self.lines[i].source:toC64()
+
+        -- we compress the colour data right away as this requires
+        -- the original screen codes, before they get tokenised / compressed
+        local out_colour = self:compressColour(src_screen, src_styles)
+        local out_screen = src_screen
+
+        -- add the binary data to our internal table
+        --
+        self.lines[i].colour = out_colour
+        self.lines[i].screen = out_screen
+    end
+
+    -- before compression, the lines are stored as direct screen codes.
+    -- after compression, all bytes will be some form of token, so the first
+    -- task is find all unqiue characters in the lines and assign these to the
+    -- first "literal" tokens. i.e. instead of a scatter of screen-codes,
+    -- $00-$FF, the lines will be recoded to the minimum number of unqiue
+    -- tokens in packed order. if there were 56 unique characters in the
+    -- article, then only tokens 1 to 56 would be used. this leaves all
+    -- remaining tokens to be used for byte-pair compression
+    --
+    -- note that calling this routine will clear the current token table,
+    -- and will re-encode all lines. the next avaiable token will be returned,
+    -- this in turn will be provided to the C64 for recognising literal tokens
+    --
+    local token = self:tokeniseChars()
+
+    io.stdout:write("> compressing...              ")
+
+    -- iteratively pair tokens:
+    --
+    while token <= 0xFF do
+        ------------------------------------------------------------------------
+        -- find the most common token pair
+        -- (this might include existing compressed token-pairs!)
+        local old_pair, old_count = self:analysePairs()
+
+        -- if no pair was found, no more compression
+        -- can be done and no more tokens can be assigned
+        if old_count == 0 then break; end
+
+        --#io.stdout:write(string.format(
+        --#    "  ? $%02X = $%02X,$%02X ",
+        --#    token,
+        --#    old_pair:byte(1),
+        --#    old_pair:byte(2)
+        --#))
+
+        -- define the new token
+        -- as a pair of old tokens:
+        --
+        self.tokens[token] = {
+            pair = old_pair,
+            -- combine the sizes of the two tokens
+            -- (how many chars a token expands to)
+            size = (
+                self.tokens[old_pair:byte(1)].size +
+                self.tokens[old_pair:byte(2)].size
+            )
+        }
+
+        local old_size = 0
+        local new_size = 0
+
+        -- replace all instances of the pair,
+        -- with the new token
+        --
+        for i = 1, #self.lines do
+            --------------------------------------------------------------------
+            local old_line = self.lines[i].tokens
+            -- we'll build the replacement line byte-by-byte
+            -- as it'll be shorter than the original
+            local new_line = ""
+            -- walk through the token-pairs
+            local j = 1
+            while j <= #old_line do
+                -- is this the pair?
+                if old_line:sub(j, j+1) == old_pair then
+                    -- yes! use the new token in the output
+                    new_line = new_line .. string.char(token)
+                    -- skip the old pair
+                    j = j + 2
+                else
+                    -- include as-is in the output
+                    new_line = new_line .. old_line:sub(j, j)
+                    -- move to the next byte
+                    -- (i.e. allow overlapping pairs)
+                    j = j + 1
+                end
+            end
+            -- add the counts (to work out space-saved)
+            old_size = old_size + #old_line
+            new_size = new_size + #new_line
+            -- save the compressed line
+            self.lines[i].tokens = new_line
+        end
+
+        --#print(string.format(
+        --#    " %3s %5d %10s",
+        --#    self.tokens[token].size,
+        --#    new_size-old_size,
+        --#    filesize(new_size)
+        --#))
+
+        -- move to the next token number
+        token = token + 1
+    end
+
+    -- calculate the new size
+    ----------------------------------------------------------------------------
+    local i_size = 0
+    for _, line in ipairs(self.lines) do
+        i_size = i_size + #line.colour + #line.tokens
+    end
+
+    print(string.format("%10s", filesize(i_size)))
 end
 
 -- compress the list of style classes into binary colour data
 --------------------------------------------------------------------------------
-function Compress:compressColour(src_screen, src_styles)
+function Article:compressColour(src_screen, src_styles)
     ----------------------------------------------------------------------------
     -- optimise blank lines
     if src_screen == "" then return ""; end
@@ -251,119 +341,9 @@ function Compress:compressColour(src_screen, src_styles)
     return out_colour
 end
 
--- iteratively compress the lines until no more tokens are free
---------------------------------------------------------------------------------
-function Compress:compressLines()
-    ----------------------------------------------------------------------------
-    -- before compression, the lines are stored as direct screen codes.
-    -- after compression, all bytes will be some form of token, so the first
-    -- task is find all unqiue characters in the lines and assign these to the
-    -- first "literal" tokens. i.e. instead of a scatter of screen-codes,
-    -- $00-$FF, the lines will be recoded to the minimum number of unqiue
-    -- tokens in packed order. if there were 56 unique characters in the
-    -- article, then only tokens 1 to 56 would be used. this leaves all
-    -- remaining tokens to be used for byte-pair compression
-    --
-    -- note that calling this routine will clear the current token table,
-    -- and will re-encode all lines. the next avaiable token will be returned,
-    -- this in turn will be provided to the C64 for recognising literal tokens
-    --
-    local token = self:tokeniseChars()
-
-    io.stdout:write("> compressing...              ")
-
-    -- iteratively pair tokens:
-    --
-    while token <= 0xFF do
-        ------------------------------------------------------------------------
-        -- find the most common token pair
-        -- (this might include existing compressed token-pairs!)
-        local old_pair, old_count = self:analysePairs()
-
-        -- if no pair was found, no more compression
-        -- can be done and no more tokens can be assigned
-        if old_count == 0 then break; end
-
-        --#io.stdout:write(string.format(
-        --#    "  ? $%02X = $%02X,$%02X ",
-        --#    token,
-        --#    old_pair:byte(1),
-        --#    old_pair:byte(2)
-        --#))
-
-        -- define the new token
-        -- as a pair of old tokens:
-        --
-        self.tokens[token] = {
-            pair = old_pair,
-            -- combine the sizes of the two tokens
-            -- (how many chars a token expands to)
-            size = (
-                self.tokens[old_pair:byte(1)].size +
-                self.tokens[old_pair:byte(2)].size
-            )
-        }
-
-        local old_size = 0
-        local new_size = 0
-
-        -- replace all instances of the pair,
-        -- with the new token
-        --
-        for i = 1, #self.lines do
-            --------------------------------------------------------------------
-            local old_line = self.lines[i].tokens
-            -- we'll build the replacement line byte-by-byte
-            -- as it'll be shorter than the original
-            local new_line = ""
-            -- walk through the token-pairs
-            local j = 1
-            while j <= #old_line do
-                -- is this the pair?
-                if old_line:sub(j, j+1) == old_pair then
-                    -- yes! use the new token in the output
-                    new_line = new_line .. string.char(token)
-                    -- skip the old pair
-                    j = j + 2
-                else
-                    -- include as-is in the output
-                    new_line = new_line .. old_line:sub(j, j)
-                    -- move to the next byte
-                    -- (i.e. allow overlapping pairs)
-                    j = j + 1
-                end
-            end
-            -- add the counts (to work out space-saved)
-            old_size = old_size + #old_line
-            new_size = new_size + #new_line
-            -- save the compressed line
-            self.lines[i].tokens = new_line
-        end
-
-        --#print(string.format(
-        --#    " %3s %5d %10s",
-        --#    self.tokens[token].size,
-        --#    new_size-old_size,
-        --#    filesize(new_size)
-        --#))
-
-        -- move to the next token number
-        token = token + 1
-    end
-
-    -- calculate the new size
-    ----------------------------------------------------------------------------
-    local i_size = 0
-    for _, line in ipairs(self.lines) do
-        i_size = i_size + #line.colour + #line.tokens
-    end
-
-    print(string.format("%10s", filesize(i_size)))
-end
-
 -- assign unique characters to the first initial tokens
 --------------------------------------------------------------------------------
-function Compress:tokeniseChars()
+function Article:tokeniseChars()
     ----------------------------------------------------------------------------
     io.stdout:write("> tokenising...             ")
 
@@ -460,7 +440,7 @@ end
 
 -- find the most common token-pair used across all lines
 --------------------------------------------------------------------------------
-function Compress:analysePairs()
+function Article:analysePairs()
     ----------------------------------------------------------------------------
     -- we only need to know the most common pair
     local max_pair  = nil
@@ -506,7 +486,7 @@ end
 
 -- generate an ACME assembly file for the compressed data
 --------------------------------------------------------------------------------
-function Compress:toACME(s_outfile)
+function Article:toACME(s_outfile)
     ----------------------------------------------------------------------------
     local s_out = [[
 ; auto-generated file, do not modify!
@@ -687,7 +667,7 @@ end
 
 -- output compression statistics
 --------------------------------------------------------------------------------
---#function Compress:printStatistics()
+--#function Article:printStatistics()
 --#    -------------------------------------------------------------------------
 --#    print()
 --#    print("Compression Statistics:")
@@ -729,5 +709,3 @@ end
 --#        end
 --#    end
 --#end
-
-return Compress

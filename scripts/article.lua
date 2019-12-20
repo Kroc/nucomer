@@ -748,24 +748,20 @@ end
 --------------------------------------------------------------------------------
 function Article:write()
     ----------------------------------------------------------------------------
-    -- clear the compressor
-    -- (may contain previous article)
-    compress:clear()
-    -- populate the compressor with the lines of the article
-    for _, src_line in ipairs(self.lines) do
-        -- add the line to the compressor
-        compress:addLine(src_line)
-    end
-
-    compress:compressLines()
+    -- do the compression!
+    self:compress()
 
     -- write converted article as assembly source
     ----------------------------------------------------------------------------
     local f_out,err = io.open(self.outfile..".acme", "w")
     if err then print ("! error: " .. err); os.exit(false); end
 
-    local s_out = compress:toACME(self.outfile..".prg")
+    local s_out = self:toACME(self.outfile..".prg")
 
     f_out:write(s_out)
     f_out:close()
 end
+
+-- add the compresson routines to Article
+--
+require "scripts.article_compress"

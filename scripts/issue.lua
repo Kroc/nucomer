@@ -18,10 +18,10 @@
 --   # word-wrap & hyphenate
 --   # convert text to screen codes
 --   # compress:
---     # remove and bit-pack spaces(TODO?)
 --     # tokenise screen-codes
 --     # iteratively pair tokens
 
+-- 3rd-party libraries:
 --------------------------------------------------------------------------------
 -- include the JSON library
 -- <https://github.com/rxi/json.lua>
@@ -39,7 +39,7 @@ inspect = require "scripts.lib.inspect"
 --
 filesize = require "scripts.lib.lua-filesize"
 
-compress = require "scripts.compress"
+--------------------------------------------------------------------------------
 require "scripts.article"
 
 --------------------------------------------------------------------------------
