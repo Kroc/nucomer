@@ -67,14 +67,14 @@ nu_song                 = $1000 ; address of SID song
 +alloc  $4000
 
 +addr   ~nu_text                ; beginning of article header + data
-+word   ~nu_text_literals       ; pointer to table of token literals
-+byte   ~nu_text_literals_count ; number of literal tokens
 +word   ~nu_text_tokens_left    ; pointer to token-pairs table (left-bytes)
 +word   ~nu_text_tokens_right   ; pointer to token-pairs table (right-bytes)
 +word   ~nu_text_lines          ; pointer to list of line-lengths
 +word   ~nu_text_length         ; number of lines in the article
 +word   ~nu_text_footnotes      ; pointer to footnote meta-data
 +word   ~nu_text_data           ; pointer to compressed text
++byte   ~nu_text_literals_count ; number of literal tokens
++addr   ~nu_text_literals       ; beginning of token literals...
 
 ;-------------------------------------------------------------------------------
 NU_VIC_BANK             = 3     ; the VIC bank used by the outfit

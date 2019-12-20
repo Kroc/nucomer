@@ -501,16 +501,6 @@ function Article:toACME(s_outfile)
 ;
 * = nu_text
 
-        ; address of the token literals table:
-        !word   .tokens_literals
-
-        ; the number of literal tokens:
-        ; this is used to automatically recognise tokens containing literals
-        ; by their index. when compressing, all unique characters in the
-        ; article are assigned to the first 'n' tokens
-        ;
-        !byte   {{TOKENS_LITERALS_COUNT}}
-
         ; address of the token-pairs table: (left-bytes)
         ;
         ; note that the address is pulled back by the number of token literals
@@ -539,6 +529,14 @@ function Article:toACME(s_outfile)
         ; be 1-based
         ; 
         !word   .lines-1
+
+        ; the number of literal tokens:
+        ;
+        ; this is used to automatically recognise tokens containing literals
+        ; by their index. when compressing, all unique characters in the
+        ; article are assigned to the first 'n' tokens
+        ;
+        !byte   {{TOKENS_LITERALS_COUNT}}
 
 .tokens_literals:
         ;-----------------------------------------------------------------------

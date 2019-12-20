@@ -49,11 +49,6 @@
 
 !addr {
 ;===============================================================================
-; number of lines in the complete article:
-zp_read_lines           = $20
-zp_read_lines_lo        = $20
-zp_read_lines_hi        = $21
-
 ; height of the complete article -- in pixels! this is used to determine the
 ; exact point to clip smooth scrolling when scrolling quickly. the high-bit
 ; is used to determine the top of the article, so in practice the article
@@ -264,11 +259,6 @@ read_screen:
 
         ; initialise printing:
         ;-----------------------------------------------------------------------
-        ; set the address of the table of token literals
-        lda nu_text_literals+lo
-        ldx nu_text_literals+hi
-        sta .read_token_literals+lo
-        stx .read_token_literals+hi
         ; set the number of token literals, this will be used to decide
         ; what tokens contain screen-codes and what ones are token-pairs
         ; (for further decompression)
@@ -1550,7 +1540,7 @@ read_decompress:
 
         ; literal token:
         ;-----------------------------------------------------------------------
-@print: lda $8888, x            ; read the literal's screen-code
+@print: lda nu_text_literals, x ; read the literal's screen-code
         ldx zp_read_buffer_index
         sta zp_read_buffer, x   ; add to the output buffer
         ; move to the next byte in the output buffer
@@ -1562,4 +1552,3 @@ read_decompress:
 !addr   .read_literal_count     = @count+1
 !addr   .read_tokens_left       = @left+1
 !addr   .read_tokens_right      = @right+1
-!addr   .read_token_literals    = @print+1
