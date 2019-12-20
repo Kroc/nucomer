@@ -530,6 +530,10 @@ function Article:toACME(s_outfile)
         ;
         !word   {{LENGTH}}
 
+        ; address of the footnote meta-data
+        ;
+        !word   .footnotes
+
         ; address of the compressed text-data, less one byte --
         ; this is so that the length [in bytes] of each line can
         ; be 1-based
@@ -562,6 +566,9 @@ LINE_COLOUR = %10000000
 {{LENGTHS}}
         ; this byte marks the end of the list of line-lengths
         !byte   $80
+
+.footnotes:
+        ;-----------------------------------------------------------------------
 
 .lines:
         ;-----------------------------------------------------------------------

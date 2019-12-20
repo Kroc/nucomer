@@ -73,6 +73,7 @@ nu_song                 = $1000 ; address of SID song
 +word   ~nu_text_tokens_right   ; pointer to token-pairs table (right-bytes)
 +word   ~nu_text_lines          ; pointer to list of line-lengths
 +word   ~nu_text_length         ; number of lines in the article
++word   ~nu_text_footnotes      ; pointer to footnote meta-data
 +word   ~nu_text_data           ; pointer to compressed text
 
 ;-------------------------------------------------------------------------------
