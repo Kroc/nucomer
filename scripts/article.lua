@@ -756,7 +756,49 @@ function Article:write()
     local f_out,err = io.open(self.outfile..".acme", "w")
     if err then print ("! error: " .. err); os.exit(false); end
 
-    local s_out = self:toACME(self.outfile..".prg")
+    -- generate an ACME assembler file of the compressed data
+    -- (this helps internalise the binary specifics of the compression)
+    local s_out = self:toACME()
+
+    -- the compressed data does not include the footnote meta-data
+    -- (nothing compression-specific), so we build that table here
+    --
+    local s_temp = string.format([[
+        ; the first byte is the number of footnotes;
+        ; if zero, no further meta-data follows
+        !byte   %u
+
+        ; the format for each footnote is as follows:
+        ;
+        ; word : pointer to the compressed text of the footnote's first line.
+        ;        to save space, there is no index into the compressed text
+        ;        (we don't know where each line starts) so the C64 can only
+        ;        wind & rewind through the text one line at a time. a direct
+        ;        address to a footnote is needed to save winding through
+        ;        hundreds of lines
+        ;
+        ; word : pointer into the list of line-lengths for the footnote's
+        ;        first line. a complete list of line-lengths is stored
+        ;        separate from the compressed text (this lets us know how
+        ;        many bytes each line is to wind through the compressed text)
+        ;
+        ; byte : number of screen-lines the footnote occupies
+        ;
+]], #self.footnotes)
+
+    for i = 1, #self.footnotes do
+        ------------------------------------------------------------------------
+        s_temp = s_temp .. string.format([[
+
+        ; footnote %u:
+        ;
+        !word   .t%04u          ; pointer into compressed text
+        !word   .l%04u          ; pointer into line-lengths
+        !byte   %u
+]],     i, self.footnotes[i].begin,
+        self.footnotes[i].begin, self.footnotes[i].length)
+    end
+    s_out = s_out:gsub("%{%{FOOTNOTES%}%}", s_temp)
 
     f_out:write(s_out)
     f_out:close()

@@ -486,7 +486,7 @@ end
 
 -- generate an ACME assembly file for the compressed data
 --------------------------------------------------------------------------------
-function Article:toACME(s_outfile)
+function Article:toACME()
     ----------------------------------------------------------------------------
     local s_out = [[
 ; auto-generated file, do not modify!
@@ -567,6 +567,7 @@ LINE_COLOUR = %10000000
 
 .footnotes:
         ;-----------------------------------------------------------------------
+{{FOOTNOTES}}
 
 .lines:
         ;-----------------------------------------------------------------------
@@ -575,11 +576,11 @@ LINE_COLOUR = %10000000
     -- insert the output file name into the assembly file;
     -- this means that it does not need to be provided by the build-script,
     -- minimising the amount of data we have to share between environments
-    s_out = s_out:gsub("%{%{OUTFILE%}%}", s_outfile)
-    local s_temp = ""
+    s_out = s_out:gsub("%{%{OUTFILE%}%}", self.outfile..".prg")
 
     -- build the list of token literals
     ----------------------------------------------------------------------------
+    local s_temp = ""
     for i = 0, self.literals-1 do
         s_temp = s_temp .. string.format(
             "        !byte   $%02x     ; token $%02x\n",
@@ -620,16 +621,16 @@ LINE_COLOUR = %10000000
         if #out_line.colour > 0 then
             -- indicate clearly the number of extra bytes used by colour data
             s_temp = s_temp .. string.format(
-                "        !byte   $%02x + ($%02x | LINE_COLOUR)"..
+                ".l%04u  !byte   $%02x + ($%02x | LINE_COLOUR)"..
                 "       ; line %u: %u bytes\n",
-                #out_line.tokens, #out_line.colour,
+                i, #out_line.tokens, #out_line.colour,
                 i, (#out_line.tokens + #out_line.colour)
             )
         else
             s_temp = s_temp .. string.format(
-                "        !byte   $%02x"..
+                ".l%04u  !byte   $%02x"..
                 "                             ; line %u: %u bytes\n",
-                #out_line.tokens,
+                i, #out_line.tokens,
                 i, (#out_line.tokens + #out_line.colour)
             )
         end
@@ -660,8 +661,8 @@ LINE_COLOUR = %10000000
             ); end
 
             s_temp = s_temp .. string.format(
-                "        !hex    %s\n",
-                hex
+                ".t%04u  !hex    %s\n",
+                i, hex
             )
         end
     end
