@@ -11,6 +11,7 @@
 !source "nucomer.acme"          ; nucomer constants for memory layout
 
 !source "build/intro_symbols.acme"
+!sl     "build/nucomer_symbols.acme"
 
 * = nu_main
 

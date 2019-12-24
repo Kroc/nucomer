@@ -20,7 +20,7 @@
 
 !addr {
 
-zp_menu_index   = $10           ; currently selected menu item
+zp_menu_index   = $0f           ; currently selected menu item
 
 }
 

@@ -39,7 +39,6 @@ REM ============================================================================
 REM # assemble fonts
 REM ----------------------------------------------------------------------------
 %ACME% "src\fonts\admiral64.acme"
-%ACME% "src\fonts\wax-lyrics.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL

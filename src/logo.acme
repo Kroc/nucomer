@@ -383,9 +383,6 @@ logo_eye_left:
 
 logo_eye_right:
 ;-------------------------------------------------------------------------------
-        ; TODO: this is a mirrored and flipped copy of above
-        ;       we could do this at runtime
-        ;
         ;            765432107654321076543210
         +spriteBits %############............
         +spriteBits %..##############........

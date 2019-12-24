@@ -86,7 +86,7 @@ I considered writing this mag' in BASIC (((to get it out quickly))) but for two 
 
 [^e]: If making IBM pay for every copy of MS-DOS was the best deal Bill Gates ever negotiated, then his deal with Commodore's "business is war" exec Jack Tramiel must be the worst. Jack demanded from MicroSoft (((a maker of BASICs for small & hobbyist kit-computers))) a perpetual licence to BASIC for their up-coming business computer (((the "PET"))) for a once-off sum of $25'000, vs. $3 per computer that Bill Gates was asking for. Needless to say, Commodore sold a lot of PETs.
 
-2.* PETSCII is not how the machine actually works:*
+2. *PETSCII is not how the machine actually works:*
 
 PETSCII is an abstraction, a layer between you and the machine, made to make the machine easier to use. PETSCII's control codes are interpreted by the built in 'operating system' called "KERNAL"[^f]
 
@@ -97,10 +97,10 @@ If a C64 can only have 256 characters in its "font", and PETSCII codes are also 
 :: Introducing Screen Codes:
 
 :: Compression
+--------------------------------------------------------------------------------
+Modern PC-based tools allow us to spend some fast computer time to save space in ways that could not be done developing on the machine itself; what might take seconds, even on a 10 year old PC, might take hours on an 8-bit microcomputer.
 
-Modern PC-based tools allow us to spend some fast computer time to save space in ways that could not be done developing on the machine itself; what might take seconds even on a 10 year old PC might take hours on an 8-bit microcomputer.
-
-Compression is an art form best left to the experts and you'll save yourself a lot of time and effort (((that would be spent in much more productive areas))) by using an existing packer; the hard truth is that no custom compression scheme is going to outperform modern LZ-based packers.
+Compression is an art form best left to the experts; you'll save yourself a lot of time and effort (((that would be spent in much more productive areas))) by using an existing packer. The hard truth is that no custom compression scheme is going to outperform modern LZ-based packers.
 
 There is one reason, however, that nücomer uses a custom text-compression scheme and why the effort was justified (((even though I really should have waited until after the first issue was out the door))).
 
