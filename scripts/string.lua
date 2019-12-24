@@ -609,7 +609,7 @@ function string:scr2reverse()
         -- there are no lower-case chars in the reverse set
         if scr >= str2scr["a"] and scr <= str2scr["z"] then
             -- convert lower-case to upper-case
-            out = out .. string.char(scr - 0x20)
+            out = out .. string.char((scr - 0x20) + 0x80)
 
         -- screen-codes 0x60 and above have no reverse counter-part
         elseif scr >= 0x60 then
@@ -660,3 +660,66 @@ function string:fromC64()
 
     return out
 end
+
+-- provide the C64 keyboard scan-code for a given character
+--------------------------------------------------------------------------------
+char2key = {
+    ["@"]   = 0x00,
+
+    ["a"]   = 0x01, ["A"]   = 0x01,
+    ["b"]   = 0x02, ["B"]   = 0x02,
+    ["c"]   = 0x03, ["C"]   = 0x03,
+    ["d"]   = 0x04, ["D"]   = 0x04,
+    ["e"]   = 0x05, ["E"]   = 0x05,
+    ["f"]   = 0x06, ["F"]   = 0x06,
+    ["g"]   = 0x07, ["G"]   = 0x07,
+    ["h"]   = 0x08, ["H"]   = 0x08,
+    ["i"]   = 0x09, ["I"]   = 0x09,
+    ["j"]   = 0x0a, ["J"]   = 0x0a,
+    ["k"]   = 0x0b, ["K"]   = 0x0b,
+    ["l"]   = 0x0c, ["L"]   = 0x0c,
+    ["m"]   = 0x0d, ["M"]   = 0x0d,
+    ["n"]   = 0x0e, ["N"]   = 0x0e,
+    ["o"]   = 0x0f, ["O"]   = 0x0f,
+    ["p"]   = 0x10, ["P"]   = 0x10,
+    ["q"]   = 0x11, ["Q"]   = 0x11,
+    ["r"]   = 0x12, ["R"]   = 0x12,
+    ["s"]   = 0x13, ["S"]   = 0x13,
+    ["t"]   = 0x14, ["T"]   = 0x14,
+    ["u"]   = 0x15, ["U"]   = 0x15,
+    ["v"]   = 0x16, ["V"]   = 0x16,
+    ["w"]   = 0x17, ["W"]   = 0x17,
+    ["x"]   = 0x18, ["X"]   = 0x18,
+    ["y"]   = 0x19, ["Y"]   = 0x19,
+    ["z"]   = 0x1a, ["Z"]   = 0x1a,
+
+    ["£"]   = 0x1c, -- PETSCII
+    ["\\"]  = 0x1c, -- ASCII
+
+    ["^"]   = 0x1e, -- "↑" in PETSCII
+    ["↑"]   = 0x1e, -- from Unicode
+    ["←"]   = 0x1f, -- no ASCII equivalent
+
+    [" "]   = 0x20,
+    ["*"]   = 0x2a,
+    ["+"]   = 0x2b,
+    [","]   = 0x2c,
+    ["-"]   = 0x2d,
+    ["."]   = 0x2e,
+    ["/"]   = 0x2f,
+
+    ["0"]   = 0x30,
+    ["1"]   = 0x31,
+    ["2"]   = 0x32,
+    ["3"]   = 0x33,
+    ["4"]   = 0x34,
+    ["5"]   = 0x35,
+    ["6"]   = 0x36,
+    ["7"]   = 0x37,
+    ["8"]   = 0x38,
+    ["9"]   = 0x39,
+
+    [":"]   = 0x3a,
+    [";"]   = 0x3b,
+    ["="]   = 0x3d
+}

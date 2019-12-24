@@ -30,7 +30,7 @@
 ;
 ; Information
 ; ~~~~~~~~~~~
-; The routine uses "2 Key rollower" or up to 3 if the key-combination doesen't
+; The routine uses "2 Key rollover" or up to 3 if the key-combination doesen't
 ; induce shadowing. If 2 or 3 keys are pressed simultaneously (within 1 scan)
 ; a "No Activity" state has to occur before new valid keys are returned.
 ;

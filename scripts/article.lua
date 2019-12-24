@@ -221,6 +221,9 @@ function Article:read(s_infile)
             table.insert(self.footnotes, {
                 id     = id,
                 lines  = fn_txt,
+                -- take the first, possibly unicode, character
+                -- from the footnote ID as the activation key
+                key    = id:match(utf8.charpattern),
                 -- when the footnotes are appended to the article,
                 -- these properties will be assigned:
                 begin  = 0,     -- starting line number of footnote
@@ -763,43 +766,85 @@ function Article:write()
     -- the compressed data does not include the footnote meta-data
     -- (nothing compression-specific), so we build that table here
     --
-    local s_temp = string.format([[
+    local s_fns = string.format([[
         ; the first byte is the number of footnotes;
         ; if zero, no further meta-data follows
         !byte   %u
-
-        ; the format for each footnote is as follows:
-        ;
-        ; word : pointer to the compressed text of the footnote's first line.
-        ;        to save space, there is no index into the compressed text
-        ;        (we don't know where each line starts) so the C64 can only
-        ;        wind & rewind through the text one line at a time. a direct
-        ;        address to a footnote is needed to save winding through
-        ;        hundreds of lines
-        ;
-        ; word : pointer into the list of line-lengths for the footnote's
-        ;        first line. a complete list of line-lengths is stored
-        ;        separate from the compressed text (this lets us know how
-        ;        many bytes each line is to wind through the compressed text)
-        ;
-        ; byte : number of screen-lines the footnote occupies
-        ;
-]], #self.footnotes)
-
-    for i = 1, #self.footnotes do
+]],     #self.footnotes
+    )
+    if #self.footnotes > 0 then
         ------------------------------------------------------------------------
-        s_temp = s_temp .. string.format([[
+        s_fns = s_fns .. [[
 
-        ; footnote %u:
+        ; table of key-codes to activate each footnote
         ;
-        !word   .t%04u          ; pointer into compressed text
-        !word   .l%04u          ; pointer into line-lengths
-        !byte   %u
-]],     i, self.footnotes[i].begin,
-        self.footnotes[i].begin, self.footnotes[i].length)
-    end
-    s_out = s_out:gsub("%{%{FOOTNOTES%}%}", s_temp)
+{{FOOTNOTES_KEYS}}
+        ; table of each footnote's length in screen-lines
+        ; (i.e. number of lines to print)
+        ;
+{{FOOTNOTES_SIZE}}
+        ; table of pointers to the compressed
+        ; text of each footnote's first line:
+        ;
+        ; to save space, there is no index into the compressed text
+        ; (we don't know where each line starts) so the C64 can only wind
+        ; & rewind through the text one line at a time. a direct address to
+        ; a footnote is needed to save winding through hundreds of lines
+        ;
+{{FOOTNOTES_TEXT}}
+        ; table of pointers into the list of line-lengths
+        ; for each footnote's first line:
+        ;
+        ; a complete list of line-lengths is stored separate from the
+        ; compressed text (this lets us know how many bytes each line
+        ; is to wind through the compressed text)
+        ;
+{{FOOTNOTES_LENS}}
+]]
 
+        local s_fns_keys = ""
+        local s_fns_size = ""
+        local s_fns_text = ""
+        local s_fns_lens = ""
+
+        for i, footnote in ipairs(self.footnotes) do
+            --------------------------------------------------------------------
+            -- add the footnote's activation-key to the key table
+            --
+            s_fns_keys = s_fns_keys .. string.format([[
+        !byte   $%02x             ; footnote %u key: "%s"
+]],             char2key[footnote.key] or 0xff,
+                i, footnote.key
+            )
+            -- the footnote's length, in screen-lines
+            --
+            s_fns_size = s_fns_size .. string.format([[
+        !byte   %-4u            ; foonote %u length
+]],             footnote.length, i
+            )
+            -- add the footnote's pointer
+            -- into the compressed-text:
+            --
+            s_fns_text = s_fns_text .. string.format([[
+        !word   .t%04u          ; footnote %u compressed-text addr
+]],             footnote.begin, i
+            )
+            -- add the footnote's pointer
+            -- into the line-lengths list:
+            --
+            s_fns_lens = s_fns_lens .. string.format([[
+        !word   .l%04u          ; footnote %u line-lengths addr
+]],             footnote.begin, i
+            )
+        end
+        s_fns = s_fns:gsub("%{%{FOOTNOTES_KEYS%}%}", s_fns_keys)
+        s_fns = s_fns:gsub("%{%{FOOTNOTES_SIZE%}%}", s_fns_size)
+        s_fns = s_fns:gsub("%{%{FOOTNOTES_TEXT%}%}", s_fns_text)
+        s_fns = s_fns:gsub("%{%{FOOTNOTES_LENS%}%}", s_fns_lens)
+    end
+
+    ----------------------------------------------------------------------------
+    s_out = s_out:gsub("%{%{FOOTNOTES%}%}", s_fns)
     f_out:write(s_out)
     f_out:close()
 end
