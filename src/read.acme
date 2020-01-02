@@ -231,7 +231,7 @@ read_style6_colour:     !byte   .THEME_URL      ; URL
 read_style7_colour:     !byte   .THEME_WARN     ; warning / error
 
 ;===============================================================================
-read_screen:
+read_init:
         ;-----------------------------------------------------------------------
         ; setup the screen:
         ;
@@ -328,15 +328,12 @@ read_screen:
         dex                     ; X = $FF
         stx zp_read_stop_up     ; $00 = go, $FF = stop
 
-        ; set our own interrupt handlers:
-        lda #< read_irqs        ; A = address of IRQ table, lo-byte
-        ldx #> read_irqs        ; X = address of IRQ table, hi-byte
-        ldy # 2                 ; Y = number of entries in the table (1-based)
-        jsr irqs_load
+        ; set our own interrupt handlers
+        jsr read_irq_init
 
         ; note that the screen will automatically turn itself back on
         ; because the raster interrupt that handles smooth-scrolling
-        ; always sets the screen control register every vblank
+        ; always sets the screen control register every frame
 
 read_keyboard:
         ;-----------------------------------------------------------------------
@@ -350,6 +347,7 @@ read_keyboard:
         ; no key code to process,
         ; go back to waiting
         bpl read_keyboard       ; (always branches)
+        brk
 
         ; cursor up/down
         ;-----------------------------------------------------------------------
@@ -387,7 +385,7 @@ read_keyboard:
 
         ; scroll the content up the page
         ; (smooth scroll downwards)
-        ldx # $fd               ; set -1 scroll speed
+        ldx # $fd               ; set negative scroll speed
         stx zp_read_scroll      ; this will be applied at interrupt
         ; whenever scrolling up,
         ; allow scrolling down again
@@ -396,7 +394,9 @@ read_keyboard:
 
 @spc    cmp # $20
         bne @esc
-        jmp read_screen
+
+        jsr irqs_disable
+        jmp read_init
 
 @esc    cmp # $1f               ; "<-" key
         beq @exit
@@ -415,16 +415,18 @@ read_keyboard:
         rts                     ; return to the menu
 
 ;===============================================================================
-; table of interrupts to use for the reading screen:
+; display a footnote
 ;
-read_irqs:
-;-------------------------------------------------------------------------------
-; hard scrolling the screen takes a lot of cycles and we must be ahead of the
-; beam when we do this to avoid screen-tearing, therefore we begin scrolling
-; the top of the screen whilst the beam is in the middle of the screen
-;
-.READ_IRQ1      = SCANLINE_VBLANK_BEGIN - (14 * 8)
+read_footnote:
+        ;-----------------------------------------------------------------------
 
+
+; IRQs:
+;===============================================================================
+; we don't need stable rasters most of the time with the reading screen so
+; IRQs chain each other and stabilisation is handled individually by any
+; specific IRQ that requires it
+;
 ; just before the visible screen begins we set the vertical smooth-scrolling
 ; offset -- we cannot change the vertical scroll inside the screen or we will
 ; get tearing / glitching!
@@ -436,25 +438,94 @@ read_irqs:
 ; to ensure that the smooth scrolling register is not changed within
 ; the visible portion of the screen when hard-scrolling is occuring
 ;
-.READ_IRQ2      = SCANLINE_VBLANK_END - 8
+.IRQ_BEGIN      = SCANLINE_VBLANK_END - 8
 
-read_irqs_addr_lo:
-        !byte   <read_irq_scroll
-        !byte   <read_irq_top
-read_irqs_addr_hi:
-        !byte   >read_irq_scroll
-        !byte   >read_irq_top
-read_irqs_scanline_lo:
-        !byte   <.READ_IRQ1
-        !byte   <.READ_IRQ2
-read_irqs_scanline_hi:
-        !byte   (>.READ_IRQ1) << 7
-        !byte   (>.READ_IRQ2) << 7
+; hard scrolling the screen takes a lot of cycles and we must be ahead of the
+; beam when we do this to avoid screen-tearing, therefore we begin scrolling
+; the top of the screen whilst the beam is in the middle of the screen
+;
+.IRQ_SCROLL     = SCANLINE_VBLANK_BEGIN - (14 * 8)
 
+;-------------------------------------------------------------------------------
+; 
+read_irq_init:
+        ;-----------------------------------------------------------------------
+        ; remove any current custom interrupts and put the safety stubs
+        ; in place; these will prevent crashes from unexpected interrupts
+        ;
+        jsr irqs_disable
+
+        lda # .IRQ_BEGIN        ; scanline to interrupt at
+        ldx #< read_irq_top     ; IRQ handler address, lo
+        ldy #> read_irq_top     ; IRQ handler address, hi
+        jsr read_irq_set
+        
+        ; enable raster-interrupts on the VIC-II (sprite-sprite,
+        ; sprite-background & lightpen interrupts are disabled)
+        lda # %00000001
+        sta .VIC_INTERRUPT_CONTROL
+
+        rts
+
+;-------------------------------------------------------------------------------
+; set the scanline and handler address for the next interrupt:
+;
+;       A = scanline
+;       X = next IRQ handler address, lo-byte
+;       Y = next IRQ handler address, hi-byte
+;
+read_irq_set:
+        ;-----------------------------------------------------------------------
+        ; absolutely do not allow an interrupt to occur
+        ; in the middle of changing interrupt settings!
+        ;
+        sei                     ; disable interrupts
+
+        ; even though NTSC & PAL have > 256 scanlines, when accounting
+        ; for borders, we stick to 0..255 for simplicity
+        sta .VIC_SCANLINE
+
+        ; set the address of the interrupt handler to use next
+        stx .HW_VECTOR_IRQ+lo
+        sty .HW_VECTOR_IRQ+hi
+
+        ; safe to re-enable interrupts
+        cli
+        rts
+
+;-------------------------------------------------------------------------------
+; shared Return From Interrupt footer
+;
+read_irq_rti_xy:
+        ;-----------------------------------------------------------------------
+        pla
+        tay
+        pla
+        tax
+
+read_irq_rti:
+        ;-----------------------------------------------------------------------
+        ; restore pre-interrupt A register
+        pla
+        ;;dec .VIC_BORDER
+        rti
+
+;-------------------------------------------------------------------------------
 read_irq_top:
         ;-----------------------------------------------------------------------
         ;;inc .VIC_BORDER
-        
+
+        ; acknowledge the interrupt to prevent it double-firing;  we only need
+        ; to write to the status register to do this, the value is unimportant.
+        ; this must be done before restoring the pre-interrupt memory layout
+        ; otherwise the VIC-II registers might be turned off
+        inc .VIC_INTERRUPT_STATUS
+        ; backup pre-interrupt A register
+        pha
+
+        ;-----------------------------------------------------------------------
+        ; set the smooth scroll register. we are doing this at the top of
+        ; the screen, just before the text begins to avoid graphical glitches
         lda zp_read_vpos+lo
         and # %00000111
         eor # %00000111
@@ -464,94 +535,61 @@ read_irq_top:
         ;     %-----??? = vertical scroll offset
         ora # %00010000
         sta .VIC_SCREEN_VERT
-        
-;;        lda zp_read_vpos+hi
-;;        pha                     ; put original value aside
-;;        sed                     ; enable decimal mode
-;;
-;;        lsr                     ; shift upper nybble down
-;;        lsr                     ; ...
-;;        lsr                     ; ...
-;;        lsr                     ; ...
-;;        cmp #9+1
-;;        adc # $30               ; rebase to PETSCII '0' and above
-;;        sta nu_screen+(10*40)+0
-;;
-;;        pla                     ; retrieve original value
-;;        and # $0f               ; extract lower nybble
-;;        cmp # 9+1
-;;        adc # $30               ; rebase to PETSCII '0' and above
-;;        sta nu_screen+(10*40)+1
-;;        cld
-;;
-;;        lda zp_read_vpos+lo
-;;        pha                     ; put original value aside
-;;        sed
-;;
-;;        lsr                     ; shift upper nybble down
-;;        lsr                     ; ...
-;;        lsr                     ; ...
-;;        lsr                     ; ...
-;;        cmp #9+1
-;;        adc # $30               ; rebase to PETSCII '0' and above
-;;        sta nu_screen+(10*40)+2
-;;
-;;        pla                     ; retrieve original value
-;;        and # $0f               ; extract lower nybble
-;;        cmp # 9+1
-;;        adc # $30               ; rebase to PETSCII '0' and above
-;;        sta nu_screen+(10*40)+3
-;;
-;;        cld                     ; disable decimal mode
-;;        lda zp_read_vlen+hi
-;;        pha                     ; put original value aside
-;;        sed
-;;
-;;        lsr                     ; shift upper nybble down
-;;        lsr                     ; ...
-;;        lsr                     ; ...
-;;        lsr                     ; ...
-;;        cmp #9+1
-;;        adc # $30               ; rebase to PETSCII '0' and above
-;;        sta nu_screen+(10*40)+5
-;;
-;;        pla                     ; retrieve original value
-;;        and # $0f               ; extract lower nybble
-;;        cmp # 9+1
-;;        adc # $30               ; rebase to PETSCII '0' and above
-;;        sta nu_screen+(10*40)+6
-;;        cld                     ; disable decimal mode
-;;        lda zp_read_vlen+lo
-;;        pha                     ; put original value aside
-;;        sed
-;;
-;;        lsr                     ; shift upper nybble down
-;;        lsr                     ; ...
-;;        lsr                     ; ...
-;;        lsr                     ; ...
-;;        cmp #9+1
-;;        adc # $30               ; rebase to PETSCII '0' and above
-;;        sta nu_screen+(10*40)+7
-;;
-;;        pla                     ; retrieve original value
-;;        and # $0f               ; extract lower nybble
-;;        cmp # 9+1
-;;        adc # $30               ; rebase to PETSCII '0' and above
-;;        sta nu_screen+(10*40)+8
-;;
 
--       ;;dec .VIC_BORDER
-        rts
+        ; chain the next IRQ
+        ;-----------------------------------------------------------------------
+        sei                     ; disable interrupts
+        lda # .IRQ_SCROLL
+        sta .VIC_SCANLINE
+        lda #< read_irq_scroll
+        sta .HW_VECTOR_IRQ+lo
+        lda #> read_irq_scroll
+        sta .HW_VECTOR_IRQ+hi
+        ; we're going to skip re-enabling interrupts as the RTI instruction
+        ; will pop the pre-interrupt state, re-enabling the interrupts soon
+        ; enough that it doesn't matter between here and the RTI
+        ;;cli
 
+        pla                     ; restore pre-interrupt A register
+        ;;dec .VIC_BORDER
+        rti
+
+;-------------------------------------------------------------------------------
 read_irq_scroll:
         ;-----------------------------------------------------------------------
         ;;inc .VIC_BORDER
 
+        ; acknowledge the interrupt to prevent it double-firing;  we only need
+        ; to write to the status register to do this, the value is unimportant.
+        ; this must be done before restoring the pre-interrupt memory layout
+        ; otherwise the VIC-II registers might be turned off
+        inc .VIC_INTERRUPT_STATUS
+
+        ; backup pre-interrupt A-register
+        pha
+
+        sei                     ; disable interrupts
+        lda # .IRQ_BEGIN
+        sta .VIC_SCANLINE
+        lda #< read_irq_top
+        sta .HW_VECTOR_IRQ+lo
+        lda #> read_irq_top
+        sta .HW_VECTOR_IRQ+hi
+        cli                     ; safe to re-enable interrupts
+
+        ;-----------------------------------------------------------------------
         ; is there any scrolling to be done?
         ;
         lda zp_read_scroll      ; read requested scroll speed
-        beq -                   ; if scroll-speed = 0, then skip
+        beq read_irq_rti        ; if scroll-speed = 0, then skip
 
+        ; backup X & Y registers
+        txa
+        pha
+        tya
+        pha
+
+        ;-----------------------------------------------------------------------
         ; apply the scroll to our current
         ; vertical position within the article
         clc
@@ -592,8 +630,8 @@ read_irq_scroll:
         stx zp_read_vpos+lo     ; set scroll position within article
         stx zp_read_vpos+hi     ; to $0000
 
-@done:  ;;dec .VIC_BORDER
-        rts
+@done:  jmp read_irq_rti_xy
+        ;-----------------------------------------------------------------------
 
         ; check the end of the article:
 +       ldx zp_read_vlen+hi
@@ -632,7 +670,8 @@ read_irq_scroll:
         cmp zp_read_row         ; (temporary use)
         bcc @done
 
-        jmp read_scroll_up
+        jsr read_scroll_up
+        jmp @done
 
 +       cmp zp_read_row         ; (temporary use)
         bcs @done
@@ -793,8 +832,6 @@ read_scroll_down:
         dey
         bne -                   ; stop when Y = 0 (important for later!)
 
-        ;;dec .VIC_BORDER
-
         ; begin printing the new row
         ;-----------------------------------------------------------------------
         ; read the length of the current line at the top of the screen,
@@ -829,7 +866,9 @@ read_scroll_down:
         inc zp_read_lens+hi
 
 +       ldx # 1                 ; number of lines to print
-        jmp read_print          ; note that Y = 26, row to print from
+        jsr read_print          ; note that Y = 26, row to print from
+
+        jmp read_irq_rti_xy
 
 ;===============================================================================
 ; scroll the article up a line:
@@ -1010,8 +1049,6 @@ read_scroll_up:
         dey
         bne -                   ; stop when Y = 0 (important for later!)
 
-        ;;dec .VIC_BORDER
-
         ; print the next row in the off-screen space
         ;-----------------------------------------------------------------------
         sec
@@ -1071,8 +1108,7 @@ read_scroll_up:
 ;       
 ; the address to read data from must already be set in:
 ;
-;       zp_read_char+lo &
-;       zp_read_char+hi
+;       zp_read_char
 ;
 read_print:
         ;-----------------------------------------------------------------------

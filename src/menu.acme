@@ -378,7 +378,7 @@ menu_load:
         cli
         
         ; switch to the reading screen...
-        jsr read_screen
+        jsr read_init
         ; upon return, restart the menu screen
         jmp menu_screen
 

@@ -245,7 +245,7 @@ irqs_load:
         ; interrupt by reading from the table
         ;
         lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte
-        sta .VIC_SCANLINE        ; set the scanline lo-byte
+        sta .VIC_SCANLINE       ; set the scanline lo-byte
 
         ; because the height of the screen + borders will be more than 256,
         ; an extra high-bit is included from `.VIC_SCREEN_VERT`. the byte in
@@ -253,15 +253,15 @@ irqs_load:
         ; to match the location required for the register
         ;
         lda .VIC_SCREEN_VERT     ; get current register value
-        eor (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7)
+        eor (ZP_IRQS_SCANHI), y  ; merge the scanline hi-bit (in bit 7)
         sta .VIC_SCREEN_VERT     ; update the register
 
         ; set the central interrupt handling routine,
         ; this will read the table to chain interrupts
         lda #< irq
-        sta .HW_VECTOR_IRQ+0
+        sta .HW_VECTOR_IRQ+lo
         lda #> irq
-        sta .HW_VECTOR_IRQ+1
+        sta .HW_VECTOR_IRQ+hi
 
         ; this enables just the raster-interrupt on the VIC-II
         ; (sprite-sprite, sprite-background & lightpen interrupts are disabled)
@@ -302,11 +302,12 @@ irq_kernal_off:
         inc .VIC_INTERRUPT_STATUS
 
         ; for BSOD64 integration we push the registers to the stack
-        pha
-        txa
-        pha
-        tya
-        pha
+        ;
+        pha                     ; backup pre-interrupt A register
+        txa                     ; backup pre-interrupt...
+        pha                     ; ...X register
+        tya                     ; backup pre-interrupt...
+        pha                     ; ...Y register
 
 ; when the KERNAL ROM is switched on, it controls the interrupt vectors at
 ; $FFFA-$FFFF. this means that there's some extra indirection that happens

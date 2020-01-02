@@ -20,11 +20,11 @@ The scene was the ultimate teenager's "brag & slag" contest, with each cracking 
 
 The last point is important, because it's where we get the term "leet" (((or "l33t"/"1337"))) from. Every cracker's group was an exclusive club[^a] and you had to be "elite" (((an access rank))) to get your grubby mitts on the good stuff.
 
-[^a]: This was in the time before the World Wide Web, so communication was done via Bulletin Board Systems ((("BBSes"))), a half-way house between e-mail lists and the forums that we would recognise today. It's also important to note that BBSes were not part of the Internet and each BBS was a specific computer in somebody's home that users phoned into with their computers.
+[^a]: This was in the time before the World Wide Web, so communication was done via Bulletin Board Systems ((("BBSes"))), a half-way house between e-mail lists and the forums that we would recognise today. It's also important to note that BBSes were not part of the Internet and each BBS was a specific computer in somebody's home that users phoned into with their own computer.
 
 Back then, source code was never provided (((just transferring binaries could be an all-night job))) and you were expected to learn from disassembling other's work.
 
-Old habits die hard, and even though you'll find a lot of C64 projects on GitHub, it's not where the Real Work^TM gets done in the community.
+Old habits die hard, and even though you'll find a lot of C64 projects on ~GitHub~, it's not where the Real Work^TM gets done in the community.
 
 To someone like me, having experienced both the 20th and the 21st Centuries (((and the changes in the computing landscape they have wrought))), I've witnessed the widening of the generational gap between the way things worked in the '90s -- copy+paste, physical manuals, lots of forum silos -- versus how things are (((were!))) done in the 2010s -- open-source, distributed (((Git))) & all-encompassing social-media platforms.
 
@@ -80,27 +80,31 @@ I considered writing this mag' in BASIC (((to get it out quickly))) but for two 
 
 1. *BASIC is incredibly slow:*
 
-  Scrolling would be impossible. The C64 is not fast enough, even in machine language, to change the whole screen in less than one frame; that I've managed it in nücomer is only by way of some clever trickery and having to race the beam -- making changes to the screen just behind the line currently being sent to the display (((there's no "screen tear" because the change isn't seen until the screen output loops back to the top again))).
+  Scrolling would be impossible. The C64 is not fast enough, even in machine language, to change the whole screen in less than one frame; that I've managed it in ~nucomer~ is only by way of some clever trickery and having to race the beam -- making changes to the screen just behind the line currently being sent to the display (((there's no "screen tear" because the change isn't seen until the screen output loops back to the top again))).
 
   As an interpreted language BASIC isn't fast to start with, and Commodore's BASIC[^e] is not even fast by BASIC standards (((see BBC BASIC for the gold-standard in fast, and powerful, BASICs))). The speed shouldn't matter as far as the content is concerned, but if the content is about how the C64 works, our second point invalidates that assumption;
 
 [^e]: If making IBM pay for every copy of MS-DOS was the best deal Bill Gates ever negotiated, then his deal with Commodore's "business is war" exec Jack Tramiel must be the worst. Jack demanded from MicroSoft (((a maker of BASICs for small & hobbyist kit-computers))) a perpetual licence to BASIC for their up-coming business computer (((the "PET"))) for a once-off sum of $25'000, vs. $3 per computer that Bill Gates was asking for. Needless to say, Commodore sold a lot of PETs.
 
-2. *PETSCII is not how the machine actually works:*
+2.* PETSCII is not how the machine actually works:*
 
-PETSCII is an abstraction, a layer between you and the machine, made to make the machine easier to use. PETSCII's control codes are interpreted by the built in 'operating system' called "KERNAL"[^f]
+PETSCII is an abstraction, a layer between you and the machine, made to make the machine easier to use. PETSCII codes are interpreted by the built in 'operating system' called "KERNAL"[^f] and the changes sent to the hardware in a way that in no way matches what PETSCII implies.
 
-[^f]: The Commodore KERNAL is often described as an operating system to make it easier to understand to users of modern PCs, but it would be more accurate to call KERNAL a BIOS. Real operating systems are distinguished by having drivers that can be loaded at run-time, whereas KERNAL is a fixed system that is coded directly for the hardware.
+[^f]: The Commodore ~KERNAL~ is often described as an operating system to make it easier to understand to users of modern PCs, but it would be more accurate to call ~KERNAL~ a BIOS. Real operating systems are distinguished by having drivers that can be loaded at run-time, whereas ~KERNAL~ is a fixed system that is coded directly for the hardware.
+
+
 
 If a C64 can only have 256 characters in its "font", and PETSCII codes are also 0-255, but include control codes for colour and cursor control
 
 :: Introducing Screen Codes:
 
 :: Compression
---------------------------------------------------------------------------------
-Modern PC-based tools allow us to spend some fast computer time to save space in ways that could not be done developing on the machine itself; what might take seconds, even on a 10 year old PC, might take hours on an 8-bit microcomputer.
 
-Compression is an art form best left to the experts; you'll save yourself a lot of time and effort (((that would be spent in much more productive areas))) by using an existing packer. The hard truth is that no custom compression scheme is going to outperform modern LZ-based packers.
+Modern PC-based tools allow us to spend some fast computer time to save space in ways that could not be done developing on the machine itself; what might take seconds even on a 10 year old PC might take hours on an 8-bit microcomputer.
 
-There is one reason, however, that nücomer uses a custom text-compression scheme and why the effort was justified (((even though I really should have waited until after the first issue was out the door))).
+Compression is an art form best left to the experts and you'll save yourself a lot of time and effort (((that would be spent in much more productive areas))) by using an existing packer; the hard truth is that no custom compression scheme is going to outperform modern LZ-based packers.
+
+~Exomizer~ is the packer most would recommend for ease of use; it can take single or multiple C64 programs and compress them into a combined, self-extracting program.
+
+There is one reason, however, that ~nucomer~ uses a custom text-compression scheme and why the effort was justified (((even though I really should have waited until after the first issue was out the door))), and that is to simply fit more lines of text in RAM at runtime.
 
