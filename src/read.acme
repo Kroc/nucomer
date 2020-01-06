@@ -11,43 +11,11 @@
 ;===============================================================================
 ; the screen used for reading articles
 
-.THEME_GREY_BACK        = .VIC_LTGREY
-.THEME_GREY_BORDER      = .THEME_GREY_BACK
-.THEME_GREY_FORE        = .VIC_DKGREY
-.THEME_GREY_TITLE       = .VIC_BLACK
-.THEME_GREY_BOLD        = .VIC_WHITE
-.THEME_GREY_NOUN        = .VIC_ORANGE
-.THEME_GREY_NAME        = .VIC_PURPLE
-.THEME_GREY_SOFT        = .VIC_GREY
-.THEME_GREY_URL         = .VIC_BLUE
-.THEME_GREY_WARN        = .VIC_RED
+; scrolling speed for pressing cursor keys (cannot exceed 8!)
+.SCROLL_SPEED = 3
 
-.THEME_BLUE_BACK        = .VIC_BLUE
-.THEME_BLUE_BORDER      = .THEME_BLUE_BACK
-.THEME_BLUE_FORE        = .VIC_LTBLUE
-.THEME_BLUE_TITLE       = .VIC_YELLOW
-.THEME_BLUE_BOLD        = .VIC_WHITE
-.THEME_BLUE_NOUN        = .VIC_LTGREEN
-.THEME_BLUE_NAME        = .VIC_GREEN
-.THEME_BLUE_SOFT        = .VIC_GREY
-.THEME_BLUE_URL         = .VIC_CYAN
-.THEME_BLUE_WARN        = .VIC_RED
-
-; define the default theme,
-; as is compiled into the assembly:
-;
-.THEME_BACK             = .THEME_BLUE_BACK
-.THEME_BORDER           = .THEME_BACK
-.THEME_FORE             = .THEME_BLUE_FORE
-.THEME_TITLE            = .THEME_BLUE_TITLE
-.THEME_BOLD             = .THEME_BLUE_BOLD
-.THEME_NOUN             = .THEME_BLUE_NOUN
-.THEME_NAME             = .THEME_BLUE_NAME
-.THEME_SOFT             = .THEME_BLUE_SOFT
-.THEME_URL              = .THEME_BLUE_URL
-.THEME_WARN             = .THEME_BLUE_WARN
-
-;===============================================================================
+; zero-page variables:
+;-------------------------------------------------------------------------------
 +alloc  $20
 
 ; height of the complete article -- in pixels! this is used to determine the
@@ -218,8 +186,44 @@ read_colour_row26       = nu_colour_after
 }
 
 ;===============================================================================
+.THEME_GREY_BACK        = .VIC_LTGREY
+.THEME_GREY_BORDER      = .THEME_GREY_BACK
+.THEME_GREY_FORE        = .VIC_DKGREY
+.THEME_GREY_TITLE       = .VIC_BLACK
+.THEME_GREY_BOLD        = .VIC_WHITE
+.THEME_GREY_NOUN        = .VIC_ORANGE
+.THEME_GREY_NAME        = .VIC_PURPLE
+.THEME_GREY_SOFT        = .VIC_GREY
+.THEME_GREY_URL         = .VIC_BLUE
+.THEME_GREY_WARN        = .VIC_RED
+
+.THEME_BLUE_BACK        = .VIC_BLUE
+.THEME_BLUE_BORDER      = .THEME_BLUE_BACK
+.THEME_BLUE_FORE        = .VIC_LTBLUE
+.THEME_BLUE_TITLE       = .VIC_YELLOW
+.THEME_BLUE_BOLD        = .VIC_WHITE
+.THEME_BLUE_NOUN        = .VIC_LTGREEN
+.THEME_BLUE_NAME        = .VIC_GREEN
+.THEME_BLUE_SOFT        = .VIC_GREY
+.THEME_BLUE_URL         = .VIC_CYAN
+.THEME_BLUE_WARN        = .VIC_RED
+
+; define the default theme,
+; as is compiled into the assembly:
 ;
+.THEME_BACK             = .THEME_BLUE_BACK
+.THEME_BORDER           = .THEME_BACK
+.THEME_FORE             = .THEME_BLUE_FORE
+.THEME_TITLE            = .THEME_BLUE_TITLE
+.THEME_BOLD             = .THEME_BLUE_BOLD
+.THEME_NOUN             = .THEME_BLUE_NOUN
+.THEME_NAME             = .THEME_BLUE_NAME
+.THEME_SOFT             = .THEME_BLUE_SOFT
+.THEME_URL              = .THEME_BLUE_URL
+.THEME_WARN             = .THEME_BLUE_WARN
+
 read_styles:
+;-------------------------------------------------------------------------------
 read_styles_colour:
 read_style0_colour:     !byte   .THEME_FORE     ; default text colour
 read_style1_colour:     !byte   .THEME_TITLE    ; structural (e.g. title)
@@ -369,7 +373,7 @@ read_keyboard:
 
         ; scroll the content down the page:
         ; (smooth scroll upwards)
-        ldx # $03               ; set scroll speed
+        ldx # .SCROLL_SPEED     ; set scroll speed
         stx zp_read_scroll      ; this will be applied at interrupt
         ; whenever scrolling down,
         ; allow scrolling up again
@@ -385,7 +389,7 @@ read_keyboard:
 
         ; scroll the content up the page
         ; (smooth scroll downwards)
-        ldx # $fd               ; set negative scroll speed
+        ldx # 256-.SCROLL_SPEED ; set negative scroll speed
         stx zp_read_scroll      ; this will be applied at interrupt
         ; whenever scrolling up,
         ; allow scrolling down again
@@ -427,9 +431,9 @@ read_footnote:
 ; IRQs chain each other and stabilisation is handled individually by any
 ; specific IRQ that requires it
 ;
-; just before the visible screen begins we set the vertical smooth-scrolling
-; offset -- we cannot change the vertical scroll inside the screen or we will
-; get tearing / glitching!
+; before the visible screen begins we set the vertical smooth-scrolling offset
+; -- we cannot change the vertical scroll inside the screen or we will get
+; tearing / glitching!
 ;
 ; hard scrolling the screen up or down takes a long time and even if we start
 ; before vblank, the process will overrun into the screen before it finishes,
@@ -438,13 +442,23 @@ read_footnote:
 ; to ensure that the smooth scrolling register is not changed within
 ; the visible portion of the screen when hard-scrolling is occuring
 ;
-.IRQ_BEGIN      = SCANLINE_VBLANK_END - 8
+.IRQ_TOP        = 0
 
 ; hard scrolling the screen takes a lot of cycles and we must be ahead of the
 ; beam when we do this to avoid screen-tearing, therefore we begin scrolling
 ; the top of the screen whilst the beam is in the middle of the screen
 ;
 .IRQ_SCROLL     = SCANLINE_VBLANK_BEGIN - (14 * 8)
+
+; the status bar is unique in that it has to change the vertical scroll
+; register within the visible screen. because the smooth scroll register
+; could be any value 0 to 7 before we change it back to 0 (for the status
+; bar), we have to deal with a potential "bad-line" in the stabilisation
+;
+; the status bar occupies the last screen-row, but the interrupt must start
+; a couple of scanlines before to be able to stabilise and avoid flicker
+;
+.IRQ_STATUS     = SCANLINE_VBLANK_BEGIN - (8 + 1)
 
 ;-------------------------------------------------------------------------------
 ; 
@@ -455,39 +469,23 @@ read_irq_init:
         ;
         jsr irqs_disable
 
-        lda # .IRQ_BEGIN        ; scanline to interrupt at
-        ldx #< read_irq_top     ; IRQ handler address, lo
-        ldy #> read_irq_top     ; IRQ handler address, hi
-        jsr read_irq_set
-        
-        ; enable raster-interrupts on the VIC-II (sprite-sprite,
-        ; sprite-background & lightpen interrupts are disabled)
-        lda # %00000001
-        sta .VIC_INTERRUPT_CONTROL
-
-        rts
-
-;-------------------------------------------------------------------------------
-; set the scanline and handler address for the next interrupt:
-;
-;       A = scanline
-;       X = next IRQ handler address, lo-byte
-;       Y = next IRQ handler address, hi-byte
-;
-read_irq_set:
-        ;-----------------------------------------------------------------------
         ; absolutely do not allow an interrupt to occur
         ; in the middle of changing interrupt settings!
         ;
         sei                     ; disable interrupts
 
-        ; even though NTSC & PAL have > 256 scanlines, when accounting
-        ; for borders, we stick to 0..255 for simplicity
+        lda # .IRQ_TOP          ; scanline to interrupt at
         sta .VIC_SCANLINE
 
-        ; set the address of the interrupt handler to use next
+        ldx #< read_irq_top     ; IRQ handler address, lo
+        ldy #> read_irq_top     ; IRQ handler address, hi
         stx .HW_VECTOR_IRQ+lo
         sty .HW_VECTOR_IRQ+hi
+        
+        ; enable raster-interrupts on the VIC-II (sprite-sprite,
+        ; sprite-background & lightpen interrupts are disabled)
+        lda # %00000001
+        sta .VIC_INTERRUPT_CONTROL
 
         ; safe to re-enable interrupts
         cli
@@ -498,38 +496,134 @@ read_irq_set:
 ;
 read_irq_rti_xy:
         ;-----------------------------------------------------------------------
-        pla
-        tay
-        pla
-        tax
+        pla                     ; restore pre-interrupt...
+        tay                     ; ...Y register
+        pla                     ; restore pre-interrupt...
+        tax                     ; ...X register
 
 read_irq_rti:
         ;-----------------------------------------------------------------------
-        ; restore pre-interrupt A register
-        pla
+        pla                     ; restore pre-interrupt A register
         ;;dec .VIC_BORDER
         rti
 
-;-------------------------------------------------------------------------------
+;===============================================================================
+read_irq_status:                                                        ;cycles
+        ;-----------------------------------------------------------------------
+        ; note that an interrupt takes 7 cycles to execute              ;+7=7
+        ; before we get to this point
+
+        ; the VIC-II will have already begun drawing the current scanline, so
+        ; it's too late to change the screen scroll / colour now. we need to
+        ; wait until the next scanline, but we might currently be on a bad-line
+        ; -- 20/22 cycles, instead of 63!
+        
+        ; acknowledge the interrupt to prevent it double-firing; we only need
+        ; to write to the status register to do this, the value is unimportant
+        inc .VIC_INTERRUPT_STATUS                                       ;+6=13
+        ; backup pre-interrupt A register
+        pha                                                             ;+3=16
+
+        nop     ;+2=18
+        nop     ;+2=20
+        nop     ;+2=22
+        nop     ;+2=23
+        nop     ;+2=25
+        nop     ;+2=27
+        nop     ;+2=29
+        nop     ;+2=31
+        nop     ;+2=33
+        nop     ;+2=35
+        nop     ;+2=37
+        nop     ;+2=39
+        nop     ;+2=41
+        nop     ;+2=43
+        nop     ;+2=45
+        nop     ;+2=47
+        nop     ;+2=49
+        nop     ;+2=50
+        nop     ;+2=52
+        nop     ;+2=54
+        nop     ;+2=56
+        nop     ;+2=58
+        nop     ;+2=60
+        nop     ;+2=62
+        nop     ;+2=63/0
+
+        nop     ;+2=2
+        nop     ;+2=4
+        nop     ;+2=6
+        nop     ;+2=8
+        nop     ;+2=10
+        nop     ;+2=12
+        nop     ;+2=14
+        nop     ;+2=16
+        nop     ;+2=18
+        nop     ;+2=20
+        nop     ;+2=22
+        nop     ;+2=24
+        nop     ;+2=26
+        nop     ;+2=28
+        nop     ;+2=30
+        nop     ;+2=32
+        nop     ;+2=34
+        nop     ;+2=36
+        nop     ;+2=38
+        nop     ;+2=40
+        nop     ;+2=42
+        nop     ;+2=44
+        nop     ;+2=46
+        nop     ;+2=48
+
+        ;-----------------------------------------------------------------------
+        lda # %00011011                                                 ;+2=50
+        sta .VIC_SCREEN_VERT                                            ;+4=54
+
+        ; change to the status-bar background colour
+        lda # .VIC_CYAN                                                 ;+2=56
+        sta .VIC_BORDER                                                 ;+4=60
+        sta .VIC_BACKGROUND                                             ;+4=0
+
+        ; chain the next IRQ
+        ;-----------------------------------------------------------------------
+        sei                     ; disable interrupts
+        lda # .IRQ_TOP
+        sta .VIC_SCANLINE
+        lda #< read_irq_top
+        sta .HW_VECTOR_IRQ+lo
+        lda #> read_irq_top
+        sta .HW_VECTOR_IRQ+hi
+        ; we're going to skip re-enabling interrupts as the RTI instruction
+        ; will pop the pre-interrupt state, re-enabling the interrupts soon
+        ; enough that it doesn't matter between here and the RTI
+        ;cli
+
+        pla                     ; restore pre-interrupt A register
+        rti
+
+;===============================================================================
 read_irq_top:
         ;-----------------------------------------------------------------------
-        ;;inc .VIC_BORDER
-
         ; acknowledge the interrupt to prevent it double-firing;  we only need
-        ; to write to the status register to do this, the value is unimportant.
-        ; this must be done before restoring the pre-interrupt memory layout
-        ; otherwise the VIC-II registers might be turned off
+        ; to write to the status register to do this, the value is unimportant
         inc .VIC_INTERRUPT_STATUS
         ; backup pre-interrupt A register
         pha
 
         ;-----------------------------------------------------------------------
+        ; return to the in-page background colour
+        ; (rather than the status-bar colour)
+        lda # .THEME_BACK
+        sta .VIC_BORDER
+        sta .VIC_BACKGROUND
+
         ; set the smooth scroll register. we are doing this at the top of
         ; the screen, just before the text begins to avoid graphical glitches
         lda zp_read_vpos+lo
         and # %00000111
         eor # %00000111
         ; update the screen/scroll register:
+        ;
         ;     %---1---- = screen on
         ;     %----0--- = 24 rows (for smooth scrolling)
         ;     %-----??? = vertical scroll offset
@@ -548,32 +642,28 @@ read_irq_top:
         ; we're going to skip re-enabling interrupts as the RTI instruction
         ; will pop the pre-interrupt state, re-enabling the interrupts soon
         ; enough that it doesn't matter between here and the RTI
-        ;;cli
+        ;cli
 
         pla                     ; restore pre-interrupt A register
-        ;;dec .VIC_BORDER
         rti
 
-;-------------------------------------------------------------------------------
+;===============================================================================
 read_irq_scroll:
         ;-----------------------------------------------------------------------
         ;;inc .VIC_BORDER
 
         ; acknowledge the interrupt to prevent it double-firing;  we only need
-        ; to write to the status register to do this, the value is unimportant.
-        ; this must be done before restoring the pre-interrupt memory layout
-        ; otherwise the VIC-II registers might be turned off
+        ; to write to the status register to do this, the value is unimportant
         inc .VIC_INTERRUPT_STATUS
 
-        ; backup pre-interrupt A-register
-        pha
+        pha                     ; backup pre-interrupt A-register
 
         sei                     ; disable interrupts
-        lda # .IRQ_BEGIN
+        lda # .IRQ_STATUS
         sta .VIC_SCANLINE
-        lda #< read_irq_top
+        lda #< read_irq_status
         sta .HW_VECTOR_IRQ+lo
-        lda #> read_irq_top
+        lda #> read_irq_status
         sta .HW_VECTOR_IRQ+hi
         cli                     ; safe to re-enable interrupts
 
@@ -581,10 +671,13 @@ read_irq_scroll:
         ; is there any scrolling to be done?
         ;
         lda zp_read_scroll      ; read requested scroll speed
-        beq read_irq_rti        ; if scroll-speed = 0, then skip
+        bne +                   ; if scroll-speed = 0, then skip
+
+        pla
+        rti
 
         ; backup X & Y registers
-        txa
++       txa
         pha
         tya
         pha
