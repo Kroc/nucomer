@@ -26,23 +26,22 @@ init:   ; setup screen:
         lda # %00000000
         sta .VIC_SCREEN_CTL1
 
-        ; change the VIC bank to $C000-$FFFF.
-        ; note that BSOD64 will occupy $C000-$DFFF
+        ; change the VIC bank
         ;
         ldx .CIA2_PORTA_DDR     ; (backup current value)
         lda # %00000111         ; we only want to write to the low 3-bits
         sta .CIA2_PORTA_DDR     ; set the port's read/write state
         ;
         ; the bit value is the inverse of the bank number 0-3
-        lda # (! NU_VIC_BANK) & %111
+        lda # (! NU_VIC_BANK) & %11
         sta .CIA2_PORTA         ; change VIC bank
 
-        ; we must restore the read/write state of the port
-        ; or disk I/O will break!
+        ; we must restore the read/write state
+        ; of the port or disk I/O will break!
         stx .CIA2_PORTA_DDR
 
         ; change the VIC memory layout to position the text-screen & font
-        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font_lo & %00111000) >> 2)
+        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
         sta .VIC_LAYOUT
 
         ; start menu screen:
@@ -69,7 +68,7 @@ init:   ; setup screen:
 
 
 !ifdef WARN_OVERFLOW !eof
-!if * >= $c000 {
+!if * >= nu_gfx {
         WARN_OVERFLOW = 1
-        !warn "Outfit overflows its boundary ($C000)! * = ", *
+        !warn "Outfit overflows its boundary! * = ", *
 }

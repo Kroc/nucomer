@@ -29,9 +29,9 @@ zp_menu_index   = $0f           ; currently selected menu item
 ;
 menu_irqs:
 ;-------------------------------------------------------------------------------
-.MENU_IRQ1      = SCANLINE_VBLANK_END + (1 * 8)-2
-.MENU_IRQ2      = SCANLINE_VBLANK_END + (2 * 8)-2
-.MENU_IRQ3      = SCANLINE_VBLANK_END + (3 * 8)-2
+.MENU_IRQ1      = SCANLINE_VBLANK_END + (1 * 8)-3
+.MENU_IRQ2      = SCANLINE_VBLANK_END + (2 * 8)-3
+.MENU_IRQ3      = SCANLINE_VBLANK_END + (3 * 8)-3
 .MENU_IRQ4      = SCANLINE_VBLANK_BEGIN
 .MENU_IRQS      = 4
 
@@ -97,7 +97,7 @@ menu_irq_logo_end:
         stx .VIC_BACKGROUND
 
         ; change to the custom font for the rest of the page
-        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font_lo & %00111000) >> 2)
+        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
         sta .VIC_LAYOUT
 
         ; kill enough time to get out of the left-hand border before we change
@@ -125,7 +125,7 @@ menu_irq_vblank:
         sta .VIC_BACKGROUND
 
         ; change to the ROM PETSCII font for the logo...
-        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font_up & %00111000) >> 2)
+        lda # ((>nu_screen & %00111100) << 2) | ((>vic_font_up & %00111000) >> 2)
         sta .VIC_LAYOUT
 
         rts
@@ -330,7 +330,7 @@ menu_load:
         sta .VIC_BACKGROUND
         
         ; change to the custom font, don't remain on the ROM font!
-        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font_lo & %00111000) >> 2)
+        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
         sta .VIC_LAYOUT
 
         ; set the KERNAL load properties:

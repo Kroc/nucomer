@@ -8,57 +8,28 @@
 ;   (contact the author for a commercial licence)
 ;
 ;===============================================================================
+!source "acme.acme"             ; assembler helpers (macros &c.)
 !source "c64/c64.acme"          ; C64 hardware / software constants
-
-lo = 0
-hi = 1
-
-; variable for address allocation:
-!set    alloc  = $0000
-
-; set the allocation address:
-!macro  alloc   .addr {
-        ; set the new address to begin allocating
-        !set    alloc  = .addr
-}
-; allocate, without advancing the address:
-!macro  addr    ~.label {
-        !addr   .label  = alloc
-}
-; allocate a byte:
-!macro  byte    ~.label {
-        !addr   .label  = alloc
-        !set    alloc   = alloc + 1
-}
-; allocate a custom number of bytes:
-!macro  bytes   ~.label, .size {
-        !addr   .label  = alloc
-        !set    alloc   = alloc + .size
-}
-; allocate a word:
-!macro  word    ~.label {
-        !addr   .label  = alloc
-        !set    alloc   = alloc + 2
-}
 
 ;-------------------------------------------------------------------------------
 ; memory map:
 ;
-;  $0   $1000        $4000           $8000       $B000 $C000    $E000    $FFFF
-;  +----+------------+---------------------------+-----+--------+--------+
-;  |  * | SID (12K)  | TEXT (28K)                | *   | BSOD64 | GFX    |
-;  +----+------------+---------------------------+-----+--------+--------+
-;     ^                                            ^
-;     shared code                                  main code
+;  $0   $1000        $4000            $8000            $C000    $E000    $FFFF
+;  +----+------------+----------------+----------------+--------+--------+
+;  |  * | SID (12K)  | TEXT (16K)     | CODE & GFX     | BSOD64 | UNUSED |
+;  +----+------------+----------------+----------------+--------+--------+
+;     ^ shared code
 ;
 !addr {
 
 nu_intro                = $0334 ; address of the shared / intro code
 nu_intro_screen         = $3c00 ; address of the intro screen
 
-nu_main                 = $b000 ; address of the main outfit code
 nu_song                 = $1000 ; address of SID song
 
+nu_main                 = $8000 ; address of the main outfit code
+
+}
 ;-------------------------------------------------------------------------------
 ; articles are loaded in from this point, though note that this includes
 ; some meta-data, compression tables and not just straight text beginning
@@ -77,13 +48,35 @@ nu_song                 = $1000 ; address of SID song
 +addr   ~nu_text_literals       ; beginning of token literals...
 
 ;-------------------------------------------------------------------------------
-NU_VIC_BANK             = 3     ; the VIC bank used by the outfit
+NU_VIC_BANK             = 2     ; the VIC bank used by the outfit
 
-nu_font                 = $e000 ; location of the custom font; 4 KB
-nu_font_up              = $e000 ; upper-case half of the font; 2 KB
-nu_font_lo              = $e800 ; lower-case half of the font; 2 KB
+; graphics are positioned at the top of the VIC bank: this is required as the
+; VIC-II will use the last byte of the bank as invalid display garbage and we
+; want to set that byte to 0; this would not be possible in VIC bank 3, as the
+; IRQ vector hi-byte is located $FFFF
+;
+!addr   vic_garbage     = ($4000 * (NU_VIC_BANK+1)) - 1
 
-nu_screen               = $f000 ; main text-screen location; 1 KB
+; note that in VIC bank 2 the character ROM will appear
+; at $9000-$A000 so we can't place our font or screens there!
+;
+!addr   vic_font_up     = $9000
+!addr   vic_font_lo     = $9800
+
++alloc  $b000
+
+; start address of graphics space
++addr   ~nu_gfx
+; our custom font, we only need 2K
+; as we only use one character set
++bytes  ~nu_font,       2048
+
++bytes  ~nu_screen,     1024
+; address of the 2nd screen used for overlay
++bytes  ~nu_overlay,    1024
+
+; TODO: better location for these
++alloc  $0c00
 
 ; in a case of "if it's stupid but it works, it's not stupid" we handle the
 ; scrolling in of new lines by simply treating the screen as taller than it
@@ -91,21 +84,15 @@ nu_screen               = $f000 ; main text-screen location; 1 KB
 ; screen (these are assigned to high-RAM so that they do not occupy bytes in
 ; the main code)
 ;
-nu_screen_before        = $f400
-nu_screen_temp          = $f428
-nu_screen_after         = $f450
++bytes  ~nu_screen_before,      40
++bytes  ~nu_screen_after,       40
 
 ; we can't put data before / after the colour RAM when I/O is on,
 ; and turning I/O on & off to use the RAM underneath is too slow
 ; so the 'off-screen' colour rows are stored here
 ;
-nu_colour_before        = $f478
-nu_colour_temp          = $f4a0
-nu_colour_after         = $f4c8
-
-nu_sprites              = $f500 ; sprite gfx
-
-}
++bytes  ~nu_colour_before,      40
++bytes  ~nu_colour_after,       40
 
 ;-------------------------------------------------------------------------------
 ; BSOD64 integration; not the actual BSOD64 code

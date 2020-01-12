@@ -10,6 +10,9 @@
 ;===============================================================================
 
 !to     "build/admiral64.prg", cbm
-*=$e000
+
+!source "nucomer.acme"
+
+* = nu_font
 
 !binary "src/fonts/bin/admiral64.bin"

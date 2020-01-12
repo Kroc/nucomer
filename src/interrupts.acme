@@ -35,50 +35,13 @@ ZP_IRQS_SCANHI_HI       = $f7   ; - address of table field, hi-byte
 }
 
 ; some helpful scanline numbers:
-; since scanlines include the borders, the top of the addressable
-; screen begins at 50 and proceeds to 250 where the vblank begins
-SCANLINE_VBLANK_END     = 50
-SCANLINE_VBLANK_BEGIN   = 250
-SCANLINE_PAL            = 312   ; PAL machines have 312 lines
-SCANLINE_NTSC_NEW       = 262   ; most NTSC machines have 262 lines
-SCANLINE_NTSC_OLD       = 263   ; very early NTSC machines have 263 lines
-
-;===============================================================================
-; wait for a given number of frames to pass:
+; (0-based)
 ;
-;       X = number of frames to wait (1-based)
-;
-wait_frames:
-        ;-----------------------------------------------------------------------
--       jsr wait_frame
-        dex
-        bne -
-        
-        rts
-
-wait_frame:
-        ;-----------------------------------------------------------------------
-        ; wait for a full cycle of the raster beam:
-        ;
-        ; bit 7 of $D011 is the upper-most bit of the current raster line,
-        ; i.e. when it is 0 the beam is on lines 0-255 and when it's 1 the
-        ; beam is on lines 256+ -- PAL has 312 lines, NTSC has 262 lines
-        ; but some very early NTSC machines have 263 lines
-        ;
-        ; first, we wait for the beam to enter the top of the screen
-        ; (lines 0-255), this is so that if the beam is currently within the
-        ; bottom of the screen (lines 256+), we wait for it to go back around
-        ; and don't trigger early
-        ;
--       bit .VIC_SCREEN_VERT
-        bmi -                   ; wait until bit 7 is 0
-
-        ; now wait for the addressible screen to pass and the vblank
-        ; to begin again, this syncronises the main thread with the vblank
--       bit .VIC_SCREEN_VERT
-        bpl -                   ; wait until bit 7 is 1
-
-        rts
+SCANLINE_VBLANK_END     = 51
+SCANLINE_VBLANK_BEGIN   = 251
+SCANLINE_PAL            = 311   ; PAL machines have 312 lines
+SCANLINE_NTSC_NEW       = 261   ; most NTSC machines have 262 lines
+SCANLINE_NTSC_OLD       = 262   ; very early NTSC machines have 263 lines
 
 ;===============================================================================
 irqs_init:
@@ -474,3 +437,39 @@ irq:                                                                    ;cycles
 
         rti
 
+;===============================================================================
+; wait for a given number of frames to pass:
+;
+;       X = number of frames to wait (1-based)
+;
+wait_frames:
+        ;-----------------------------------------------------------------------
+-       jsr wait_frame
+        dex
+        bne -
+        
+        rts
+
+wait_frame:
+        ;-----------------------------------------------------------------------
+        ; wait for a full cycle of the raster beam:
+        ;
+        ; bit 7 of $D011 is the upper-most bit of the current raster line,
+        ; i.e. when it is 0 the beam is on lines 0-255 and when it's 1 the
+        ; beam is on lines 256+ -- PAL has 312 lines, NTSC has 262 lines
+        ; but some very early NTSC machines have 263 lines
+        ;
+        ; first, we wait for the beam to enter the top of the screen
+        ; (lines 0-255), this is so that if the beam is currently within the
+        ; bottom of the screen (lines 256+), we wait for it to go back around
+        ; and don't trigger early
+        ;
+-       bit .VIC_SCREEN_VERT
+        bmi -                   ; wait until bit 7 is 0
+
+        ; now wait for the addressible screen to pass and the vblank
+        ; to begin again, this syncronises the main thread with the vblank
+-       bit .VIC_SCREEN_VERT
+        bpl -                   ; wait until bit 7 is 1
+
+        rts
