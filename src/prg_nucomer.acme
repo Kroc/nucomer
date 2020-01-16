@@ -22,9 +22,14 @@
 ;
 init:   ; setup screen:
         ;-----------------------------------------------------------------------
+        lda # %00110111
+        sta .CPU_CONTROL
+        
         ; turn the screen off whilst we fiddle with the VIC settings
         lda # %00000000
         sta .VIC_SCREEN_CTL1
+        ; clear the garbage byte!
+        sta vic_garbage+0
 
         ; change the VIC bank
         ;
@@ -50,10 +55,12 @@ init:   ; setup screen:
 
         ; turn off BASIC & KERNAL ROM,
         ; leave I/O on (BSOD64 will be under there)
-        ;;dec CPU_CONTROL
+        ;;dec .CPU_CONTROL
+        dec .CPU_CONTROL
         dec .CPU_CONTROL
 
-        jsr menu_screen         ; from here, there is no going back...
+        ; from here, there is no going back...
+        jsr menu_screen
         
         ; halt and catch fire
         jmp *

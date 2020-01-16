@@ -123,9 +123,8 @@ function Issue:build(i_issue)
 format "nucomer,%02u" d64 "%s"
 write "build/boot.prg"          "boot"
 write "build/intro.prg"         "intro"
-write "build/nucomer.prg"       "nucomer"
+write "build/nucomer-exo.prg"   "nucomer"
 write "src/bsod64/bsod64.prg"   "bsod64"
-write "build/admiral64.prg"     "admiral64"
 ]],     i_issue, "build/nucomer.d64"
     ))
 

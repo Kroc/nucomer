@@ -10,19 +10,18 @@
 ; prg_intro.acme:
 ;===============================================================================
 ; after the bootstrap, the "intro" installs some permenant shared code
-; (of particular importance is the fast-loader) shows the logo, and then
-; loads the main menu. this is done this way so that the logo screen can
-; be discard and overwritten after it is shown and not occupy RAM
-; permenantly for a once-off screen
+; shows the logo, and then loads the main menu. this is done this way
+; so that the logo screen can be discard and overwritten after it is
+; shown and not occupy RAM permenantly for a once-off screen
 ;
 !source "nucomer.acme"          ; nucomer constants for memory layout
 
 * = nu_intro
 
-; the fast-loader code needs to be kept permenantly, so we place it first
-; and jump over it (as code execution begins here) because the intro code
-; that follows is not important and can be overwritten later
-
+; the shared code needs to be kept permenantly, so we place it first and jump
+; over it (as code execution begins here) because the intro code that follows
+; is not important and can be overwritten later
+;
 intro_boot:
         ;-----------------------------------------------------------------------
         jmp intro_init
@@ -73,15 +72,18 @@ intro_init:
         
         ; load the main outfit
         ;-----------------------------------------------------------------------
-        lda #> (nu_main-1)
-        pha
-        lda #< (nu_main-1)
-        pha
+;;        lda #> (nu_main-1)+$c
+;;        pha
+;;        lda #< (nu_main-1)+$c
+;;        pha
         
         ;;lda CPU_CONTROL
         ;;and # %11111100
         ;;sta CPU_CONTROL
-        dec .CPU_CONTROL
+        ;;dec .CPU_CONTROL
+
+        lda # %00110111
+        sta .CPU_CONTROL
 
         ldx .ZP_KERNAL_DEV      ; last-used KERNAL device number
         bne +                   ; not 0? good
@@ -89,20 +91,6 @@ intro_init:
 +       ldy # $01               ; use PRG load-address
         tya                     ; logical file number
         jsr .KERNAL_SETLFS
-
-        ldx #< @filename_bsod64
-        ldy #> @filename_bsod64
-        lda # 6                 ; A is string-length
-        jsr .KERNAL_SETNAM      ; set KERNAL file name
-        lda # 0                 ; load, not verify
-        jsr .KERNAL_LOAD
-
-        ldx #< @filename_font
-        ldy #> @filename_font
-        lda # 9                 ; A is string-length
-        jsr .KERNAL_SETNAM      ; set KERNAL file name
-        lda # 0                 ; load, not verify
-        jsr .KERNAL_LOAD
 
         ldx #< @filename_outfit
         ldy #> @filename_outfit
@@ -112,20 +100,12 @@ intro_init:
         jsr .KERNAL_LOAD
 
         ; jump to the main outfit
-        jmp nu_main
+        ;;dec .CPU_CONTROL
+        jmp .basic_start+$c
 
 @filename_outfit:
         ;-----------------------------------------------------------------------
         !pet    "nucomer", 0
-
-@filename_bsod64:
-        ;-----------------------------------------------------------------------
-        !pet    "bsod64", 0
-
-@filename_font:
-        ;-----------------------------------------------------------------------
-        !pet    "admiral64", 0
-
 
 ;===============================================================================
 !source "logo.acme"

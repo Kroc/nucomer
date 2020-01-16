@@ -9,6 +9,9 @@
 ;
 ;===============================================================================
 
+; BASIC programs starting address 
+!addr   .basic_start    = $0801
+
 ; these vectors are called by hardware events, independent of the KERNAL.
 ; when the KERNAL ROM is enabled the ROM provides the values, which are KERNAL
 ; addresses, to allow normal operation of the C64. if the KERNAL ROM is

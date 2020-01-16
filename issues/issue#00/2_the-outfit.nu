@@ -88,18 +88,49 @@ I considered writing this mag' in BASIC (((to get it out quickly))) but for two 
 
 2.* PETSCII is not how the machine actually works:*
 
-PETSCII is an abstraction, a layer between you and the machine, made to make the machine easier to use. PETSCII codes are interpreted by the built in 'operating system' called "KERNAL"[^f] and the changes sent to the hardware in a way that in no way matches what PETSCII implies.
+PETSCII is an abstraction, a layer between you and the machine, made to make the machine easier to use. PETSCII codes are interpreted by the built in 'operating system' called "KERNAL"[^f] and the changes made in no way matches what PETSCII implies.
 
-[^f]: The Commodore ~KERNAL~ is often described as an operating system to make it easier to understand to users of modern PCs, but it would be more accurate to call ~KERNAL~ a BIOS. Real operating systems are distinguished by having drivers that can be loaded at run-time, whereas ~KERNAL~ is a fixed system that is coded directly for the hardware.
+[^f]: The Commodore ~KERNAL~ is often described as an Operating System to make it easier to understand to users of modern PCs, but it would be more accurate to call ~KERNAL~ a BIOS. Real operating systems are distinguished by having drivers that can be loaded at run-time, whereas ~KERNAL~ is a fixed system that is coded directly for the hardware.
 
+Data and commands are not "sent" to the Commodore's VIC-II chip, as one might expect with modern PC graphics cards, or even the dumb terminals of the day. Instead, the VIC-II has a more symbiotic relationship with the C64, like a Xenomorph.
 
+The VIC-II takes some of its data from the C64's memory, but it's important to understand that there is NO framebuffer![^g] The VIC-II generates the TV picture in real-time, line by line at the instant the TV is shooting electrons at the tube for that line.
 
-If a C64 can only have 256 characters in its "font", and PETSCII codes are also 0-255, but include control codes for colour and cursor control
+[^g]: The pedants in the audience will be shouting "but what about the C64's bitmap mode, that's a frame-buffer!", and whilst it is closer to a frame-buffer than text-mode, it isn't a single, linear memory space holding a complete frame -- for starters, the sprites are not part of the bitmap screen and are generated "live" by the VIC-II and secondly, the bitmap screen is not a contiguous RGB image as the colour is stored separately.
+
+An individual RAM chip of the time was not able to read a full scan-line's worth of pixel+colour data fast enough to get the line out before the TV had moved onto the next. The solution to this was to read from multiple chips at the same time and combine the two bits of separate information;[^h] in the case of the C64, text characters and their colours are stored in separate chips.
+
+[^h]: The Amiga, a far more graphically powerful machine, had to use bit-planes to resolve this issue, whereby 5 lanes read one-bit each, for a	 colour-count of 32. It was fast enough, but difficut to program and potentially slow to update as you had to split colours across 5 different addresses!
+
+```diagram-23456789012345678901234567890
+
+   +------+                  +-------+
+   |      |    +--------+    |       |
+   | MAIN |    |        |    | COLOR |
+   | RAM  +--->| VIC-II |<---+  RAM  |
+   | 64KB |    |        |    |  1KB* |
+   |      |    +-+------+    |       |
+   +------+      |           +-------+
+                 +-> pixels
+```
+
+What you're seeing when you power on a C64 is not a bitmap image of some text. Whilst the C64 in particular has lots of RAM and can fit a bitmap image into 9 KB, for purposes of saving precious memory and mostly that of speed, nearly all 8-bit micro-computers default to a text-mode that only stores the character-codes and the video hardware assembles the actual pixels the instant they are needed.
+
+For the C64's 40x25 text screen 1'000 bytes of the main RAM are used for the characters and another 1'000 bytes are in a separate chip, connected directly to the VIC-II, which are used for the colour of each respective character. Therefore, when a PETSCII code that changes the text colour is "printed", the colour is being written to a different chip than the characters are.
 
 :: Introducing Screen Codes:
+----------------------------------------------
+With one byte for each character in a 40x25 grid it's apparant that the C64 can only display 1 of 256 possible characters in each cell; i.e. the C64 has only one, monospace, 8x8px "font"! This is where PETSCII falls apart, because PETSCII does not contain 256 characters! Some are control codes that change colour & move the cursor, and some do nothing at all! ((like ASCII))).
+
+Now we can understand the relationship between each byte in "screen RAM" and the character ROM: the character ROM contains 256, 8x8 pixel character graphics. 
+
+To add insult to injury, the byte values for the printable characters in PETSCII, don't align with the screen-codes
+
+
+
 
 :: Compression
-
+----------------------------------------------
 Modern PC-based tools allow us to spend some fast computer time to save space in ways that could not be done developing on the machine itself; what might take seconds even on a 10 year old PC might take hours on an 8-bit microcomputer.
 
 Compression is an art form best left to the experts and you'll save yourself a lot of time and effort (((that would be spent in much more productive areas))) by using an existing packer; the hard truth is that no custom compression scheme is going to outperform modern LZ-based packers.

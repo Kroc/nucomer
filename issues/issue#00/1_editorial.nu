@@ -26,23 +26,54 @@ In reality, modern hardware and the Internet are where people are productive tod
 
 :: Why 8-Bit?
 ----------------------------------------------
-Why not 16-bit? Why not just go all the way and write 64-bit ARM assembly for modern phones?
+The 8-bit generation of home micro-computers were a wild panoply of unique and incompatible systems with only a handful of processor architectures (((also incompatible with each other))) shared between them.
 
-There's a reason that it takes 100s of people years and $millions to make a modern computer game, and yet in the '80s a bedroom-coder could earn $millions making a game single-handily in a matter of weeks!
+Probably the most broadly used (((by sheer number of systems))) was the Zilog Z80 CPU; an independently enhanced Intel 8080, and therefore a "cousin" to today's x86. It featured in many popular systems including the ZX Spectrum (((Timex Sinclair in the USA))), Amstrad CPC, Tandy/RadioShack TRS-80, innumerable CP/M business systems, the MSX standard popular in Japan and later in consoles such as the SEGA Master System and, in a stripped down form, as the Nintendo GameBoy.[^a]
 
-As you go from 8, to 16, to 32-bits, the system's capabilities quickly outstrip an individual's ability to tame and produce content for it!
+[^a]: Nobody seems to know for sure if the Sharp LR35902 processor in the GameBoy is a cut-down Z80 or an augmented Intel 8080! The name "LR35902" is a bit of a mouthful, so "GB80" or "GB-Z80" is most often used in the community. In 2019 homebrew developers on Discord discovered documentation suggesting that whilst "LR35902" may be the part-number for the system-on-a-chip, the actual CPU core might be called "SM83".
 
-A decade ago, there were a lot of new games being developed for the C64 but not a lot of them actually being finished and released! Annual competitions sprung up to encourage releases, but it's RGCD who discovered that a size-limit of 16KB (((so that games could be released on real cartridges, at reasonable cost))) actually resulted in significantly more projects reaching completion!
+The Z80 is well designed, largely orthogonal, and easy to program; it has a large number of registers for an 8-bit processor (((over 20!))). The index registers are 16-bit, as is the stack. A 16-bit add instruction means that you don't have to add the two halves yourself.
 
-You may very well want to write the next ~Minecraft~ or ~Fortnite~, but actually bringing a product to conclusion, ANYTHING AT ALL, is one of the most singularly difficult obstacles you will ever face in life.
+In fact, the Z80 is so close to being a 16-bit chip that it's a technicality that it gets labelled as 8-bit. The 8080 in the original IBM PC is in actuallity a 16-bit chip in an 8-bit socket. The 8086 is the same chip but finally with a real 16-bit bus.
 
-To me, personally, porting C to an under-powered device, and/or getting it to run Linux, essentially kills the fun. Running Linux badly and compiling existing C programs rubs against the knife-edge of "why?" -- why opt to experience the same thing you can on any modern system, only running so slowly as to be impractical?
+Okay, so why not code for 16-bit systems? Why not just go all the way and write 64-bit ARM assembly for modern phones?
+
+8-bit systems are fun and worthwhile exactly because they do things in a way that is totally alien to modern hardware. As you move from 8-bits to 16-bits, to 32-bits, the complexity of the system and its interfaces (((graphics, UI, I/O))) and the layers of abstraction grow to the point that it becomes practically impossible to produce software for the machine without the vendor's chosen programming language, frameworks, and compiler--you ARE using Windows 98 and Microsoft Visual C++ 6, right?
+
+In other words, the choice for you to discover the system's abilities and do things your own way diminishes as systems grow more complex.
+
+An 8-bit system is wide-open in a way you may actually never have experiened with modern computing.
+
+The graduation between 8-bit and 16-bit systems is a lot smoother than it appears externally, so when I say "8-bit systems", what I really mean is systems with 8 OR 16-bit CPUs with a simple BIOS/DOS rather than a full-blown graphical OS that can't just be side-stepped.
+
+For example, MS-DOS BIOS calls (((hardware control))) are made using the CPU's own registers and interrupts (((easy to use with assembly))) whereas -- on the same hardware! -- Windows 3.1 mandates a C calling convention to use the Windows API; whose documentation alone spans hundreds of pages.
+
+Outside of MS-DOS however, the point where 16-bits outsrips an individual's ability boils down to graphical capabilities. 
+
+
+
+
+
+
 
 > Your scientists were so preoccupied with whether or not they could, they didn't stop to think if they should -- Dr. Malcom, Jurassic Park
 
+
+Writing Z80 assembly can sometimes feel almost like a real programming language and less like the actual lowest-level hardware behaviour of the CPU.
+
+It is, in other words, boring. The safe-bet. The path of least resistance. If the Z80 seems down-right comely, then the 6502 can be thought of as the opposite!
+
+The MOS 6502 is the ultimate hacker's CPU: on the surface, it appears simple; just 3 registers and no 16-bit capabilities AT ALL! (((even the stack is 8-bit))) The 6502 is, however, a TARDIS of subtlety. New knowledge is still being uncovered 40 years after its introduction.
+
+
+
+There's a reason that it takes 100s of people years and $millions to make a modern computer game, and yet in the '80s a bedroom-coder could earn $millions making a game single-handed in a matter of weeks!
+
+A decade ago, there were a lot of new games being developed for the C64 but not a lot of them actually being finished and released! Annual competitions sprung up to encourage releases, but it's RGCD who discovered that a size-limit of 16KB (((so that games could be released on real cartridges, at reasonable cost))) actually resulted in significantly more projects reaching completion!
+
+
 ...
 
-8-bit systems are fun and worthwhile exactly because they do things in a way that is totally alien to modern hardware. As you move from 8-bits to 16-bits, to 32-bits, the complexity of the system and its interfaces (((graphics, UI, I/O))) and the layers of abstraction grow to the point that it becomes practically impossible to produce software for the machine without the vendor's chosen programming language, frameworks, and compiler. I'm pretty sure that brain-surgery must be simpler a task than using an obsolete '90s SDK.
 
 The point where 16-bits becomes a hurdle is down to graphical capabilities. Creating the quantity of content that a 16-bit powerhouse such as the MegaDrive/Genesis, SNES or Amiga can output is not a one-person job. By all means, if you have the skill
 
@@ -50,34 +81,25 @@ The point where 16-bits becomes a hurdle is down to graphical capabilities. Crea
 
 Of the many hundreds of brand-new games released for 8-bit systems each year, the 16-bit systems see maybe one or two each. The SNES world seems largely content with an endless stream of ~Super Mario World~ ROM hacks.
 
-A Z80 is so close to being a 16-bit chip that it's only a technicality that it gets labelled 8-bit. The 8080 in the original IBM PC is really a 16-bit chip in an 8-bit socket (((the 8086 is the same chip but with a 16-bit bus))), and I would recommend MS-DOS programming as just as noble and worthwhile endeavour as Commodore 64 development.
+, and I would recommend MS-DOS programming as just as noble and worthwhile endeavour as Commodore 64 development.
 
-Case in point: MS-DOS BIOS calls are made using the CPU's own registers and interrupts whereas, on the same hardware, Windows 3.1 mandates a C calling convention to use the Windows API; this alone involves hundreds of pages of documentation.
-
-
+You may very well want to write the next ~Minecraft~ or ~Fortnite~, but actually bringing a product to conclusion, ANYTHING AT ALL, is one of the most singularly difficult obstacles you will ever face in life.
 
 
 :: Why The Commodore 64?
 ----------------------------------------------
-So why the Commodore 64, of all 8-bit systems?
 
-Unlike today's "flavours of x86" PC market, the 8-bit generation of home-microcomputers ran on a variety of wildly different processor architectures.
 
-Probably the most broadly used (((by sheer number of systems))) was the Zilog Z80 CPU; an independently enhanced Intel 8080, and therefore a "cousin" to x86. It featured in many popular systems including the ZX Spectrum (((Timex Sinclair in the USA))), Amstrad CPC, Tandy/RadioShack TRS-80, innumerable CP/M business systems, the MSX standard popular in Japan and later in consoles such as the SEGA Master System and, in a stripped down form, as the Nintendo GameBoy.[^a]
+If you're any kind of programmer then you'll get a feel for structuring "functions" with input parameters and outputs.
 
-[^a]: Nobody seems to know for sure if the Sharp LR35902 processor in the GameBoy is a stripped down Z80 or an augmented Intel 8080! Nintendo's decision to use Zilog assembler syntax instead of Intel's has always leaned consensus toward it being a Z80. The name "LR35902" is a bit of a mouthful, so "GB80" or "GB-Z80" is most often used in the community. In 2019 homebrew developers on Discord discovered documentation suggesting that whilst "LR35902" is the part-number for the system-on-a-chip, the actual CPU core is called "SM83".
-
-Programming the Z80 is fairly easy given its large number of registers for an 8-bit system (((over 20!))) and how easily it handles 16-bit operations; the index registers are 16-bit as is the stack. A 16-bit add instruction means that you don't have to.
-
-If you're a C programmer, the Z80 is going to feel like an even more limited version of C! If you're any kind of programmer then you'll get a feel for structuring "functions" with input parameters and outputs.
-
-The Z80 is well designed, largely orthogonal, easy to program processor. It is, in other words, boring -- in comparison to the 6502!
-
-The MOS 6502 is the ultimate hacker's CPU: on the surface, it appears simple; just 3 registers and no 16-bit capabilities AT ALL! (((even the stack is 8-bit))) The 6502 is, however, a TARDIS of subtlety. New knowledge is still being uncovered 40 years after its introduction.
-
-If programming a Z80 sometimes feels more like a real programming language and less like the actual lowest-level hardware behaviour of the CPU, then the 6502 can be thought of as the opposite! Sure, you will use structured "functions" and the like when starting out learning the 6502 but the true enjoyment comes from slowly getting a "feel" for how the 6502 likes to do things -- less like writing C, and more like sewing a thread; sometimes through, sometimes over; there being no real hard delimitations like "functions", but rather some parts of the tapestry are important and others are not. If this sounds vague and cryptic, that's because it can take literal decades to truly master the 6502!
+Sure, you will use structured "functions" and the like when starting out learning the 6502 but the true enjoyment comes from slowly getting a "feel" for how the 6502 likes to do things -- less like writing C, and more like sewing a thread; sometimes through, sometimes over; there being no real hard delimitations like "functions", but rather some parts of the tapestry are important and others are not. If this sounds vague and cryptic, that's because it can take decades to truly master the 6502!
 
 In this way, the 6502 can teach you much your PC or smartphone never can.
+
+?
+
+To me, personally, porting C to an under-powered device, and/or getting it to run Linux, essentially kills the fun. Running Linux badly and compiling existing C programs rubs against the knife-edge of "why?" -- why opt to experience the same thing you can on any modern system, only running so slowly as to be impractical?
+
 
 :: In This Issue:
 ----------------------------------------

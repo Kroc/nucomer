@@ -18,11 +18,11 @@
 ;  +----+------------+----------------+----------------+--------+--------+
 ;  |  * | SID (12K)  | TEXT (16K)     | CODE & GFX     | BSOD64 | UNUSED |
 ;  +----+------------+----------------+----------------+--------+--------+
-;     ^ shared code
+;     ^ shared code ($0400+)
 ;
 !addr {
 
-nu_intro                = $0334 ; address of the shared / intro code
+nu_intro                = $0400 ; address of the shared / intro code
 nu_intro_screen         = $3c00 ; address of the intro screen
 
 nu_song                 = $1000 ; address of SID song
@@ -59,6 +59,7 @@ NU_VIC_BANK             = 2     ; the VIC bank used by the outfit
 
 ; note that in VIC bank 2 the character ROM will appear
 ; at $9000-$A000 so we can't place our font or screens there!
+; note that program code can still occupy this space
 ;
 !addr   vic_font_up     = $9000
 !addr   vic_font_lo     = $9800
