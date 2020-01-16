@@ -11,7 +11,10 @@
 ;===============================================================================
 ; the screen used for reading articles
 
+; constants:
+;-------------------------------------------------------------------------------
 ; scrolling speed for pressing cursor keys (cannot exceed 8!)
+;
 .SCROLL_SPEED = 3
 
 ; zero-page variables:
@@ -250,6 +253,19 @@ read_init:
         lda # .THEME_BACK
         sta .VIC_BACKGROUND
 
+        ; clear and prepare the overlay screen
+        ;-----------------------------------------------------------------------
+        !ct "build/scr_nucomer.ct" {
+        lda # ' '
+        }
+        ldx # $00
+-       sta nu_overlay + $000, x
+        sta nu_overlay + $100, x
+        sta nu_overlay + $200, x
+        sta nu_overlay + $300, x
+        dex
+        bne -
+
         ; initialise printing:
         ;-----------------------------------------------------------------------
         ; set the number of token literals, this will be used to decide
@@ -450,15 +466,14 @@ read_footnote:
 ;
 .IRQ_SCROLL     = SCANLINE_VBLANK_BEGIN - (14 * 8)
 
-; the status bar is unique in that it has to change the vertical scroll
-; register within the visible screen. because the smooth scroll register
-; could be any value 0 to 7 before we change it back to 0 (for the status
-; bar), we have to deal with a potential "bad-line" in the stabilisation
+; the footnote overlay is unique in that it has to change the vertical scroll
+; register within the visible screen. because the smooth scroll register could
+; be any value 0 to 7 before we change it, we have to deal with a potential
+; "bad-line" in the stabilisation. we interrupt one line early to be able to
+; deal with the [possible] first bad-line which does not give us enough time
+; to make any changes
 ;
-; the status bar occupies the last screen-row, but the interrupt must start
-; a couple of scanlines before to be able to stabilise and avoid flicker
-;
-.IRQ_STATUS     = SCANLINE_VBLANK_BEGIN - (8 + 1)
+.IRQ_OVERLAY    = (SCANLINE_VBLANK_BEGIN - (8 * 8))
 
 ;-------------------------------------------------------------------------------
 ; 
@@ -508,100 +523,6 @@ read_irq_rti:
         rti
 
 ;===============================================================================
-read_irq_status:                                                        ;cycles
-        ;-----------------------------------------------------------------------
-        ; note that an interrupt takes 7 cycles to execute              ;+7=7
-        ; before we get to this point
-
-        ; the VIC-II will have already begun drawing the current scanline, so
-        ; it's too late to change the screen scroll / colour now. we need to
-        ; wait until the next scanline, but we might currently be on a bad-line
-        ; -- 20/22 cycles, instead of 63!
-        
-        ; acknowledge the interrupt to prevent it double-firing; we only need
-        ; to write to the status register to do this, the value is unimportant
-        inc .VIC_INTERRUPT_STATUS                                       ;+6=13
-        ; backup pre-interrupt A register
-        pha                                                             ;+3=16
-
-        nop     ;+2=18
-        nop     ;+2=20
-        nop     ;+2=22
-        nop     ;+2=23
-        nop     ;+2=25
-        nop     ;+2=27
-        nop     ;+2=29
-        nop     ;+2=31
-        nop     ;+2=33
-        nop     ;+2=35
-        nop     ;+2=37
-        nop     ;+2=39
-        nop     ;+2=41
-        nop     ;+2=43
-        nop     ;+2=45
-        nop     ;+2=47
-        nop     ;+2=49
-        nop     ;+2=50
-        nop     ;+2=52
-        nop     ;+2=54
-        nop     ;+2=56
-        nop     ;+2=58
-        nop     ;+2=60
-        nop     ;+2=62
-        nop     ;+2=63/0
-
-        nop     ;+2=2
-        nop     ;+2=4
-        nop     ;+2=6
-        nop     ;+2=8
-        nop     ;+2=10
-        nop     ;+2=12
-        nop     ;+2=14
-        nop     ;+2=16
-        nop     ;+2=18
-        nop     ;+2=20
-        nop     ;+2=22
-        nop     ;+2=24
-        nop     ;+2=26
-        nop     ;+2=28
-        nop     ;+2=30
-        nop     ;+2=32
-        nop     ;+2=34
-        nop     ;+2=36
-        nop     ;+2=38
-        nop     ;+2=40
-        nop     ;+2=42
-        nop     ;+2=44
-        nop     ;+2=46
-        nop     ;+2=48
-
-        ;-----------------------------------------------------------------------
-        lda # %00011011                                                 ;+2=50
-        sta .VIC_SCREEN_VERT                                            ;+4=54
-
-        ; change to the status-bar background colour
-        lda # .VIC_CYAN                                                 ;+2=56
-        sta .VIC_BORDER                                                 ;+4=60
-        sta .VIC_BACKGROUND                                             ;+4=0
-
-        ; chain the next IRQ
-        ;-----------------------------------------------------------------------
-        sei                     ; disable interrupts
-        lda # .IRQ_TOP
-        sta .VIC_SCANLINE
-        lda #< read_irq_top
-        sta .HW_VECTOR_IRQ+lo
-        lda #> read_irq_top
-        sta .HW_VECTOR_IRQ+hi
-        ; we're going to skip re-enabling interrupts as the RTI instruction
-        ; will pop the pre-interrupt state, re-enabling the interrupts soon
-        ; enough that it doesn't matter between here and the RTI
-        ;cli
-
-        pla                     ; restore pre-interrupt A register
-        rti
-
-;===============================================================================
 read_irq_top:
         ;-----------------------------------------------------------------------
         ; acknowledge the interrupt to prevent it double-firing;  we only need
@@ -622,13 +543,32 @@ read_irq_top:
         lda zp_read_vpos+lo
         and # %00000111
         eor # %00000111
-        ; update the screen/scroll register:
-        ;
         ;     %---1---- = screen on
         ;     %----0--- = 24 rows (for smooth scrolling)
         ;     %-----??? = vertical scroll offset
         ora # %00010000
         sta .VIC_SCREEN_VERT
+
+        ; temp: print Y-scroll value
+        ;-----------------------------------------------------------------------
+        ;;lsr
+        ;;pha
+        ;;lda # '0'
+        ;;adc # 0
+        ;;sta nu_screen+(1*40)+2
+        ;;
+        ;;pla
+        ;;lsr
+        ;;pha
+        ;;lda # '0'
+        ;;adc # 0
+        ;;sta nu_screen+(1*40)+1
+        ;;
+        ;;pla
+        ;;lsr
+        ;;lda # '0'
+        ;;adc # 0
+        ;;sta nu_screen+(1*40)+0
 
         ; chain the next IRQ
         ;-----------------------------------------------------------------------
@@ -659,11 +599,11 @@ read_irq_scroll:
         pha                     ; backup pre-interrupt A-register
 
         sei                     ; disable interrupts
-        lda # .IRQ_STATUS
+        lda # .IRQ_TOP
         sta .VIC_SCANLINE
-        lda #< read_irq_status
+        lda #< read_irq_top
         sta .HW_VECTOR_IRQ+lo
-        lda #> read_irq_status
+        lda #> read_irq_top
         sta .HW_VECTOR_IRQ+hi
         cli                     ; safe to re-enable interrupts
 
