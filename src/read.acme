@@ -65,6 +65,16 @@
 ; (changes only when scrolling, not during printing)
 +word   ~zp_read_bot
 
+; in a case of "if it's stupid but it works, it's not stupid" we handle the
+; scrolling in of new lines by simply treating the screen as taller than it
+; actually is, filling new lines into 40 char buffers for above / below the
+; screen
+;
++bytes  ~zp_read_before_screen, 40
++bytes  ~zp_read_before_colour, 40
++bytes  ~zp_read_after_screen,  40
++bytes  ~zp_read_after_colour,  40
+
 ; for text decompression, a buffer of 40 bytes is required; located in
 ; the zero-page for maximum speed. we _could_ decompress directly into
 ; screen RAM, but it would cause visual glitching when the beam goes
@@ -72,7 +82,6 @@
 ;
 +addr   ~zp_read_buffer
 +bytes  ~zp_read_buffer_screen, 40
-+bytes  ~zp_read_buffer_colour, 40
 
 ; re-use the colour-data index for the decompression buffer,
 ; as the two won't ever be used at the same time
@@ -89,24 +98,23 @@ read_screen_rows:
 ;
 read_screen_rows_lo:
 ;-------------------------------------------------------------------------------
-        !byte   <nu_screen_before
+        !byte   <zp_read_before_screen
         !for    row, 0, 24 {
                 !byte   <(nu_screen + (row * 40))
         }
-        !byte   <nu_screen_after
+        !byte   <zp_read_after_screen
 
 read_screen_rows_hi:
 ;-------------------------------------------------------------------------------
-        !byte   >nu_screen_before
+        !byte   >zp_read_before_screen
         !for    row, 0, 24 {
                 !byte   >(nu_screen + (row * 40))
         }
-        !byte   >nu_screen_after
+        !byte   >zp_read_after_screen
 
 !addr {
 ; provided purely for clarity in reading the code
 ; during the hard-scroll block copying
-read_screen_row0        = nu_screen_before      ; off-screen row
 read_screen_row1        = nu_screen+( 0*40)
 read_screen_row2        = nu_screen+( 1*40)
 read_screen_row3        = nu_screen+( 2*40)
@@ -132,7 +140,6 @@ read_screen_row22       = nu_screen+(21*40)
 read_screen_row23       = nu_screen+(22*40)
 read_screen_row24       = nu_screen+(23*40)
 read_screen_row25       = nu_screen+(24*40)
-read_screen_row26       = nu_screen_after       ; off-screen-row
 }
 
 read_colour_rows:
@@ -142,24 +149,23 @@ read_colour_rows:
 ;
 read_colour_rows_lo:
 ;-------------------------------------------------------------------------------
-        !byte   <nu_colour_before
+        !byte   <zp_read_before_colour
         !for    row, 0, 24 {
                 !byte   <($d800 + (row * 40))
         }
-        !byte   <nu_colour_after
+        !byte   <zp_read_after_colour
 
 read_colour_rows_hi:
 ;-------------------------------------------------------------------------------
-        !byte   >nu_colour_before
+        !byte   >zp_read_before_colour
         !for    row, 0, 24 {
                 !byte   >($d800 + (row * 40))
         }
-        !byte   >nu_colour_after
+        !byte   >zp_read_after_colour
 
 !addr {
 ; provided purely for clarity in reading the code
 ; during the hard-scroll block copying
-read_colour_row0        = nu_colour_before
 read_colour_row1        = $d800+( 0*40) ;=$D800
 read_colour_row2        = $d800+( 1*40)
 read_colour_row3        = $d800+( 2*40)
@@ -185,7 +191,6 @@ read_colour_row22       = $d800+(21*40)
 read_colour_row23       = $d800+(22*40)
 read_colour_row24       = $d800+(23*40)
 read_colour_row25       = $d800+(24*40)
-read_colour_row26       = nu_colour_after
 }
 
 ;===============================================================================
@@ -534,9 +539,9 @@ read_irq_top:
         ;-----------------------------------------------------------------------
         ; return to the in-page background colour
         ; (rather than the status-bar colour)
-        lda # .THEME_BACK
-        sta .VIC_BORDER
-        sta .VIC_BACKGROUND
+        ;;lda # .THEME_BACK
+        ;;sta .VIC_BORDER
+        ;;sta .VIC_BACKGROUND
 
         ; set the smooth scroll register. we are doing this at the top of
         ; the screen, just before the text begins to avoid graphical glitches
@@ -614,6 +619,7 @@ read_irq_scroll:
         bne +                   ; if scroll-speed = 0, then skip
 
         pla
+        ;;dec .VIC_BORDER
         rti
 
         ; backup X & Y registers
@@ -720,150 +726,161 @@ read_scroll_down:
         ; as possible (about 41 load + stores) as this minimizes the number
         ; of cycles wasted each iteration maintaining the loop
         ;
-        ldy # 39                ; as always, loop backwards for speed
+        ; note that X must be used as the index otherwise the zero-page
+        ; buffers will be encoded as two-byte addresses instead of one
+        ; (there is no "LDA/STA $zp, Y" instruction!)
+        ;
+        ldx # 39                ; as always, loop backwards for speed   ;+2=2
 -       ; row 1 -> row 0
-        lda read_screen_row1, y ; the top line moves into the off-screen
-        sta read_screen_row0, y ; buffer ready for if the user scrolls up
-        lda read_colour_row1, y ; (=$D800)
-        sta read_colour_row0, y ; (offscreen colour-RAM buffer, outside $D800)
+        ; (the top line moves into the off-screen
+        ;  buffer ready for if the user scrolls up)
+        lda read_screen_row1, x                                         ;+4=6
+        sta zp_read_before_screen, x                                ;zp ;+3=9
+        lda read_colour_row1, x                                         ;+4=13
+        sta zp_read_before_colour, x                                ;zp ;+3=16
         ; row 2 -> row 1
-        lda read_screen_row2, y
-        sta read_screen_row1, y
-        lda read_colour_row2, y
-        sta read_colour_row1, y
+        lda read_screen_row2, x                                         ;+4=20
+        sta read_screen_row1, x                                         ;+4=24
+        lda read_colour_row2, x                                         ;+4=28
+        sta read_colour_row1, x                                         ;+4=32
         ; row 3 -> row 2
-        lda read_screen_row3, y
-        sta read_screen_row2, y
-        lda read_colour_row3, y
-        sta read_colour_row2, y
+        lda read_screen_row3, x                                         ;+4=36
+        sta read_screen_row2, x                                         ;+4=40
+        lda read_colour_row3, x                                         ;+4=44
+        sta read_colour_row2, x                                         ;+4=48
         ; row 4 -> row 3
-        lda read_screen_row4, y
-        sta read_screen_row3, y
-        lda read_colour_row4, y
-        sta read_colour_row3, y
+        lda read_screen_row4, x                                         ;+4=52
+        sta read_screen_row3, x                                         ;+4=56
+        lda read_colour_row4, x                                         ;+4=60
+        sta read_colour_row3, x                                         ;+4=64
         ; row 5 -> row 4
-        lda read_screen_row5, y
-        sta read_screen_row4, y
-        lda read_colour_row5, y
-        sta read_colour_row4, y
+        lda read_screen_row5, x                                         ;+4=68
+        sta read_screen_row4, x                                         ;+4=72
+        lda read_colour_row5, x                                         ;+4=76
+        sta read_colour_row4, x                                         ;+4=80
         ; row 6 -> row 5
-        lda read_screen_row6, y
-        sta read_screen_row5, y
-        lda read_colour_row6, y
-        sta read_colour_row5, y
+        lda read_screen_row6, x                                         ;+4=84
+        sta read_screen_row5, x                                         ;+4=88
+        lda read_colour_row6, x                                         ;+4=92
+        sta read_colour_row5, x                                         ;+4=96
         ; row 7 -> row 6
-        lda read_screen_row7, y
-        sta read_screen_row6, y
-        lda read_colour_row7, y
-        sta read_colour_row6, y
+        lda read_screen_row7, x                                         ;+4=100
+        sta read_screen_row6, x                                         ;+4=104
+        lda read_colour_row7, x                                         ;+4=108
+        sta read_colour_row6, x                                         ;+4=112
         ; row 8 -> row 7
-        lda read_screen_row8, y
-        sta read_screen_row7, y
-        lda read_colour_row8, y
-        sta read_colour_row7, y
+        lda read_screen_row8, x                                         ;+4=116
+        sta read_screen_row7, x                                         ;+4=120
+        lda read_colour_row8, x                                         ;+4=124
+        sta read_colour_row7, x                                         ;+4=128
         ; row 9 -> row 8
-        lda read_screen_row9, y
-        sta read_screen_row8, y
-        lda read_colour_row9, y
-        sta read_colour_row8, y
+        lda read_screen_row9, x                                         ;+4=132
+        sta read_screen_row8, x                                         ;+4=136
+        lda read_colour_row9, x                                         ;+4=140
+        sta read_colour_row8, x                                         ;+4=144
         ; row 10 -> row 9
-        lda read_screen_row10, y
-        sta read_screen_row9, y
-        lda read_colour_row10, y
-        sta read_colour_row9, y
-        dey
+        lda read_screen_row10, x                                        ;+4=148
+        sta read_screen_row9, x                                         ;+4=152
+        lda read_colour_row10, x                                        ;+4=156
+        sta read_colour_row9, x                                         ;+4=160
+
+        dex                                                             ;+2=162
         bpl -
 
-        ldy # 39
+        ; none of these addresses are zero-page,
+        ; so we use Y, specifically so we can set
+        ; it to 0 by the end of the loop!
+        ;
+        ldy # 40                                                        ;+2=
         ; row 11 -> row 10
--       lda read_screen_row11, y
-        sta read_screen_row10, y
-        lda read_colour_row11, y
-        sta read_colour_row10, y
+-       lda read_screen_row11-1, y                                      ;+4=
+        sta read_screen_row10-1, y                                      ;+4=
+        lda read_colour_row11-1, y                                      ;+4=
+        sta read_colour_row10-1, y                                      ;+4=
         ; row 12 -> row 11
-        lda read_screen_row12, y
-        sta read_screen_row11, y
-        lda read_colour_row12, y
-        sta read_colour_row11, y
+        lda read_screen_row12-1, y                                      ;+4=
+        sta read_screen_row11-1, y                                      ;+4=
+        lda read_colour_row12-1, y                                      ;+4=
+        sta read_colour_row11-1, y                                      ;+4=
         ; row 13 -> row 12
-        lda read_screen_row13, y
-        sta read_screen_row12, y
-        lda read_colour_row13, y
-        sta read_colour_row12, y
+        lda read_screen_row13-1, y                                      ;+4=
+        sta read_screen_row12-1, y                                      ;+4=
+        lda read_colour_row13-1, y                                      ;+4=
+        sta read_colour_row12-1, y                                      ;+4=
         ; row 14 -> row 13
-        lda read_screen_row14, y
-        sta read_screen_row13, y
-        lda read_colour_row14, y
-        sta read_colour_row13, y
+        lda read_screen_row14-1, y                                      ;+4=
+        sta read_screen_row13-1, y                                      ;+4=
+        lda read_colour_row14-1, y                                      ;+4=
+        sta read_colour_row13-1, y                                      ;+4=
         ; row 15 -> row 14
-        lda read_screen_row15, y
-        sta read_screen_row14, y
-        lda read_colour_row15, y
-        sta read_colour_row14, y
+        lda read_screen_row15-1, y                                      ;+4=
+        sta read_screen_row14-1, y                                      ;+4=
+        lda read_colour_row15-1, y                                      ;+4=
+        sta read_colour_row14-1, y                                      ;+4=
         ; row 16 -> row 15
-        lda read_screen_row16, y
-        sta read_screen_row15, y
-        lda read_colour_row16, y
-        sta read_colour_row15, y
+        lda read_screen_row16-1, y                                      ;+4=
+        sta read_screen_row15-1, y                                      ;+4=
+        lda read_colour_row16-1, y                                      ;+4=
+        sta read_colour_row15-1, y                                      ;+4=
         ; row 17 -> row 16
-        lda read_screen_row17, y
-        sta read_screen_row16, y
-        lda read_colour_row17, y
-        sta read_colour_row16, y
+        lda read_screen_row17-1, y                                      ;+4=
+        sta read_screen_row16-1, y                                      ;+4=
+        lda read_colour_row17-1, y                                      ;+4=
+        sta read_colour_row16-1, y                                      ;+4=
         ; row 18 -> row 17
-        lda read_screen_row18, y
-        sta read_screen_row17, y
-        lda read_colour_row18, y
-        sta read_colour_row17, y
+        lda read_screen_row18-1, y                                      ;+4=
+        sta read_screen_row17-1, y                                      ;+4=
+        lda read_colour_row18-1, y                                      ;+4=
+        sta read_colour_row17-1, y                                      ;+4=
         ; row 19 -> row 18
-        lda read_screen_row19, y
-        sta read_screen_row18, y
-        lda read_colour_row19, y
-        sta read_colour_row18, y
+        lda read_screen_row19-1, y                                      ;+4=
+        sta read_screen_row18-1, y                                      ;+4=
+        lda read_colour_row19-1, y                                      ;+4=
+        sta read_colour_row18-1, y                                      ;+4=
         ; row 20 -> row 19
-        lda read_screen_row20, y
-        sta read_screen_row19, y
-        lda read_colour_row20, y
-        sta read_colour_row19, y
-        dey
-        bpl -
+        lda read_screen_row20-1, y                                      ;+4=
+        sta read_screen_row19-1, y                                      ;+4=
+        lda read_colour_row20-1, y                                      ;+4=
+        sta read_colour_row19-1, y                                      ;+4=
 
-        ldy # 40
+        dey                                                             ;+2=
+        bne -                   ; stop when Y=0 (important for later!)
+
+        ldx # 39
         ; row 21 -> row 20
--       lda read_screen_row21-1, y
-        sta read_screen_row20-1, y
-        lda read_colour_row21-1, y
-        sta read_colour_row20-1, y
+-       lda read_screen_row21, x                                        ;+4=
+        sta read_screen_row20, x                                        ;+4=
+        lda read_colour_row21, x                                        ;+4=
+        sta read_colour_row20, x                                        ;+4=
         ; row 22 -> row 21
-        lda read_screen_row22-1, y
-        sta read_screen_row21-1, y
-        lda read_colour_row22-1, y
-        sta read_colour_row21-1, y
+        lda read_screen_row22, x                                        ;+4=
+        sta read_screen_row21, x                                        ;+4=
+        lda read_colour_row22, x                                        ;+4=
+        sta read_colour_row21, x                                        ;+4=
         ; row 23 -> row 22
-        lda read_screen_row23-1, y
-        sta read_screen_row22-1, y
-        lda read_colour_row23-1, y
-        sta read_colour_row22-1, y
+        lda read_screen_row23, x                                        ;+4=
+        sta read_screen_row22, x                                        ;+4=
+        lda read_colour_row23, x                                        ;+4=
+        sta read_colour_row22, x                                        ;+4=
         ; row 24 -> row 23
-        lda read_screen_row24-1, y
-        sta read_screen_row23-1, y
-        lda read_colour_row24-1, y
-        sta read_colour_row23-1, y
+        lda read_screen_row24, x                                        ;+4=
+        sta read_screen_row23, x                                        ;+4=
+        lda read_colour_row24, x                                        ;+4=
+        sta read_colour_row23, x                                        ;+4=
         ; row 25 -> row 24
-        lda read_screen_row25-1, y
-        sta read_screen_row24-1, y
-        lda read_colour_row25-1, y
-        sta read_colour_row24-1, y
+        lda read_screen_row25, x                                        ;+4=
+        sta read_screen_row24, x                                        ;+4=
+        lda read_colour_row25, x                                        ;+4=
+        sta read_colour_row24, x                                        ;+4=
         ; row 26 -> row 25
-        ; copy the off-screen line into view
-        lda read_screen_row26-1, y
-        sta read_screen_row25-1, y
-        ; note that the color for the off-screen line is stored at a different
-        ; place as we cannot store data at $DC00 when I/O is on!
-        lda read_colour_row26-1, y
-        sta read_colour_row25-1, y
-        dey
-        bne -                   ; stop when Y = 0 (important for later!)
+        ; (copy the off-screen line into view)
+        lda zp_read_after_screen, x                                 ;zp ;+3=
+        sta read_screen_row25, x                                        ;+4=
+        lda zp_read_after_colour, x                                 ;zp ;+3=
+        sta read_colour_row25, x                                        ;+4=
+
+        dex                                                             ;+2=
+        bpl -
 
         ; begin printing the new row
         ;-----------------------------------------------------------------------
@@ -921,166 +938,176 @@ read_scroll_up:
         ; 41 load + stores) as this minimizes the amount of cycles
         ; wasted each iteration maintaining the loop
         ;
-        ldy # 39                ; as always, loop backwards for speed
+        ; note that X must be used as the index otherwise the zero-page
+        ; buffers will be encoded as two-byte addresses instead of one
+        ; (there is no "LDA/STA $zp, Y" instruction!)
+        ;
+        ldx # 39                ; as always, loop backwards for speed   ;+2=2
+
         ; row 9 -> row ...
--       lda read_screen_row9, y
-        sta zp_read_buffer_screen, y    ; (zero-page, saves 40 cycles)
-        lda read_colour_row9, y
-        sta zp_read_buffer_colour, y    ; (zero-page, saves 40 cycles)
+        ; we do not have enough space in zero-page for a temporary copy buffer
+        ; (of screen codes & colour data, 80 bytes) and the off-screen lines
+        ; (2x80 bytes). since the off-screen row below the screen (row 26)
+        ; will be overwritten by the contents of row 25, we can use it as a
+        ; temporary buffer for three-part screen copy
+        ;
+-       lda read_screen_row9, x                                         ;+4=6
+        sta zp_read_after_screen, x                                 ;zp ;+3=9
+        lda read_colour_row9, x                                         ;+4=13
+        sta zp_read_after_colour, x                                 ;zp ;+3=16
         ; row 8 -> row 9
-        lda read_screen_row8, y
-        sta read_screen_row9, y
-        lda read_colour_row8, y
-        sta read_colour_row9, y
+        lda read_screen_row8, x                                         ;+4=
+        sta read_screen_row9, x                                         ;+4=
+        lda read_colour_row8, x                                         ;+4=
+        sta read_colour_row9, x                                         ;+4=
         ; row 7 -> row 8
-        lda read_screen_row7, y
-        sta read_screen_row8, y
-        lda read_colour_row7, y
-        sta read_colour_row8, y
+        lda read_screen_row7, x                                         ;+4=
+        sta read_screen_row8, x                                         ;+4=
+        lda read_colour_row7, x                                         ;+4=
+        sta read_colour_row8, x                                         ;+4=
         ; row 6 -> row 7
-        lda read_screen_row6, y
-        sta read_screen_row7, y
-        lda read_colour_row6, y
-        sta read_colour_row7, y
+        lda read_screen_row6, x                                         ;+4=
+        sta read_screen_row7, x                                         ;+4=
+        lda read_colour_row6, x                                         ;+4=
+        sta read_colour_row7, x                                         ;+4=
         ; row 5 -> row 6
-        lda read_screen_row5, y
-        sta read_screen_row6, y
-        lda read_colour_row5, y
-        sta read_colour_row6, y
+        lda read_screen_row5, x                                         ;+4=
+        sta read_screen_row6, x                                         ;+4=
+        lda read_colour_row5, x                                         ;+4=
+        sta read_colour_row6, x                                         ;+4=
         ; row 4 -> row 5
-        lda read_screen_row4, y
-        sta read_screen_row5, y
-        lda read_colour_row4, y
-        sta read_colour_row5, y
+        lda read_screen_row4, x                                         ;+4=
+        sta read_screen_row5, x                                         ;+4=
+        lda read_colour_row4, x                                         ;+4=
+        sta read_colour_row5, x                                         ;+4=
         ; row 3 -> row 4
-        lda read_screen_row3, y
-        sta read_screen_row4, y
-        lda read_colour_row3, y
-        sta read_colour_row4, y
+        lda read_screen_row3, x                                         ;+4=
+        sta read_screen_row4, x                                         ;+4=
+        lda read_colour_row3, x                                         ;+4=
+        sta read_colour_row4, x                                         ;+4=
         ; row 2 -> row 3
-        lda read_screen_row2, y
-        sta read_screen_row3, y
-        lda read_colour_row2, y
-        sta read_colour_row3, y
+        lda read_screen_row2, x                                         ;+4=
+        sta read_screen_row3, x                                         ;+4=
+        lda read_colour_row2, x                                         ;+4=
+        sta read_colour_row3, x                                         ;+4=
         ; row 1 -> row 2
-        lda read_screen_row1, y
-        sta read_screen_row2, y
-        lda read_colour_row1, y
-        sta read_colour_row2, y
+        lda read_screen_row1, x                                         ;+4=
+        sta read_screen_row2, x                                         ;+4=
+        lda read_colour_row1, x                                         ;+4=
+        sta read_colour_row2, x                                         ;+4=
         ; row 0 -> row 1
         ; (copy the off-screen line into view)
-        lda read_screen_row0, y
-        sta read_screen_row1, y
-        ; the color for the off-screen line is stored at a different
-        ; place as we cannot store data at $D800-40 when I/O is on!
-        lda read_colour_row0, y ; (offscreen colour-RAM buffer, outside $D800)
-        sta read_colour_row1, y ; (=$D800)
-        dey
+        lda zp_read_before_screen, x                                ;zp ;+3=
+        sta read_screen_row1, x                                         ;+4=
+        lda zp_read_before_colour, x                                ;zp ;+3=
+        sta read_colour_row1, x                                         ;+4=
+        
+        dex                                                             ;+2=
         bpl -
 
-        ldy # 39
+        ldx # 39                                                        ;+2=
         ; row 18 -> row ...
         ; (we use the off-screen row above temporarily as it is "garbage" at
         ;  this point until after the screen copy, when it will be populated)
--       lda read_screen_row18, y
-        sta read_screen_row0, y
-        lda read_colour_row18, y
-        sta read_colour_row0, y
+-       lda read_screen_row18, x                                        ;+4=
+        sta zp_read_before_screen, x                                ;zp ;+3= 
+        lda read_colour_row18, x                                        ;+4=
+        sta zp_read_before_colour, x                                ;zp ;+3=
         ; row 17 -> row 18
-        lda read_screen_row17, y
-        sta read_screen_row18, y
-        lda read_colour_row17, y
-        sta read_colour_row18, y
+        lda read_screen_row17, x                                        ;+4=
+        sta read_screen_row18, x                                        ;+4=
+        lda read_colour_row17, x                                        ;+4=
+        sta read_colour_row18, x                                        ;+4=
         ; row 16 -> row 17
-        lda read_screen_row16, y
-        sta read_screen_row17, y
-        lda read_colour_row16, y
-        sta read_colour_row17, y
+        lda read_screen_row16, x                                        ;+4=
+        sta read_screen_row17, x                                        ;+4=
+        lda read_colour_row16, x                                        ;+4=
+        sta read_colour_row17, x                                        ;+4=
         ; row 15 -> row 16
-        lda read_screen_row15, y
-        sta read_screen_row16, y
-        lda read_colour_row15, y
-        sta read_colour_row16, y
+        lda read_screen_row15, x                                        ;+4=
+        sta read_screen_row16, x                                        ;+4=
+        lda read_colour_row15, x                                        ;+4=
+        sta read_colour_row16, x                                        ;+4=
         ; row 14 -> row 15
-        lda read_screen_row14, y
-        sta read_screen_row15, y
-        lda read_colour_row14, y
-        sta read_colour_row15, y
+        lda read_screen_row14, x                                        ;+4=
+        sta read_screen_row15, x                                        ;+4=
+        lda read_colour_row14, x                                        ;+4=
+        sta read_colour_row15, x                                        ;+4=
         ; row 13 -> row 14
-        lda read_screen_row13, y
-        sta read_screen_row14, y
-        lda read_colour_row13, y
-        sta read_colour_row14, y
+        lda read_screen_row13, x                                        ;+4=
+        sta read_screen_row14, x                                        ;+4=
+        lda read_colour_row13, x                                        ;+4=
+        sta read_colour_row14, x                                        ;+4=
         ; row 12 -> row 13
-        lda read_screen_row12, y
-        sta read_screen_row13, y
-        lda read_colour_row12, y
-        sta read_colour_row13, y
+        lda read_screen_row12, x                                        ;+4=
+        sta read_screen_row13, x                                        ;+4=
+        lda read_colour_row12, x                                        ;+4=
+        sta read_colour_row13, x                                        ;+4=
         ; row 11 -> row 12
-        lda read_screen_row11, y
-        sta read_screen_row12, y
-        lda read_colour_row11, y
-        sta read_colour_row12, y
+        lda read_screen_row11, x                                        ;+4=
+        sta read_screen_row12, x                                        ;+4=
+        lda read_colour_row11, x                                        ;+4=
+        sta read_colour_row12, x                                        ;+4=
         ; row 10 -> row 11
-        lda read_screen_row10, y
-        sta read_screen_row11, y
-        lda read_colour_row10, y
-        sta read_colour_row11, y
+        lda read_screen_row10, x                                        ;+4=
+        sta read_screen_row11, x                                        ;+4=
+        lda read_colour_row10, x                                        ;+4=
+        sta read_colour_row11, x                                        ;+4=
         ; row ... -> row 10
-        lda zp_read_buffer_screen, y    ; (zero-page, saves 40 cycles)
-        sta read_screen_row10, y
-        lda zp_read_buffer_colour, y    ; (zero-page, saves 40 cycles)
-        sta read_colour_row10, y
-        dey
+        lda zp_read_after_screen, x                                 ;zp ;+3=
+        sta read_screen_row10, x                                        ;+4=
+        lda zp_read_after_colour, x                                 ;zp ;+3=
+        sta read_colour_row10, x                                        ;+4=
+
+        dex                                                             ;+2=
         bpl -
 
-        ldy # 40
+        ldx # 39                                                        ;+2=
         ; row 25 -> row 26
-        ; the bottom line moves into the off-screen
-        ; buffer ready for if the user scrolls down
--       lda read_screen_row25-1, y
-        sta read_screen_row26-1, y
-        ; the color for the off-screen line is stored at a different
-        ; place as we cannot store data at $DC00 when I/O is on!
-        lda read_colour_row25-1, y
-        sta read_colour_row26-1, y
+        ; (the bottom line moves into the off-screen
+        ;  buffer ready for if the user scrolls down)
+-       lda read_screen_row25, x                                        ;+4=
+        sta zp_read_after_screen, x                                 ;zp ;+3=
+        lda read_colour_row25, x                                        ;+4=
+        sta zp_read_after_colour, x                                 ;zp ;+3=
         ; row 24 -> row 25
-        lda read_screen_row24-1, y
-        sta read_screen_row25-1, y
-        lda read_colour_row24-1, y
-        sta read_colour_row25-1, y
+        lda read_screen_row24, x                                        ;+4=
+        sta read_screen_row25, x                                        ;+4=
+        lda read_colour_row24, x                                        ;+4=
+        sta read_colour_row25, x                                        ;+4=
         ; row 23 -> row 24
-        lda read_screen_row23-1, y
-        sta read_screen_row24-1, y
-        lda read_colour_row23-1, y
-        sta read_colour_row24-1, y
+        lda read_screen_row23, x                                        ;+4=
+        sta read_screen_row24, x                                        ;+4=
+        lda read_colour_row23, x                                        ;+4=
+        sta read_colour_row24, x                                        ;+4=
         ; row 22 -> row 23
-        lda read_screen_row22-1, y
-        sta read_screen_row23-1, y
-        lda read_colour_row22-1, y
-        sta read_colour_row23-1, y
+        lda read_screen_row22, x                                        ;+4=
+        sta read_screen_row23, x                                        ;+4=
+        lda read_colour_row22, x                                        ;+4=
+        sta read_colour_row23, x                                        ;+4=
         ; row 21 -> row 22
-        lda read_screen_row21-1, y
-        sta read_screen_row22-1, y
-        lda read_colour_row21-1, y
-        sta read_colour_row22-1, y
+        lda read_screen_row21, x                                        ;+4=
+        sta read_screen_row22, x                                        ;+4=
+        lda read_colour_row21, x                                        ;+4=
+        sta read_colour_row22, x                                        ;+4=
         ; row 20 -> row 21
-        lda read_screen_row20-1, y
-        sta read_screen_row21-1, y
-        lda read_colour_row20-1, y
-        sta read_colour_row21-1, y
+        lda read_screen_row20, x                                        ;+4=
+        sta read_screen_row21, x                                        ;+4=
+        lda read_colour_row20, x                                        ;+4=
+        sta read_colour_row21, x                                        ;+4=
         ; row 19 -> row 20
-        lda read_screen_row19-1, y
-        sta read_screen_row20-1, y
-        lda read_colour_row19-1, y
-        sta read_colour_row20-1, y
+        lda read_screen_row19, x                                        ;+4=
+        sta read_screen_row20, x                                        ;+4=
+        lda read_colour_row19, x                                        ;+4=
+        sta read_colour_row20, x                                        ;+4=
         ; row ... -> row 19
-        lda read_screen_row0-1, y
-        sta read_screen_row19-1, y
-        lda read_colour_row0-1, y
-        sta read_colour_row19-1, y
-        dey
-        bne -                   ; stop when Y = 0 (important for later!)
+        lda zp_read_before_screen, x                                ;zp ;+3=
+        sta read_screen_row19, x                                        ;+4=
+        lda zp_read_before_colour, x                                ;zp ;+3=
+        sta read_colour_row19, x                                        ;+4=
+        
+        dex                                                             ;+2=
+        bpl -
 
         ; print the next row in the off-screen space
         ;-----------------------------------------------------------------------
@@ -1099,12 +1126,13 @@ read_scroll_up:
         ;       the need to mask the top bits prevents us
         ;       from using `sbc (zp_read_lens), y`
         ;
-+       lda (zp_read_lens), y
++       ldy # 0
+        lda (zp_read_lens), y
         and # %00111111         ; (top two bits are flags)
-        sta zp_read_row         ; (temporary use)
+        sta zp_read_len
 
         lda zp_read_top+lo
-        sbc zp_read_row         ; (length of line-data, in bytes)
+        sbc zp_read_len         ; (length of line-data, in bytes)
         sta zp_read_top+lo
         sta zp_read_char+lo     ; also set in the printing routine
         lda zp_read_top+hi
@@ -1112,20 +1140,20 @@ read_scroll_up:
         sta zp_read_top+hi
         sta zp_read_char+hi     ; also set in the printing routine
 
-        ; repeat this for the off-screen
-        ; line after the screen RAM
+        ; move the address of the line below the screen
+        ; backwards to the previous line address
         ;
         ; TODO: anyway to do this subtraction faster? (EOR-1?)
         ;       the need to mask the top bits prevents us
         ;       from using `sbc (zp_read_lens), y`
         ;
-        ldy # 26
++       ldy # 26
         lda (zp_read_lens), y   ; length of line-data, in bytes
         and # %00111111         ; (top two bits are flags)
-        sta zp_read_row         ; (temporary use)
+        sta zp_read_len
 
         lda zp_read_bot+lo
-        sbc zp_read_row         ; (length of line-data, in bytes)
+        sbc zp_read_len         ; (length of line-data, in bytes)
         sta zp_read_bot+lo
         bcs +
         dec zp_read_bot+hi
@@ -1390,46 +1418,50 @@ read_colour_row:
 ;
 read_colour_after:
         ;-----------------------------------------------------------------------
-        sta nu_colour_after+0
-        sta nu_colour_after+1
-        sta nu_colour_after+2
-        sta nu_colour_after+3
-        sta nu_colour_after+4
-        sta nu_colour_after+5
-        sta nu_colour_after+6
-        sta nu_colour_after+7
-        sta nu_colour_after+8
-        sta nu_colour_after+9
-        sta nu_colour_after+10
-        sta nu_colour_after+11
-        sta nu_colour_after+12
-        sta nu_colour_after+13
-        sta nu_colour_after+14
-        sta nu_colour_after+15
-        sta nu_colour_after+16
-        sta nu_colour_after+17
-        sta nu_colour_after+18
-        sta nu_colour_after+19
-        sta nu_colour_after+20
-        sta nu_colour_after+21
-        sta nu_colour_after+22
-        sta nu_colour_after+23
-        sta nu_colour_after+24
-        sta nu_colour_after+25
-        sta nu_colour_after+26
-        sta nu_colour_after+27
-        sta nu_colour_after+28
-        sta nu_colour_after+29
-        sta nu_colour_after+30
-        sta nu_colour_after+31
-        sta nu_colour_after+32
-        sta nu_colour_after+33
-        sta nu_colour_after+34
-        sta nu_colour_after+35
-        sta nu_colour_after+36
-        sta nu_colour_after+37
-        sta nu_colour_after+38
-        sta nu_colour_after+39
+        ; note these are in zero-page, so are 1-cycle faster
+        ; than their absolute-addressed equivilent
+        ; (3*40 = 120 cycles, 4*40 = 160 cycles)
+        ;
+        sta zp_read_after_colour+0
+        sta zp_read_after_colour+1
+        sta zp_read_after_colour+2
+        sta zp_read_after_colour+3
+        sta zp_read_after_colour+4
+        sta zp_read_after_colour+5
+        sta zp_read_after_colour+6
+        sta zp_read_after_colour+7
+        sta zp_read_after_colour+8
+        sta zp_read_after_colour+9
+        sta zp_read_after_colour+10
+        sta zp_read_after_colour+11
+        sta zp_read_after_colour+12
+        sta zp_read_after_colour+13
+        sta zp_read_after_colour+14
+        sta zp_read_after_colour+15
+        sta zp_read_after_colour+16
+        sta zp_read_after_colour+17
+        sta zp_read_after_colour+18
+        sta zp_read_after_colour+19
+        sta zp_read_after_colour+20
+        sta zp_read_after_colour+21
+        sta zp_read_after_colour+22
+        sta zp_read_after_colour+23
+        sta zp_read_after_colour+24
+        sta zp_read_after_colour+25
+        sta zp_read_after_colour+26
+        sta zp_read_after_colour+27
+        sta zp_read_after_colour+28
+        sta zp_read_after_colour+29
+        sta zp_read_after_colour+30
+        sta zp_read_after_colour+31
+        sta zp_read_after_colour+32
+        sta zp_read_after_colour+33
+        sta zp_read_after_colour+34
+        sta zp_read_after_colour+35
+        sta zp_read_after_colour+36
+        sta zp_read_after_colour+37
+        sta zp_read_after_colour+38
+        sta zp_read_after_colour+39
         
         rts
 
@@ -1442,51 +1474,52 @@ read_colour_after:
 ;
 read_colour_before:
         ;-----------------------------------------------------------------------
-        sta nu_colour_before+0
-        sta nu_colour_before+1
-        sta nu_colour_before+2
-        sta nu_colour_before+3
-        sta nu_colour_before+4
-        sta nu_colour_before+5
-        sta nu_colour_before+6
-        sta nu_colour_before+7
-        sta nu_colour_before+8
-        sta nu_colour_before+9
-        sta nu_colour_before+10
-        sta nu_colour_before+11
-        sta nu_colour_before+12
-        sta nu_colour_before+13
-        sta nu_colour_before+14
-        sta nu_colour_before+15
-        sta nu_colour_before+16
-        sta nu_colour_before+17
-        sta nu_colour_before+18
-        sta nu_colour_before+19
-        sta nu_colour_before+20
-        sta nu_colour_before+21
-        sta nu_colour_before+22
-        sta nu_colour_before+23
-        sta nu_colour_before+24
-        sta nu_colour_before+25
-        sta nu_colour_before+26
-        sta nu_colour_before+27
-        sta nu_colour_before+28
-        sta nu_colour_before+29
-        sta nu_colour_before+30
-        sta nu_colour_before+31
-        sta nu_colour_before+32
-        sta nu_colour_before+33
-        sta nu_colour_before+34
-        sta nu_colour_before+35
-        sta nu_colour_before+36
-        sta nu_colour_before+37
-        sta nu_colour_before+38
-        sta nu_colour_before+39
+        ; note these are in zero-page, so are 1-cycle faster
+        ; than their absolute-addressed equivilent
+        ; (3*40 = 120 cycles, 4*40 = 160 cycles)
+        ;
+        sta zp_read_before_colour+0
+        sta zp_read_before_colour+1
+        sta zp_read_before_colour+2
+        sta zp_read_before_colour+3
+        sta zp_read_before_colour+4
+        sta zp_read_before_colour+5
+        sta zp_read_before_colour+6
+        sta zp_read_before_colour+7
+        sta zp_read_before_colour+8
+        sta zp_read_before_colour+9
+        sta zp_read_before_colour+10
+        sta zp_read_before_colour+11
+        sta zp_read_before_colour+12
+        sta zp_read_before_colour+13
+        sta zp_read_before_colour+14
+        sta zp_read_before_colour+15
+        sta zp_read_before_colour+16
+        sta zp_read_before_colour+17
+        sta zp_read_before_colour+18
+        sta zp_read_before_colour+19
+        sta zp_read_before_colour+20
+        sta zp_read_before_colour+21
+        sta zp_read_before_colour+22
+        sta zp_read_before_colour+23
+        sta zp_read_before_colour+24
+        sta zp_read_before_colour+25
+        sta zp_read_before_colour+26
+        sta zp_read_before_colour+27
+        sta zp_read_before_colour+28
+        sta zp_read_before_colour+29
+        sta zp_read_before_colour+30
+        sta zp_read_before_colour+31
+        sta zp_read_before_colour+32
+        sta zp_read_before_colour+33
+        sta zp_read_before_colour+34
+        sta zp_read_before_colour+35
+        sta zp_read_before_colour+36
+        sta zp_read_before_colour+37
+        sta zp_read_before_colour+38
+        sta zp_read_before_colour+39
         
 -       rts
-
-;;-       !byte $22
-;;        rts
 
 ;===============================================================================
 ; decompress text:
