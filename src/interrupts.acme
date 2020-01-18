@@ -15,24 +15,12 @@
 ; works through a queue of custom scanline handlers. this allows each screen
 ; to register a simple list of routines to run for any desired scanline
 ;
-!addr {
-
-ZP_IRQ                  = $ff   ; current index in the table
-ZP_IRQS_LEN             = $fe   ; number of entries in the table
-ZP_IRQS_ADDRLO          = $fc   ; table of IRQs, interrupt routines lo-bytes
-ZP_IRQS_ADDRLO_LO       = $fc   ; - address of table field, lo-byte
-ZP_IRQS_ADDRLO_HI       = $fd   ; - address of table field, hi-byte
-ZP_IRQS_ADDRHI          = $fa   ; table of IRQs, interrupt routines hi-bytes
-ZP_IRQS_ADDRHI_LO       = $fa   ; - address of table field, lo-byte
-ZP_IRQS_ADDRHI_HI       = $fb   ; - address of table field, hi-byte
-ZP_IRQS_SCANLO          = $f8   ; table of IRQs, scanline lo-bytes
-ZP_IRQS_SCANLO_LO       = $f8   ; - address of table field, lo-byte
-ZP_IRQS_SCANLO_HI       = $f9   ; - address of table field, hi-byte
-ZP_IRQS_SCANHI          = $f6   ; table of IRQs, scanline hi-bytes
-ZP_IRQS_SCANHI_LO       = $f6   ; - address of table field, lo-byte
-ZP_IRQS_SCANHI_HI       = $f7   ; - address of table field, hi-byte
-
-}
+!addr ZP_IRQ            = $03   ; current index in the table
+!addr ZP_IRQS_LEN       = $04   ; number of entries in the table
+!addr ZP_IRQS_ADDRLO    = $05   ; interrupt routines lo-bytes
+!addr ZP_IRQS_ADDRHI    = $07   ; interrupt routines hi-bytes
+!addr ZP_IRQS_SCANLO    = $09   ; scanline lo-bytes
+!addr ZP_IRQS_SCANHI    = $0b   ; scanline hi-bytes
 
 ; some helpful scanline numbers:
 ; (0-based)
@@ -163,36 +151,36 @@ irqs_load:
         ;
         ; the first field is the interrupt-handler
         ; routine addresses, lo-bytes
-        sta+1 ZP_IRQS_ADDRLO_LO
-        stx+1 ZP_IRQS_ADDRLO_HI
+        sta+1 ZP_IRQS_ADDRLO+LO
+        stx+1 ZP_IRQS_ADDRLO+HI
         
         ; add the number of table entries to move to the next field,
         ; the interrupt-handler routine address hi-byte
         clc
         tya                     ; number of records per field
-        adc+1 ZP_IRQS_ADDRLO_LO
-        sta+1 ZP_IRQS_ADDRHI_LO
+        adc+1 ZP_IRQS_ADDRLO+LO
+        sta+1 ZP_IRQS_ADDRHI+LO
         txa
         adc # 0
-        sta+1 ZP_IRQS_ADDRHI_HI
+        sta+1 ZP_IRQS_ADDRHI+HI
         
         ; move to the next field,
         ; the scanline lo-byte
         tya                     ; number of records per field
-        adc+1 ZP_IRQS_ADDRHI_LO
-        sta+1 ZP_IRQS_SCANLO_LO
-        lda+1 ZP_IRQS_ADDRHI_HI
+        adc+1 ZP_IRQS_ADDRHI+LO
+        sta+1 ZP_IRQS_SCANLO+LO
+        lda+1 ZP_IRQS_ADDRHI+HI
         adc # 0
-        sta+1 ZP_IRQS_SCANLO_HI
+        sta+1 ZP_IRQS_SCANLO+HI
 
         ; move to the next field,
         ; the scanline hi-byte
         tya                     ; number of records per field
-        adc+1 ZP_IRQS_SCANLO_LO
-        sta+1 ZP_IRQS_SCANHI_LO
-        lda+1 ZP_IRQS_SCANLO_HI
+        adc+1 ZP_IRQS_SCANLO+LO
+        sta+1 ZP_IRQS_SCANHI+LO
+        lda+1 ZP_IRQS_SCANLO+HI
         adc # 0
-        sta+1 ZP_IRQS_SCANHI_HI
+        sta+1 ZP_IRQS_SCANHI+HI
 
         ; store the number of entries
         ; and set the starting index
@@ -222,9 +210,9 @@ irqs_load:
         ; set the central interrupt handling routine,
         ; this will read the table to chain interrupts
         lda #< irq
-        sta .HW_VECTOR_IRQ+lo
+        sta .HW_VECTOR_IRQ+LO
         lda #> irq
-        sta .HW_VECTOR_IRQ+hi
+        sta .HW_VECTOR_IRQ+HI
 
         ; this enables just the raster-interrupt on the VIC-II
         ; (sprite-sprite, sprite-background & lightpen interrupts are disabled)

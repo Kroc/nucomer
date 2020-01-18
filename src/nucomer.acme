@@ -20,16 +20,13 @@
 ;  +----+------------+----------------+----------------+--------+--------+
 ;     ^ shared code ($0400+)
 ;
-!addr {
+!addr   nu_intro        = $0400 ; address of the shared / intro code
+!addr   nu_intro_screen = $3c00 ; address of the intro screen
 
-nu_intro                = $0400 ; address of the shared / intro code
-nu_intro_screen         = $3c00 ; address of the intro screen
+!addr   nu_song         = $1000 ; address of SID song
 
-nu_song                 = $1000 ; address of SID song
+!addr   nu_main         = $8000 ; address of the main outfit code
 
-nu_main                 = $8000 ; address of the main outfit code
-
-}
 ;-------------------------------------------------------------------------------
 ; articles are loaded in from this point, though note that this includes
 ; some meta-data, compression tables and not just straight text beginning
@@ -99,8 +96,5 @@ NU_VIC_BANK             = 2     ; the VIC bank used by the outfit
 ; BSOD64 integration; not the actual BSOD64 code
 ; as that is added to the disk-image
 ;
-!addr {
-
-bsod64_jsr              = $c003
-bsod64_irq              = $c006
-}
+!addr   bsod64_jsr      = $c003
+!addr   bsod64_irq      = $c006

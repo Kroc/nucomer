@@ -124,7 +124,7 @@ format "nucomer,%02u" d64 "%s"
 write "build/boot.prg"          "boot"
 write "build/intro.prg"         "intro"
 write "build/nucomer-exo.prg"   "nucomer"
-write "src/bsod64/bsod64.prg"   "bsod64"
+write "build/bsod64.prg"        "bsod64"
 ]],     i_issue, "build/nucomer.d64"
     ))
 
