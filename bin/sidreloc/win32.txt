@@ -1,0 +1,52 @@
+sidreloc 1.0 - Built for Windows by iAN CooG/HVSC
+Thanks to lft for coding this exceptional tool and sharing the sources.
+To make a working Windows build, I had to modifiy it a little.
+
+- stdint.c not present in MSVC, so I choose to use mingw gcc.
+- err.h/err.c not present in mingw includes aswell. Copied errx() function
+  from $location_found_googling. =)
+  err() replaced with errx(), I don't know why there is any need for so many
+  functions just to fprinf(stderr, something) and exit(exit_value).
+- usage screen reformatted for 80 columns, there were just too many spaces.
+- PSID header: text fields should not be 0 padded on 32nd char anymore as
+  from HVSC#55, whole field must be used fully. If anything, the structure
+  char members should be sized 33 bytes if they are going to be used as null
+  terminated strings, but if used only with memcpy() there should be no need.
+- Bug found and removed:
+  Relocation END address is excessive if it's autodetected. By default should
+  be equal to the loading end address (up to the page boundary to be safe)
+  I don't understand the purpose of this code in sidreloc.c, so I have
+  commented it out.
+
+	for(i = 0; i < 64 && reloc_end != 0xcfff && reloc_end != 0xffff; i++) {
+		reloc_end += 0x100;
+	}
+
+  I am sure lft knew what he was doing, but I just fail to see how it could be
+  helpful in normal cases. If anyone wants to override the range, -r can be used.
+
+  Example trying to relocate from $1000 to $c000
+
+C:\> sidreloc -p c0 Zelda_Overworld_Final_Version.sid zeldac000.sid
+Zelda Overworld (Final Version), Sascha Zeidler (Linus), 2004 Sascha Zeidler, $0ff6-$1cae, 1 subtunes
+Relocating from $0f00-$5cff to $c000-$0dff
+Fatal Error: Neither the source nor the destination relocation range may overlap with the zero-page.
+
+  Why 5cff? if anything should be $1cae. Parameter -r is handy in this case.
+
+C:\> sidreloc -p c0 -r 0f-1c Zelda_Overworld_Final_Version.sid zeldac000.sid
+Zelda Overworld (Final Version), Sascha Zeidler (Linus), 2004 Sascha Zeidler, $0ff6-$1cae, 1 subtunes
+Relocating from $0f00-$1cff to $c000-$cdff
+Analysing subtune 1
+Warning: Write out of bounds at address $dc04-$dc05
+Verifying relocated subtune 1
+Bad pitches:               0, 0%
+Bad pulse widths:          0, 0%
+Relocation successful.
+
+
+  The "Write out of bounds at address $dc04-$dc05" can be safely ignored, it's
+  the CIA timers being initialized for multispeed play.
+  Anyway with the fix, now $0f00-$1cff is used by default.
+
+- iAN CooG/HVSC -
