@@ -1,4 +1,4 @@
-; nücomer magazine (c) copyright Kroc Camen 2019. unless otherwise noted,
+; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
 ; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 ; licence; you may reuse and modify this code how you please as long as you:
 ;
@@ -13,16 +13,17 @@
 
 !ct "build/scr_nucomer.ct"
 
+; constants:
+;-------------------------------------------------------------------------------
 ; theme colours
 .MENU_BORDER    = .VIC_BLACK
 .MENU_FORE      = .VIC_BLACK
 .MENU_BACK      = .VIC_LTGREY
 
-!addr {
-
-zp_menu_index   = $0f           ; currently selected menu item
-
-}
+; zero-page variables:
+;-------------------------------------------------------------------------------
++alloc  $0f
++byte   ~zp_menu_index          ; currently selected menu item
 
 ;===============================================================================
 ; table of interrupts to use for the menu screen:

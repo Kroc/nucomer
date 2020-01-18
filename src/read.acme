@@ -1,4 +1,4 @@
-; nücomer magazine (c) copyright Kroc Camen 2019. unless otherwise noted,
+; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
 ; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 ; licence; you may reuse and modify this code how you please as long as you:
 ;
@@ -251,12 +251,19 @@ read_init:
         ; populate the first screen of text
         lda # %00000000
         sta .VIC_SCREEN_VERT
-
+        
         ; set screen colour
         lda # .THEME_BORDER
         sta .VIC_BORDER
         lda # .THEME_BACK
         sta .VIC_BACKGROUND
+
+        ; initialise music player
+        ;-----------------------------------------------------------------------
+        lda # $00
+        tax
+        tay
+        jsr $1000
 
         ; clear and prepare the overlay screen
         ;-----------------------------------------------------------------------
@@ -469,7 +476,7 @@ read_footnote:
 ; beam when we do this to avoid screen-tearing, therefore we begin scrolling
 ; the top of the screen whilst the beam is in the middle of the screen
 ;
-.IRQ_SCROLL     = SCANLINE_VBLANK_BEGIN - (14 * 8)
+.IRQ_SCROLL     = SCANLINE_VBLANK_BEGIN - (17 * 8)
 
 ; the footnote overlay is unique in that it has to change the vertical scroll
 ; register within the visible screen. because the smooth scroll register could
@@ -524,13 +531,13 @@ read_irq_rti_xy:
 read_irq_rti:
         ;-----------------------------------------------------------------------
         pla                     ; restore pre-interrupt A register
-        ;;dec .VIC_BORDER
+        dec .VIC_BORDER
         rti
 
 ;===============================================================================
 read_irq_top:
         ;-----------------------------------------------------------------------
-        ; acknowledge the interrupt to prevent it double-firing;  we only need
+        ; acknowledge the interrupt to prevent it double-firing; we only need
         ; to write to the status register to do this, the value is unimportant
         inc .VIC_INTERRUPT_STATUS
         ; backup pre-interrupt A register
@@ -589,13 +596,28 @@ read_irq_top:
         ; enough that it doesn't matter between here and the RTI
         ;cli
 
+        inc .VIC_BORDER
+        txa
+        pha
+        tya
+        pha
+        lda # $00
+        tax
+        tay
+        jsr $1003
+        pla
+        tay
+        pla
+        tax
+        dec .VIC_BORDER
+
         pla                     ; restore pre-interrupt A register
         rti
 
 ;===============================================================================
 read_irq_scroll:
         ;-----------------------------------------------------------------------
-        ;;inc .VIC_BORDER
+        inc .VIC_BORDER
 
         ; acknowledge the interrupt to prevent it double-firing;  we only need
         ; to write to the status register to do this, the value is unimportant
@@ -619,7 +641,7 @@ read_irq_scroll:
         bne +                   ; if scroll-speed = 0, then skip
 
         pla
-        ;;dec .VIC_BORDER
+        dec .VIC_BORDER
         rti
 
         ; backup X & Y registers

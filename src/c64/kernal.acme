@@ -1,4 +1,4 @@
-; nücomer magazine (c) copyright Kroc Camen 2019. unless otherwise noted,
+; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
 ; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 ; licence; you may reuse and modify this code how you please as long as you:
 ;
@@ -9,7 +9,7 @@
 ;
 ;===============================================================================
 
-; BASIC programs starting address 
+; BASIC programs starting address
 !addr   .basic_start    = $0801
 
 ; these vectors are called by hardware events, independent of the KERNAL.
