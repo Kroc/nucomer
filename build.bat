@@ -12,13 +12,15 @@ SET EXOMIZER="bin\exomizer\exomizer.exe"
 
 REM # assemble BSOD64 debugger
 REM ============================================================================
+REM # the same BSOD64 binary is used across all issues,
+REM # so no need to do this as part of the per-issue build
 ECHO:
 ECHO BSOD64
 ECHO ----------------------------------------
 PUSHD src\bsod64
 
 REM # assemble BSOD64 into its own folder as its a sub-project
-
+REM #
 ..\..\%ACME% -v1 ^
      --format cbm ^
      --report "..\..\build\bsod.txt" ^
@@ -27,20 +29,92 @@ REM # assemble BSOD64 into its own folder as its a sub-project
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 POPD
+ECHO:
 
-REM # convert the article text into C64 text codes
+REM # loop through all issues...
 REM ============================================================================
+REM # begin with issue number zero
+SET /A ISSUE=0
 
-%LUA% "scripts\issue.lua"
+:next_issue
+REM ----------------------------------------------------------------------------
+REM # pad issue number to two digits;
+REM # this is used in filenames & paths
+SET "ISSUE_ID=00%ISSUE%"
+REM # take the rightmost two digits
+SET "ISSUE_ID=%ISSUE_ID:~-2%"
+REM # combine this into a folder name
+SET "ISSUE_DIR=issue#%ISSUE_ID%"
+REM # and into a path, where the issues are stored
+SET "ISSUE_PATH=issues\%ISSUE_DIR%\"
+REM # does such an issue exist?
+IF NOT EXIST "%ISSUE_PATH%" GOTO :end
+
+:do_issue
+REM ============================================================================
+REM # build an individual issue
+REM #
+ECHO Issue #%ISSUE_ID%
+ECHO ========================================
+
+REM # clear the build folder
+DEL /F /Q build\*.*  >NUL
+
+REM # process articles in the issue
+%LUA% "scripts\issue.lua" %ISSUE%
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
+REM # Process SID songs
+REM ============================================================================
+REM # walk through the list of songs:
+REM # (begin indexing from zero)
+SET /A SID=0
+FOR /F "eol=* delims=* tokens=*" %%A IN (build\i%ISSUE_ID%_sids.lst) DO (
+     IF NOT [%%~A] == [] CALL :process_sid "%%~A"
+)
+ECHO ========================================
+GOTO :assemble_outfit
+
+:process_sid
+REM ----------------------------------------------------------------------------
+REM # generate output file name
+SET "SID_ID=00%SID%"
+SET "SID_ID=%SID_ID:~-2%"
+SET "SID_NAME=%~n1"
+
+REM # announce
+SET "SID_TITLE=                                    "
+SET "SID_TITLE=%~n1%SID_TITLE%"
+SET "SID_TITLE=%SID_TITLE:~0,36%"
+<NUL (SET /P "$=%SID_TITLE%")
+
+REM # assemble the relocated SID, sans-header
+%ACME% -- "build\%SID_NAME%.acme"
+
+REM # compress the SID program...
+%EXOMIZER% raw -q ^
+     -o "build\%SID_NAME%.exo" ^
+     -- "build\%SID_NAME%.prg"
+
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+
+ECHO [OK]
+REM # next SID...
+SET /A SID=SID+1
+
+goto:eof
+
+:assemble_outfit
 REM # assemble the outfit
 REM ============================================================================
 <NUL (SET /P "$=Assemble Outfit...                  ")
 
 REM # assemble fonts
 REM ----------------------------------------------------------------------------
-%ACME% "src\fonts\admiral64.acme"
+%ACME% -- "src\fonts\admiral64.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
@@ -49,21 +123,21 @@ IF ERRORLEVEL 1 (
 
 REM # assemble the ASCII maps
 REM ----------------------------------------------------------------------------
-%ACME% "src\fonts\scr_nucomer.acme"
+%ACME% -- "src\fonts\scr_nucomer.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
      EXIT /B %ERRORLEVEL%
 )
 
-%ACME% "src\fonts\scr_reverse.acme"
+%ACME% -- "src\fonts\scr_reverse.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
      EXIT /B %ERRORLEVEL%
 )
 
-%ACME% "src\fonts\scr_logo.acme"
+%ACME% -- "src\fonts\scr_logo.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
@@ -139,9 +213,22 @@ REM # pack the outfit into a single file
 REM ----------------------------------------------------------------------------
 <NUL (SET /P "$=Pack Outfit...                      ")
 
+REM # make a copy of the first SID song to include with the outfit
+REM # program so that it doesn't need to be loaded separately
+REM # (note that in this environment, we don't know the exact file-name)
+COPY /Y ^
+     "build\i%ISSUE_ID%_s00_*.prg"    /B ^
+     "build\i%ISSUE_ID%_s00_menu.prg" /B  >NUL
+
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+
 %EXOMIZER% sfx 0x8000 -t64 -n -q ^
      -o "build\nucomer-exo.prg" ^
-     -- "build\nucomer.prg" ^
+     -- "build\i%ISSUE_ID%_s00_menu.prg" ^
+        "build\nucomer.prg" ^
         "build\admiral64.prg" ^
         "src\bsod64\build\bsod64.prg"
 
@@ -162,5 +249,7 @@ IF ERRORLEVEL 1 (
      EXIT /B %ERRORLEVEL%
 )
 ECHO [OK]
+
+:end
 
 ECHO:

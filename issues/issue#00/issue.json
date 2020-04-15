@@ -1,35 +1,51 @@
 {
-    "articles"  : [
-        {
-            "title" : "Editorial: Why 8-Bit?",
-            "scr"   : "Editorial: Why 8-Bit?",
-            "file"  : "1_editorial.nu",
-            "prg"   : "01.editorial"
-        },{
-            "title" : "The Outfit",
-            "scr"   : "The Outfit",
-            "file"  : "2_the-outfit.nu",
-            "prg"   : "02.the outfit"
-        },{
-            "title" : "Help! My Interrupt Crashed!",
-            "scr"   : "Help! My Interrupt Crashed!",
-            "file"  : "3_interrupt-crashed.nu",
-            "prg"   : "03.interrupts"
-        },{
-            "title" : "BSOD64: BRK Dancing",
-            "scr"   : "BSOD64: BRK Dancing",
-            "file"  : "4_brk-dancing.nu",
-            "prg"   : "04.brk dancing"
-        },{
-            "title" : "Next Issue...",
-            "scr"   : "Next Issue...",
-            "file"  : "next-issue.nu",
-            "prg"   : "05.next issue..."
-        },{
-            "title" : "Credits",
-            "scr"   : "Credits",
-            "file"  : "credits.nu",
-            "prg"   : "06.credits"
-        }
-    ]
+    "articles"  : [{
+        "title" : "In This Issue",
+        "scr"   : "In This Issue",
+        "file"  : "0_in-this-issue.nu",
+        "prg"   : "00.in this issue"
+    },{
+        "title" : "Editorial: Why 8-Bit?",
+        "scr"   : "Editorial: Why 8-Bit?",
+        "file"  : "1_editorial.nu",
+        "prg"   : "01.editorial"
+    },{
+        "title" : "The Outfit",
+        "scr"   : "The Outfit",
+        "file"  : "2_the-outfit.nu",
+        "prg"   : "02.the outfit"
+    },{
+        "title" : "Help! My Interrupt Crashed!",
+        "scr"   : "Help! My Interrupt Crashed!",
+        "file"  : "3_interrupt-crashed.nu",
+        "prg"   : "03.interrupts"
+    },{
+        "title" : "BSOD64: BRK Dancing",
+        "scr"   : "BSOD64: BRK Dancing",
+        "file"  : "4_brk-dancing.nu",
+        "prg"   : "04.brk dancing"
+    },{
+        "title" : "Next Issue...",
+        "scr"   : "Next Issue...",
+        "file"  : "next-issue.nu",
+        "prg"   : "05.next issue..."
+    },{
+        "title" : "Credits",
+        "scr"   : "Credits",
+        "file"  : "credits.nu",
+        "prg"   : "06.credits"
+    }],
+    "sids" : [{
+        "file"  : "Methane_02",
+        "prg"   : "methane 02"
+    },{
+        "file"  : "A_New_Millenium_Awaits_Us",
+        "prg"   : "a.n.m.a.u."
+    },{
+        "file"  : "Elder_Scrollers",
+        "prg"   : "elder scrollers"
+    },{
+        "file"  : "Arrrgh",
+        "prg"   : "arrrgh"
+    }]
 }
