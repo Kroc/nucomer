@@ -34,7 +34,7 @@ Probably the most broadly used (((by sheer number of systems))) was the Zilog Z8
 
 The Z80 is well designed, largely orthogonal, and easy to program; it has a large number of registers for an 8-bit processor (((over 20!))). The index registers are 16-bit, as is the stack. A 16-bit add instruction means that you don't have to add the two halves yourself.
 
-In fact, the Z80 is so close to being a 16-bit chip that it's a technicality that it gets labelled as 8-bit. The 8080 in the original IBM PC is in actuallity a 16-bit chip in an 8-bit socket. The 8086 is the same chip but finally with a real 16-bit bus.
+In fact, the Z80 is so close to being a 16-bit chip that it's a technicality that it gets labelled as 8-bit. The 8080 in the original IBM PC is in actuality a 16-bit chip in an 8-bit socket. The 8086 is the same chip but finally with a real 16-bit bus.
 
 Okay, so why not code for 16-bit systems? Why not just go all the way and write 64-bit ARM assembly for modern phones?
 
@@ -42,13 +42,13 @@ Okay, so why not code for 16-bit systems? Why not just go all the way and write 
 
 In other words, the choice for you to discover the system's abilities and do things your own way diminishes as systems grow more complex.
 
-An 8-bit system is wide-open in a way you may actually never have experiened with modern computing.
+*An 8-bit system is wide-open in a way you may actually never have experienced with modern computing.*
 
 The graduation between 8-bit and 16-bit systems is a lot smoother than it appears externally, so when I say "8-bit systems", what I really mean is systems with 8 OR 16-bit CPUs with a simple BIOS/DOS rather than a full-blown graphical OS that can't just be side-stepped.
 
 For example, MS-DOS BIOS calls (((hardware control))) are made using the CPU's own registers and interrupts (((easy to use with assembly))) whereas -- on the same hardware! -- Windows 3.1 mandates a C calling convention to use the Windows API; whose documentation alone spans hundreds of pages.
 
-Outside of MS-DOS however, the point where 16-bits outsrips an individual's ability boils down to graphical capabilities. 
+Outside of MS-DOS however, the point where 16-bits outstrips an individual's ability boils down to graphical capabilities.
 
 
 
@@ -58,6 +58,7 @@ Outside of MS-DOS however, the point where 16-bits outsrips an individual's abil
 
 > Your scientists were so preoccupied with whether or not they could, they didn't stop to think if they should -- Dr. Malcom, Jurassic Park
 
+--
 
 Writing Z80 assembly can sometimes feel almost like a real programming language and less like the actual lowest-level hardware behaviour of the CPU.
 
@@ -81,8 +82,6 @@ The point where 16-bits becomes a hurdle is down to graphical capabilities. Crea
 
 Of the many hundreds of brand-new games released for 8-bit systems each year, the 16-bit systems see maybe one or two each. The SNES world seems largely content with an endless stream of ~Super Mario World~ ROM hacks.
 
-, and I would recommend MS-DOS programming as just as noble and worthwhile endeavour as Commodore 64 development.
-
 You may very well want to write the next ~Minecraft~ or ~Fortnite~, but actually bringing a product to conclusion, ANYTHING AT ALL, is one of the most singularly difficult obstacles you will ever face in life.
 
 
@@ -99,12 +98,3 @@ In this way, the 6502 can teach you much your PC or smartphone never can.
 ?
 
 To me, personally, porting C to an under-powered device, and/or getting it to run Linux, essentially kills the fun. Running Linux badly and compiling existing C programs rubs against the knife-edge of "why?" -- why opt to experience the same thing you can on any modern system, only running so slowly as to be impractical?
-
-
-:: In This Issue:
-----------------------------------------
-In this, the 0th issue -- zero because it can't be a true magazine until it's had feedback and outside input -- we look at the code & design of the magazine outfit itself; the challenges of even getting some text on the screen.
-
-In ~"Help! My Interrupt Crashed!"~ I explain how an incremental approach to implementing custom interrupts will only lead to nightmarish bugs and provide a breakdown of the C64's interrupt "gotcha's".
-
-~"BSOD64: BRK Dancing"~ introduces our C64 debugger designed for users writing their first software for the platform, and explains how debugging works on the C64.

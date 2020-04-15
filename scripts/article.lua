@@ -702,6 +702,8 @@ function Article:readLine(out_lines, src_line)
             -- skip the extra byte(s)
             index = index + #em-1
 
+        -- TODO: why is this failing when encountering "---"
+        --
         elseif src_line:match("^ ?%-%- ?") then
             --------------------------------------------------------------------
             -- how many bytes is that?
