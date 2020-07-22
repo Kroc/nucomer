@@ -61,17 +61,15 @@ NU_VIC_BANK             = 2     ; the VIC bank used by the outfit
 !addr   vic_font_up     = $9000
 !addr   vic_font_lo     = $9800
 
-+alloc  $b000
-
 ; start address of graphics space
-+addr   ~nu_gfx
++alloc  $b000
++addr   ~nu_gfx                                                         ;$B000+
 ; our custom font, we only need 2K
 ; as we only use one character set
-+bytes  ~nu_font,       2048
++bytes  ~nu_font,       2048                                            ;$B000
 
-+bytes  ~nu_screen,     1024
-; address of the 2nd screen used for overlay
-+bytes  ~nu_overlay,    1024
++bytes  ~nu_screen,     1024    ; address of the screen                 ;$B800
++bytes  ~nu_overlay,    1024    ; a 2nd screen used for the overlay     ;$BC00
 
 ;-------------------------------------------------------------------------------
 ; BSOD64 integration; not the actual BSOD64 code

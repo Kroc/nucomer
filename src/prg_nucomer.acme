@@ -49,6 +49,13 @@ init:   ; setup screen:
         lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
         sta .VIC_LAYOUT
 
+        ; before our custom IRQs are initialised, make sure that the address
+        ; for playing music is set to $0000 (do not play music). we can't
+        ; try to play the song before it's initialised!
+        lda # 0
+        sta+1 ZP_SONG_PLAY+lo
+        sta+1 ZP_SONG_PLAY+hi
+
         ; start menu screen:
         ;-----------------------------------------------------------------------
         jsr irqs_init
@@ -58,6 +65,10 @@ init:   ; setup screen:
         ;;dec .CPU_CONTROL
         dec .CPU_CONTROL
         dec .CPU_CONTROL
+
+        ; initialise the SID music. the custom IRQs
+        ; will handle playing the song for each frame
+        jsr music_init
 
         ; from here, there is no going back...
         jsr menu_screen
@@ -69,13 +80,15 @@ init:   ; setup screen:
 
 !source "print.acme"            ; global string-printing routines
 !source "keyboard.acme"
+!source "music.acme"            ; music loading / playing routines
+!source "menu.acme"             ; menu screen
+!source "read.acme"             ; text screen
 
-!source "menu.acme"
-!source "read.acme"
-
-
+; the main code & gfx share a VIC bank, make sure that the outfit code
+; does not spill over into the reserved graphics space (font, screens)
+;
 !ifdef WARN_OVERFLOW !eof
 !if * >= nu_gfx {
         WARN_OVERFLOW = 1
-        !warn "Outfit overflows its boundary! * = ", *
+        !serious "Main code overflows into graphics! * = ", *
 }

@@ -13,6 +13,7 @@
 
 !source "c64/cia.acme"
 !source "c64/vic.acme"
+!source "c64/sid.acme"
 !source "c64/kernal.acme"
 
 ;-------------------------------------------------------------------------------

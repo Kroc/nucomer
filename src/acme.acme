@@ -14,7 +14,7 @@
 !set    hi = 1
 
 ; variable for address allocation:
-!set    __alloc_addr    = $0000
+!set    __alloc_addr    = $02
 
 ; set the allocation address:
 ;-------------------------------------------------------------------------------

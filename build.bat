@@ -21,13 +21,15 @@ PUSHD src\bsod64
 
 REM # assemble BSOD64 into its own folder as its a sub-project
 REM #
-..\..\%ACME% -v1 ^
-     --format cbm ^
-     --report "..\..\build/bsod.txt" ^
+%ACME% -v1 ^
+    -l "bsod64.sym" ^
+    --format cbm ^
      -Wtype-mismatch ^
-          "bsod64.acme"
+      "bsod64.acme"
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+
+TITLE Building Nucomer...
 POPD
 ECHO:
 
