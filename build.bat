@@ -28,6 +28,8 @@ REM #
           "bsod64.acme"
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+
+TITLE Building Nucomer...
 POPD
 ECHO:
 

@@ -18,11 +18,10 @@
 .MENU_FORE      = .VIC_BLACK
 .MENU_BACK      = .VIC_LTGREY
 
-!addr {
-
-zp_menu_index   = $0f           ; currently selected menu item
-
-}
+; zero-page variables:
+;-------------------------------------------------------------------------------
++alloc  $0f
++byte   ~zp_menu_index          ; currently selected menu item          ;$0F
 
 ;===============================================================================
 ; table of interrupts to use for the menu screen:
@@ -112,7 +111,9 @@ menu_irq_logo_end:
 
         ; TODO: colour-wash the logo
 
-        rts
+        ; play music:
+        ;-----------------------------------------------------------------------
+        jmp music_play
 
 @colours
         ;-----------------------------------------------------------------------
@@ -311,13 +312,13 @@ menu_refresh:
 
         rts
 
+
+menu_load:
 ;===============================================================================
 ; load an article:
 ;
 ; TODO: transition screen out
-;
-menu_load:
-        ;-----------------------------------------------------------------------
+;-------------------------------------------------------------------------------
         ; turn the screen off
         lda # %00001000
         sta .VIC_SCREEN_CTL1
@@ -334,7 +335,6 @@ menu_load:
         sta .VIC_LAYOUT
 
         ; set the KERNAL load properties:
-        sei                     ; disable interrupts
         inc .CPU_CONTROL        ; enable the KERNAL
 
         ldx+1 .ZP_KERNAL_DEV    ; last-used KERNAL device number
@@ -375,12 +375,10 @@ menu_load:
         brk                     ; BSOD!
 
 +       dec .CPU_CONTROL        ; turn KERNAL off
-        cli
         
-        ; switch to the reading screen...
-        jsr read_init
-        ; upon return, restart the menu screen
-        jmp menu_screen
+        jsr read_init           ; switch to the reading screen...
+        jmp menu_screen         ; upon return, restart the menu screen
+
 
 menu_petscii_logo:
 ;===============================================================================
@@ -408,6 +406,7 @@ menu_str_help:
         }
         !text   "select"
         !byte   $ff
+
 
 menu_db:
 ;===============================================================================

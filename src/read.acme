@@ -27,43 +27,43 @@
 ; is limited to $7FFF (32'767) pixels high, equivalant to 4'095 lines,
 ; or 170 screens high!
 ;
-+word   ~zp_read_vlen
++word   ~zp_read_vlen                                                   ;$20/21
 
 ; exact scroll position -- in pixels!
-+word   ~zp_read_vpos
++word   ~zp_read_vpos                                                   ;$22/23
 
 ; scroll accumulator, used for changing the speed
 ; of smooth scrolling; a signed byte
-+byte   ~zp_read_scroll
++byte   ~zp_read_scroll                                                 ;$24
 
 ; flag to indicate to disallow upward scrolling
 ; (prevents smooth scrolling at top of article)
-+byte   ~zp_read_stop_up        ; $00 = go, $FF = stop
++byte   ~zp_read_stop_up        ; $00 = go, $FF = stop                  ;$25
 ; flag to indicate to disallow downward scrolling
 ; (prevents smooth scrolling at bottom of article)
-+byte   ~zp_read_stop_dn        ; $00 = go, $FF = stop
++byte   ~zp_read_stop_dn        ; $00 = go, $FF = stop                  ;$26
 
 ; pointer into the line-length array:
-+word   ~zp_read_lens
++word   ~zp_read_lens                                                   ;$27/28
 ; address of the line data that appears at the top of the screen:
 ; (changes only when scrolling, not during printing)
-+word   ~zp_read_top
++word   ~zp_read_top                                                    ;$29/2A
 ; number of rows to print: (1-based)
-+byte   ~zp_read_rows
++byte   ~zp_read_rows                                                   ;$2B
 ; current row on screen being printed: (0-26)
-+byte   ~zp_read_row
++byte   ~zp_read_row                                                    ;$2C
 ; pointer to the current row's line-data;
 ; this is always where line-data is read from
-+word   ~zp_read_char
++word   ~zp_read_char                                                   ;$2D/2E
 ; current line data-length, in bytes:
-+byte   ~zp_read_len
++byte   ~zp_read_len                                                    ;$2F
 ; indexes used when processing line colour-data (it's faster in this
 ; instance to use zero-page than use the stack or self-modifying-code)
-+byte   ~zp_read_index_data
-+byte   ~zp_read_index_col
++byte   ~zp_read_index_data                                             ;$30
++byte   ~zp_read_index_col                                              ;$31
 ; address of the line that appears at the bottom of the screen:
 ; (changes only when scrolling, not during printing)
-+word   ~zp_read_bot
++word   ~zp_read_bot                                                    ;$32/33
 
 ; for text decompression, a buffer of 40 bytes is required; located in
 ; the zero-page for maximum speed. we _could_ decompress directly into
@@ -462,7 +462,8 @@ read_footnote:
 
 ; hard scrolling the screen takes a lot of cycles and we must be ahead of the
 ; beam when we do this to avoid screen-tearing, therefore we begin scrolling
-; the top of the screen whilst the beam is in the middle of the screen
+; the screen whilst the beam is in the middle of the screen with the goal
+; that the scroll will be complete before the beam gets back around
 ;
 .IRQ_SCROLL     = SCANLINE_VBLANK_BEGIN - (14 * 8)
 
@@ -522,10 +523,13 @@ read_irq_rti:
         ;;dec .VIC_BORDER
         rti
 
+
+
 ;===============================================================================
+; IRQ handler for the interrupt that occurs above the top of the visible screen
+;-------------------------------------------------------------------------------
 read_irq_top:
-        ;-----------------------------------------------------------------------
-        ; acknowledge the interrupt to prevent it double-firing;  we only need
+        ; acknowledge the interrupt to prevent it double-firing; we only need
         ; to write to the status register to do this, the value is unimportant
         inc .VIC_INTERRUPT_STATUS
         ; backup pre-interrupt A register
@@ -572,20 +576,25 @@ read_irq_top:
 
         ; chain the next IRQ
         ;-----------------------------------------------------------------------
-        sei                     ; disable interrupts
-        lda # .IRQ_SCROLL
+        ; this interrupt does not allow itself to be interrupted, therefore
+        ; we do not need to explicitly disable interrupts before making changes
+        ; to the interrupt vectors. X & Y registers are not used to save time
+        ; having to backup and restore them
+        ; 
+        lda # .IRQ_SCROLL       ; next scanline to interrupt at
         sta .VIC_SCANLINE
         lda #< read_irq_scroll
         sta .HW_VECTOR_IRQ+LO
         lda #> read_irq_scroll
         sta .HW_VECTOR_IRQ+HI
-        ; we're going to skip re-enabling interrupts as the RTI instruction
-        ; will pop the pre-interrupt state, re-enabling the interrupts soon
-        ; enough that it doesn't matter between here and the RTI
-        ;cli
 
+        ; play music:
+        ;-----------------------------------------------------------------------
+        jsr music_play
+
+        ;-----------------------------------------------------------------------
         pla                     ; restore pre-interrupt A register
-        rti
+        rti                     ; return from interrupt - enables interrupts
 
 ;===============================================================================
 read_irq_scroll:
@@ -1139,7 +1148,7 @@ read_scroll_up:
 ;       Y = row to begin printing
 ;       X = number of lines to print (1-based)
 ;       
-; the address to read data from must already be set in:
+; the address to read compressed line-data from must already be set in:
 ;
 ;       zp_read_char
 ;
@@ -1207,7 +1216,12 @@ read_print:
         ; the number of characters to print (0-based) will be returned in X
 @print: jsr read_decompress
 
-        ; TODO:
+        ; TODO: if the output address of the decompression routine is modified
+        ;       prior to printing, then we can do away with this copy, however
+        ;       we still need to fill the remainder of the line with spaces,
+        ;       and ideally there needs to be paths for absolute and zero-page
+        ;       based output buffers
+        ;
         ldx # 39
 -       lda+1 zp_read_buffer, x ; read a character from the buffer
 @out    sta nu_screen, x        ; print the character

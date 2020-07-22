@@ -15,25 +15,25 @@
 ; works through a queue of custom scanline handlers. this allows each screen
 ; to register a simple list of routines to run for any desired scanline
 ;
-!addr ZP_IRQ            = $03   ; current index in the table
-!addr ZP_IRQS_LEN       = $04   ; number of entries in the table
-!addr ZP_IRQS_ADDRLO    = $05   ; interrupt routines lo-bytes
-!addr ZP_IRQS_ADDRHI    = $07   ; interrupt routines hi-bytes
-!addr ZP_IRQS_SCANLO    = $09   ; scanline lo-bytes
-!addr ZP_IRQS_SCANHI    = $0b   ; scanline hi-bytes
+!addr ZP_IRQ            = $03   ; current index in the table            ;$03
+!addr ZP_IRQS_LEN       = $04   ; number of entries in the table        ;$04
+!addr ZP_IRQS_ADDRLO    = $05   ; interrupt routines lo-bytes           ;$05/06
+!addr ZP_IRQS_ADDRHI    = $07   ; interrupt routines hi-bytes           ;$07/08
+!addr ZP_IRQS_SCANLO    = $09   ; scanline lo-bytes                     ;$09/0A
+!addr ZP_IRQS_SCANHI    = $0b   ; scanline hi-bytes                     ;$0B/0C
 
 ; some helpful scanline numbers:
 ; (0-based)
 ;
-SCANLINE_VBLANK_END     = 51
-SCANLINE_VBLANK_BEGIN   = 251
+SCANLINE_VBLANK_END     = 51    ; end of the top-border
+SCANLINE_VBLANK_BEGIN   = 251   ; beginning of the bottom-border
 SCANLINE_PAL            = 311   ; PAL machines have 312 lines
 SCANLINE_NTSC_NEW       = 261   ; most NTSC machines have 262 lines
 SCANLINE_NTSC_OLD       = 262   ; very early NTSC machines have 263 lines
 
-;===============================================================================
+
 irqs_init:
-        ;-----------------------------------------------------------------------
+;===============================================================================
         sei                     ; disable interrupts whilst we alter them
 
         ; turn off all interrupts on CIA1. note that bit 7 is used to fill all
@@ -71,12 +71,13 @@ irqs_init:
         ; put the KERNAL-off interrupt-handler on stand-by
         ; (fall-through to the routine below)
 
+
+irqs_disable:
 ;===============================================================================
 ; switch off the custom VIC-II raster interrupts:
 ; (doesn't disable the other interrupts on the CIAs)
 ;
-irqs_disable:
-        ;-----------------------------------------------------------------------
+;-------------------------------------------------------------------------------
         sei                     ; disable interrupts whilst we alter them
 
         ; disable all forms of VIC-II interrupts
@@ -109,12 +110,13 @@ irqs_disable:
         cli                     ; enable interrupts
         rts
 
+
+irqs_default:
 ;===============================================================================
 ; the default table of interrupts, consisting of addresses & scanline-numbers:
 ; the order of the entries is last-to-first as the code reads them backwards
 ; for speed / simplicity reasons
 ;
-irqs_default:
 ;-------------------------------------------------------------------------------
 irqs_default_addr_lo:
         !byte   <irq_nop
@@ -131,16 +133,16 @@ irq_nop:
         ;
         rts
 
+
+irqs_load:
 ;===============================================================================
 ; set up custom interrupts using an interrupt table:
 ; (the default table above gives an example)
 ;
-;       A = address of IRQ table, lo-byte
-;       X = address of IRQ table, hi-byte
-;       Y = number of entries in the table (1-based)
-;
-irqs_load:
-        ;-----------------------------------------------------------------------
+; in:   A       address of IRQ table, lo-byte
+;       X       address of IRQ table, hi-byte
+;       Y       number of entries in the table (1-based)
+;-------------------------------------------------------------------------------
         sei                     ; disable interrupts whilst we alter them
 
         ; configure table
@@ -222,9 +224,9 @@ irqs_load:
         cli
         rts
 
-;===============================================================================
+
 nmi_debug:
-        ;-----------------------------------------------------------------------
+;===============================================================================
         pha
         txa
         pha
@@ -242,12 +244,13 @@ nmi_disable:
         ;-----------------------------------------------------------------------
         rti
 
+
+irq_kernal_off:
 ;===============================================================================
 ; when the KERNAL is off, but no raster interrupts are in use, this simple
 ; IRQ handler does the minimum amount necessary to service the interrupt
 ;
-irq_kernal_off:
-        ;-----------------------------------------------------------------------
+;-------------------------------------------------------------------------------
         ; acknowledge the interrupt to prevent it double-firing.
         ; we only need to write to the status register to do this
         inc .VIC_INTERRUPT_STATUS
@@ -301,6 +304,30 @@ irq_kernal_on:
         ; (restore processor flags, enable interrupts)
         rti
 
+
+; the 6502 wastes extra cycles when branches or indexed reads cross a page
+; boundary ($FF->$00) which could throw our timings off, therefore we align
+; this routine to ensure that the code will not cross a boundary before the
+; stabilisation is complete
+;
+!align  $ff, 0
+
+; TODO: handle with KERNAL on?
+; KERNAL cycles:
+;       <interrupt>                                                     ;+7=7
+;       pha                                                             ;+3=10
+;	txa                                                             ;+2=12
+;	pha                                                             ;+3=15
+;	tya                                                             ;+2=17
+;	pha                                                             ;+3=20
+;	tsx                                                             ;+2=22
+;	lda $104,x      ; get old p status                              ;+4=26
+;	and #$10        ; break flag?                                   ;+2=28
+;	beq puls1       ; ...no                                         ;+3=31
+;	jmp (cbinv)     ; ...yes...break instr                          ;+5
+;puls1	jmp (cinv)      ; ...irq                                        ;+5=36
+
+irq:                                                                    ;cycles
 ;===============================================================================
 ; the main interrupt handler that manages the raster interrupt list:
 ;
@@ -318,19 +345,11 @@ irq_kernal_on:
 ; due to the amount of work we need to do to set up the next interrupt,
 ; two lines are skipped
 ;
-; the 6502 wastes extra cycles when branches or indexed reads cross a page
-; boundary ($FF->$00) which could throw our timings off, therefore we align
-; this routine to ensure that the code will not cross a boundary before the
-; stabilisation is complete
-;
-!align  $ff, 0
-
-irq:                                                                    ;cycles
-        ;-----------------------------------------------------------------------
+;-------------------------------------------------------------------------------
         ; note that an interrupt takes 7 cycles to execute              ;+7=7
         ; before we get to this point
 
-        ; acknowledge the interrupt to prevent it double-firing.
+        ; acknowledge the current interrupt to prevent it double-firing;
         ; we only need to write to the status register to do this
         inc .VIC_INTERRUPT_STATUS                                       ;+6=13
 
@@ -432,10 +451,10 @@ irq:                                                                    ;cycles
 ;===============================================================================
 ; wait for a given number of frames to pass:
 ;
-;       X = number of frames to wait (1-based)
-;
+; in:   X       number of frames to wait (1-based)
+;-------------------------------------------------------------------------------
 wait_frames:
-        ;-----------------------------------------------------------------------
+        
 -       jsr wait_frame
         dex
         bne -

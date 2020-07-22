@@ -256,7 +256,7 @@ write "src/bsod64/build/bsod64.prg" "bsod64"
         -- this meta-data will be used to generate a table for the C64
         --
         table.insert(self.sids, {
-            -- the name of the SID's program file on the disk
+            -- the name of the SID's program file on the C64 disk
             -- TODO: change this to ".exo" to include the exomized SID
             prg     = j_sid["prg"]:sub(1, 16),
             init    = sid_init,     -- address to call to intitialise SID
@@ -433,6 +433,74 @@ function Issue:_writedb ()
         f_out:write(string.format("        !pet    \"%s\"", item.prg))
         -- pad with zeroes?
         local pad = 16 - #item.prg
+        if pad > 0 then
+            for _ = 1, pad do
+                f_out:write(", 0")
+            end
+        end
+        -- don't forget to end the line!
+        f_out:write("\n")
+    end
+
+    -- output the SID data:
+    ----------------------------------------------------------------------------
+    -- the number of songs is provided as a constant
+    -- so it can be assembled directly into the outfit
+    f_out:write("\n")
+    f_out:write(string.format(
+        ".SID_DB_COUNT                   = %i\n\n",
+        #self.sids
+    ))
+
+    f_out:write("sid_db:\n")
+
+    -- table of initialisation addresses for each song
+    f_out:write("sid_db_init_lo:\n")
+    for _,sid in ipairs(self.sids) do
+        f_out:write(string.format(
+            "        !byte   <$%04x\n",
+            sid.init
+        ))
+    end
+    f_out:write("\n")
+
+    f_out:write("sid_db_init_hi:\n")
+    for _,sid in ipairs(self.sids) do
+        f_out:write(string.format(
+            "        !byte   >$%04x\n",
+            sid.init
+        ))
+    end
+    f_out:write("\n")
+
+    -- table of play addresses for each song
+    f_out:write("sid_db_play_lo:\n")
+    for _,sid in ipairs(self.sids) do
+        f_out:write(string.format(
+            "        !byte   <$%04x\n",
+            sid.play
+        ))
+    end
+    f_out:write("\n")
+
+    f_out:write("sid_db_play_hi:\n")
+    for _,sid in ipairs(self.sids) do
+        f_out:write(string.format(
+            "        !byte   >$%04x\n",
+            -- for reasons I don't understand, the play address in SID files
+            -- has a high-byte of $00 and we need to re-use the init hi-byte
+            sid.init
+        ))
+    end
+    f_out:write("\n")
+
+    f_out:write("sid_db_prg_strs:\n")
+    f_out:write("        ; PRG filenames (padded to 16 bytes each)\n")
+    for _,sid in ipairs(self.sids) do
+        -- use ACME to convert the ASCII filename to PETSCII
+        f_out:write(string.format("        !pet    \"%s\"", sid.prg))
+        -- pad with zeroes?
+        local pad = 16 - #sid.prg
         if pad > 0 then
             for _ = 1, pad do
                 f_out:write(", 0")
