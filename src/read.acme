@@ -240,15 +240,19 @@ read_style5_colour:     !byte   .THEME_SOFT     ; soft / aside text
 read_style6_colour:     !byte   .THEME_URL      ; URL
 read_style7_colour:     !byte   .THEME_WARN     ; warning / error
 
-;===============================================================================
+
 read_init:
-        ;-----------------------------------------------------------------------
-        ; setup the screen:
-        ;
-        ; turn the screen off whilst we
-        ; populate the first screen of text
-        lda # %00000000
-        sta .VIC_SCREEN_VERT
+;===============================================================================
+; initialise the read screen -- the article to display is assumed to already
+; be loaded into RAM
+;-------------------------------------------------------------------------------
+        lda # %00000000         ; turn the screen off whilst we
+        sta .VIC_SCREEN_VERT    ; populate the first screen of text
+
+        ; we're going to use completely custom raster interrupts on this page
+        ; for speed -- every cycle is needed for scrolling! -- so we disable
+        ; the auto-stabilised raster interrupt system used by the menu
+        jsr irqs_disable
 
         ; set screen colour
         lda # .THEME_BORDER
@@ -434,8 +438,7 @@ read_keyboard:
         jmp *
 
         ; TODO: transition out
-@exit   jsr irqs_disable        ; tear down the custom interrupt handlers
-        rts                     ; return to the menu
+@exit   rts                     ; return to the menu
 
 ;===============================================================================
 ; display a footnote
@@ -915,11 +918,12 @@ read_scroll_down:
 
         jmp read_irq_rti_xy
 
+
+read_scroll_up:
 ;===============================================================================
 ; scroll the article up a line:
 ;
-read_scroll_up:
-        ;-----------------------------------------------------------------------
+;-------------------------------------------------------------------------------
         ; copy the screen down a row:
         ;
         ; credit for this particular methodology must go to Richard Bayliss
@@ -1145,6 +1149,8 @@ read_scroll_up:
 +       ldy # 0                 ; starting row
         ldx # 1                 ; number of rows to print
 
+
+read_print:
 ;===============================================================================
 ; print a number of lines from the article to the screen:
 ;
@@ -1155,8 +1161,7 @@ read_scroll_up:
 ;
 ;       zp_read_char
 ;
-read_print:
-        ;-----------------------------------------------------------------------
+;------------------------------------------------------------------------------- 
         ; prepare for printing:
         ;
         stx+1 zp_read_rows      ; number of lines to print (1-based)
@@ -1502,21 +1507,17 @@ read_colour_before:
         
 -       rts
 
-;;-       !byte $22
-;;        rts
 
+read_decompress:
 ;===============================================================================
 ; decompress text:
 ;
-; params:
-;       Y = number of [compressed] bytes to read
-;           (value is clobbered on return)
+; in:   Y       number of [compressed] bytes to read
 ;
-; returns:
-;       X = number of characters in the buffer to print
+; out:  X       number of characters in the buffer to print
+;       A, Y    (clobbered)
 ;
-read_decompress:
-        ;-----------------------------------------------------------------------
+;-------------------------------------------------------------------------------
         lda # 0                                                         ;+2=2
         ; initialise our position within the decompression buffer
         sta+1 zp_read_buffer_index                                      ;+3=5

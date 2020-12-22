@@ -24,6 +24,33 @@ song_selected:  !byte   1
 song_loaded:    !byte   1
 
 
+music_irqs:
+;===============================================================================
+; this is a raster interrupt table to just play music for each frame:
+; (use `irqs_load` from "interrupts.acme" to use it). note that the song
+; must have been initialised (`music_init`) first in order to play
+;
+;-------------------------------------------------------------------------------
+music_irqs_addr_lo:
+        !byte   <music_play
+music_irqs_addr_hi:
+        !byte   >music_play
+music_irqs_scanline_lo:
+        !byte   <SCANLINE_VBLANK_BEGIN
+music_irqs_scanline_hi:
+        !byte   >SCANLINE_VBLANK_BEGIN << 7
+
+.MUSIC_IRQS     = 1
+
+
+music_load_irq:
+;===============================================================================
+        lda #< music_irqs       ; address of music IRQ table, lo-byte
+        ldx #> music_irqs       ; address of music IRQ table, hi-byte
+        ldy # .MUSIC_IRQS       ; number of entries in the table (1-based)
+        jmp irqs_load
+
+
 music_stop:
 ;===============================================================================
 ; stops the music playing and resets the SID chip.
@@ -90,7 +117,7 @@ music_init:
 
         ; call the song's initialisation routine:
         ;
-        ; NOTE: A is the sub-song. we zero X & Y as there is not standard
+        ; NOTE: A is the sub-song. we zero X & Y as there is no standard
         ;       for what these should do for any given SID and some SIDs
         ;       use these as extra initialisation parameters
         ;

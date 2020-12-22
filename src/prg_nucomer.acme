@@ -25,11 +25,9 @@ init:   ; setup screen:
         lda # %00110111
         sta .CPU_CONTROL
         
-        ; turn the screen off whilst we fiddle with the VIC settings
-        lda # %00000000
-        sta .VIC_SCREEN_CTL1
-        ; clear the garbage byte!
-        sta vic_garbage+0
+        lda # %00000000         ; turn the screen off whilst we
+        sta .VIC_SCREEN_CTL1    ; fiddle with the VIC settings
+        sta vic_garbage+0       ; clear the garbage byte!
 
         ; change the VIC bank
         ;
@@ -83,6 +81,8 @@ init:   ; setup screen:
 !source "music.acme"            ; music loading / playing routines
 !source "menu.acme"             ; menu screen
 !source "read.acme"             ; text screen
+
+end_of_code:
 
 ; the main code & gfx share a VIC bank, make sure that the outfit code
 ; does not spill over into the reserved graphics space (font, screens)
