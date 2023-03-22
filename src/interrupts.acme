@@ -105,7 +105,7 @@ irqs_disable:
 
         ; and likewise for when the KERNAL is on
         ;
-        ; the C64 doesn't have a separate hardware vector for the BRK
+        ; the 6502/6510 doesn't have a separate hardware vector for the BRK
         ; instruction (a great shame), so the KERNAL's IRQ handler detects
         ; the BRK-bit and jumps to a user-vector. we need to catch this as
         ; the machine will crash if RESTORE is pressed when the KERNAL is on,
@@ -247,7 +247,7 @@ nmi_debug:
         jmp bsod64_irq          ; invoke BSOD64!
 
 ; exiting without acknowledging the NMI interrupt (via write to $DD0D)
-; will effectively disable further NMIs from occuring. further details
+; will effectively disable further NMIs from occuring. details of this
 ; can be read here: https://codebase64.org/doku.php?id=base:nmi_lock
 ;
 nmi_disable:
@@ -272,6 +272,17 @@ irq_kernal_off:
         tya                     ; backup pre-interrupt...
         pha                     ; ...Y register
 
+        ;-----------------------------------------------------------------------
+        ; check if BRK occurred:
+        tsx                     ; we need to look on the stack
+        lda $0104, x            ; retrieve the processor flags at interrupt
+        and # %00010000         ; check the BRK bit
+        beq +
+        jsr bsod64_irq          ; invoke BSOD64!
+
++       ; fallthrough
+        ; ...
+
 ; when the KERNAL ROM is switched on, it controls the interrupt vectors at
 ; $FFFA-$FFFF. this means that there's some extra indirection that happens
 ; whenever an IRQ occurs. first, the KERNAL pushes A, X & Y onto the stack
@@ -289,13 +300,6 @@ irq_kernal_off:
 ; stock ROMs and this might not be the case!
 ;
 irq_kernal_on:
-        ;-----------------------------------------------------------------------
-        ; check if BRK occurred:
-        tsx                     ; we need to look on the stack
-        lda $0104, x            ; retrieve the processor flags at interrupt
-        and # %00010000         ; check the BRK bit
-        beq +
-        jmp bsod64_irq          ; invoke BSOD64!
         ;-----------------------------------------------------------------------
         ; pull the registers from the stack
         ; (in reverse order)
