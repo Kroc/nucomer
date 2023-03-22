@@ -97,7 +97,7 @@ print_str_pos:
         ; over from $FF to $00), then it will stop printing
         bne @from
 
-+       lda zp_print_colour     ; get the colour for the text
++       lda+1 zp_print_colour   ; get the colour for the text
 
         ; the Y register contains the number of characters written,
         ; we can now rewind this to quickly apply the colour
@@ -154,7 +154,7 @@ print_str:
         ; so we use a pre-decrement loop where the colour is applied *after*
         ; having decremented Y, so that the 0 index gets included
         ;
-+       lda zp_print_colour     ; text-colour to use
++       lda+1 zp_print_colour   ; text-colour to use
 -       dey
 @color  sta $d800, y
         bne -

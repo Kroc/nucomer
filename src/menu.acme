@@ -153,7 +153,7 @@ menu_screen:
         ; print the logo with the base colour;
         ; we're going to recolour just the letters
         lda # .VIC_DKGREY
-        sta zp_print_colour
+        sta+1 zp_print_colour
        +print_str_pos       menu_petscii_logo
 
         ; begin at the end of the logo and work backwards
@@ -172,7 +172,7 @@ menu_screen:
         bpl -                   ; (always branches)
 
 +       lda # .VIC_BLACK
-        sta zp_print_colour
+        sta+1 zp_print_colour
 
        +print_str_pos   menu_str_subline
        +print_str_pos   menu_str_help
@@ -181,7 +181,7 @@ menu_screen:
         ;-----------------------------------------------------------------------
         ; select the first menu item by default
         lda # 0
-        sta zp_menu_index
+        sta+1 zp_menu_index
         
         ; draw the menu items on the screen
         jsr menu_refresh
@@ -224,19 +224,19 @@ menu_keyboard:
         bne @up                 ; if yes, it's CRSR-UP
 
         ; crsr-dn: move to the next menu item
-@dn     ldy zp_menu_index       ; what's the currently selected menu item?
+@dn     ldy+1 zp_menu_index     ; what's the currently selected menu item?
         iny                     ; if we were to move down...
         cpy # .MENU_DB_COUNT    ; would we go below the bottom? (1-based)
         beq menu_keyboard       ; if at the bottom, move no further
-        inc zp_menu_index
+        inc+1 zp_menu_index
         jsr menu_refresh
         jmp menu_keyboard
 
         ; crsr-up: move to the previous menu item
-@up     ldy zp_menu_index       ; what's the currently selected menu item?
+@up     ldy+1 zp_menu_index     ; what's the currently selected menu item?
         dey                     ; if we were to move up?
         bmi menu_keyboard       ; if already at top, move no further
-        dec zp_menu_index
+        dec+1 zp_menu_index
         jsr menu_refresh
         jmp menu_keyboard
 
@@ -274,12 +274,12 @@ menu_refresh:
         ; set the text colour:
         ;-----------------------------------------------------------------------
 @i      ldy # $88               ; retrieve the menu index
-        cpy zp_menu_index       ; is this the selected menu item?
+        cpy+1 zp_menu_index     ; is this the selected menu item?
         bne +                   ; no, use standard colour
         lda # .VIC_BLACK        ; yes, use selected colour
        +bit_skip2               ; skip over the next instruction
 +       lda # .VIC_DKGREY
-        sta zp_print_colour
+        sta+1 zp_print_colour
 
         ; print the string:
         ;-----------------------------------------------------------------------
@@ -292,7 +292,7 @@ menu_refresh:
 
         ; mark the selected menu item:
         ;-----------------------------------------------------------------------
-        ldy zp_menu_index
+        ldy+1 zp_menu_index
         lda menu_db_cols, y     ; column number
         tax                     ; must be in X
         lda menu_db_rows, y     ; row in Y
@@ -337,7 +337,7 @@ menu_load:
         sei                     ; disable interrupts
         inc .CPU_CONTROL        ; enable the KERNAL
 
-        ldx .ZP_KERNAL_DEV      ; last-used KERNAL device number
+        ldx+1 .ZP_KERNAL_DEV    ; last-used KERNAL device number
         bne +                   ; not 0? good
         ldx # .DEV_DRV8         ; default to drive 8
 +       ldy # $01               ; use load address in file
@@ -345,7 +345,7 @@ menu_load:
         jsr .KERNAL_SETLFS
 
         ; read the address of the filename:
-        ldy zp_menu_index       ; currently selected menu item
+        ldy+1 zp_menu_index     ; currently selected menu item
         lda menu_db_prg_lens, y ; get string length from the menu database
         pha                     ; put aside whilst we reuse register A
         

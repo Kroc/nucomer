@@ -163,51 +163,51 @@ irqs_load:
         ;
         ; the first field is the interrupt-handler
         ; routine addresses, lo-bytes
-        sta ZP_IRQS_ADDRLO_LO
-        stx ZP_IRQS_ADDRLO_HI
+        sta+1 ZP_IRQS_ADDRLO_LO
+        stx+1 ZP_IRQS_ADDRLO_HI
         
         ; add the number of table entries to move to the next field,
         ; the interrupt-handler routine address hi-byte
         clc
         tya                     ; number of records per field
-        adc ZP_IRQS_ADDRLO_LO
-        sta ZP_IRQS_ADDRHI_LO
+        adc+1 ZP_IRQS_ADDRLO_LO
+        sta+1 ZP_IRQS_ADDRHI_LO
         txa
         adc # 0
-        sta ZP_IRQS_ADDRHI_HI
+        sta+1 ZP_IRQS_ADDRHI_HI
         
         ; move to the next field,
         ; the scanline lo-byte
         tya                     ; number of records per field
-        adc ZP_IRQS_ADDRHI_LO
-        sta ZP_IRQS_SCANLO_LO
-        lda ZP_IRQS_ADDRHI_HI
+        adc+1 ZP_IRQS_ADDRHI_LO
+        sta+1 ZP_IRQS_SCANLO_LO
+        lda+1 ZP_IRQS_ADDRHI_HI
         adc # 0
-        sta ZP_IRQS_SCANLO_HI
+        sta+1 ZP_IRQS_SCANLO_HI
 
         ; move to the next field,
         ; the scanline hi-byte
         tya                     ; number of records per field
-        adc ZP_IRQS_SCANLO_LO
-        sta ZP_IRQS_SCANHI_LO
-        lda ZP_IRQS_SCANLO_HI
+        adc+1 ZP_IRQS_SCANLO_LO
+        sta+1 ZP_IRQS_SCANHI_LO
+        lda+1 ZP_IRQS_SCANLO_HI
         adc # 0
-        sta ZP_IRQS_SCANHI_HI
+        sta+1 ZP_IRQS_SCANHI_HI
 
         ; store the number of entries
         ; and set the starting index
         ;
         dey                     ; (1-based purely for readability)
         tya
-        sta ZP_IRQS_LEN         ; number of entries in the table (0-based)
-        sta ZP_IRQ              ; also set as current index -- we work backward
+        sta+1 ZP_IRQS_LEN       ; number of entries in the table (0-based)
+        sta+1 ZP_IRQ            ; also set as current index -- we work backward
 
         ; prepare the first interrupt:
         ;-----------------------------------------------------------------------
         ; set the scanline for the initial
         ; interrupt by reading from the table
         ;
-        lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte
+        lda+1 (ZP_IRQS_SCANLO), y ; read scanline lo-byte
         sta .VIC_SCANLINE       ; set the scanline lo-byte
 
         ; because the height of the screen + borders will be more than 256,
@@ -216,7 +216,7 @@ irqs_load:
         ; to match the location required for the register
         ;
         lda .VIC_SCREEN_VERT     ; get current register value
-        eor (ZP_IRQS_SCANHI), y  ; merge the scanline hi-bit (in bit 7)
+        eor+1 (ZP_IRQS_SCANHI), y  ; merge the scanline hi-bit (in bit 7)
         sta .VIC_SCREEN_VERT     ; update the register
 
         ; set the central interrupt handling routine,
@@ -376,10 +376,10 @@ irq:                                                                    ;cycles
         ;-----------------------------------------------------------------------
         ; read the address of the current interrupt handler from the table
         ;
-        ldy ZP_IRQ              ; current index in the table            ;+3=53
-        lda (ZP_IRQS_ADDRLO), y ; read lo-byte of the routine address   ;+5=58
+        ldy+1 ZP_IRQ            ; current index in the table            ;+3=53
+        lda+1 (ZP_IRQS_ADDRLO), y ; read lo-byte of the routine address ;+5=58
         sta @addr+1             ; write lo-byte to the JSR that follows ;+4=62
-        lda (ZP_IRQS_ADDRHI), y ; read hi-byte of the routine address   ;+5=67
+        lda+1 (ZP_IRQS_ADDRHI), y ; read hi-byte of the routine address ;+5=67
         sta @addr+2             ; write hi-byte to the JSR that follows ;+4=71
 
         dey                     ; move down an index in the table       ;+2=73
@@ -387,7 +387,7 @@ irq:                                                                    ;cycles
         bpl @next                                                       ;+3=78
 
         ; (for branch-taken, +3 cycles, not +2)                         ;+3=76
-+       ldy ZP_IRQS_LEN         ; go to the last table-entry            ;+3=79
++       ldy+1 ZP_IRQS_LEN       ; go to the last table-entry            ;+3=79
         bpl +                                                           ;+3=82
 
 @next   nop                                                             ;+2=80
@@ -396,8 +396,8 @@ irq:                                                                    ;cycles
         ; set the scanline for the next interrupt
         ; by reading from the table
         ;
-+       sty ZP_IRQ              ; update the 'current' index            ;+3=85
-        lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte                 ;+5=90
++       sty+1 ZP_IRQ            ; update the 'current' index            ;+3=85
+        lda+1 (ZP_IRQS_SCANLO), y ; read scanline lo-byte               ;+5=90
         sta .VIC_SCANLINE       ; set the scanline lo-byte              ;+3=93
 
         ; because the height of the screen + borders will be more than 256,
@@ -406,7 +406,7 @@ irq:                                                                    ;cycles
         ; to match the location required for the register
         ;
         lda .VIC_SCREEN_VERT    ; get current register value            ;+3=96
-        eor (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7)  ;+5=101
+        eor+1 (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7);+5=101
         sta .VIC_SCREEN_VERT    ; update the register                   ;+3=104
         
         ; as soon as the next scanline to interrupt at has been set,

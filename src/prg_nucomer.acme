@@ -38,7 +38,7 @@ init:   ; setup screen:
         sta .CIA2_PORTA_DDR     ; set the port's read/write state
         ;
         ; the bit value is the inverse of the bank number 0-3
-        lda # (! NU_VIC_BANK) & %11
+        lda # (! NU_VIC_BANK) & %00000011
         sta .CIA2_PORTA         ; change VIC bank
 
         ; we must restore the read/write state
