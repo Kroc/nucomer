@@ -1,4 +1,4 @@
--- nücomer magazine (c) copyright Kroc Camen 2019. unless otherwise noted,
+-- nücomer dikszine (c) copyright Kroc Camen 2019-2023. unless otherwise noted,
 -- licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 -- licence; you may reuse and modify this code how you please as long as you:
 --
