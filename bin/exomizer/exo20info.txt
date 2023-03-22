@@ -2,11 +2,11 @@ Exomizer 2.0
 
 FEATURES
 
-o  Totally rewritten handling of the sfx decruncher:
+o  sfx mode:
    1) Several different decrunch effects.
    2) Complete user control over memory and IRQ configuration.
    3) Can start BASIC programs properly with built in trampoline by using the
-      command 'sfx basic' for the Commodore and Oric targets.
+      command 'sfx basic' for the Commodore, Apple II and Oric targets.
    3) The decruncher code is assembled on the fly for maximum flexibility by an
       embedded assembler.
    4) Will adapt the decruncher to include only features used by the compressed
@@ -29,7 +29,7 @@ o  Has a literal sequence escape mechanism that detects and handles sequences
 o  The level mode of exomizer crunches each in-file separately and appends
    them to the out-file.
 
-o  New raw mode that features:
+o  raw mode:
    1) Crunches plain files instead of .prg files.
    2) Crunches forward or backwards instead of just backwards.
    3) Also decrunches.
@@ -39,12 +39,11 @@ o  New raw mode that features:
       pull decruncher and one low-level backwards push decruncher, perfect to
       base an assembler port on.
 
-o  New desfx mode that features decrunching of sfx crunched files.
+o  desfx mode that features decrunching of sfx crunched files.
 
-o  Contributed decruncher source
-   1) forward 6502 decruncher by Krill (exodecrs/krilldecr.s)
-   2) z80 decrunchers by Metalbrain, Antonio Villena. (rawdecrs/z80/*)
-   3) 6809 decruncher by Edouard Forler.  (rawdecrs/6809/*)
+o  Contributed decruncher source (only 2.0 compatible so far)
+   1) z80 decrunchers by Metalbrain, Antonio Villena. (rawdecrs/z80/*)
+   2) 6809 decruncher by Edouard Forler.  (rawdecrs/6809/*)
 
 -------------------------------------------------------------------------------
 -- A beginning of something like documentation --------------------------------
@@ -73,7 +72,7 @@ data. They share the following option flags:
 -C      This flag increases crunching speed and as a side effect also reduces
         the crunch result. This flag is for the impatient developer.
 
--e <encoding parameters>
+-e <encoding parameters>|@<encoding file name>
         Uses the given encoding parameters for crunching instead of trying to
         calculate an optimal set. The encoding must be in the following format:
         xxxxxxxxxxxxxxxx,xxxx,xxxxxxxxxxxxxxxx,xxxxxxxxxxxxxxxx
@@ -84,6 +83,29 @@ data. They share the following option flags:
         not the encoding parameters used in the output file. To set the
         encoding parameters of the output file this option must be used in
         combination with the -p 1 option.
+        If the encoding starts with a '@' then the rest will be used as a file
+        name to read the encoding from. It can be used to read encoding files
+        written by the -E flag described below. Please note that the -P and -T
+        flags must be the same for this to work since the format is different
+        for different flag combinations.
+
+-E      This flag enables an experimental feature for encoding reuse between
+        multiple files. Please note that there is no direct support for
+        decrunching these files yet apart from the raw -d command and in the
+        6502 decruncher exodecrs/exodecrunch.s (when enabled). It changes the
+        behavior of exomizer in the following ways:
+        1) It won't include the encoding in the compressed files.
+        2) The compressed files will be named as the outfile (-o) with an
+           appended number. ".00" for the first file, ".01" for the second and
+           so on.
+        3) The outfile (-o) will be used to write a file containing only the
+           encoding.
+        4) If more than one in-file is given they will all be compressed using
+           The same encoding which will be optimal for those files in
+           combination.
+        5) When used with -E, the mem subcommand limits the -l setting to only
+           accept the value "none". It will also change the default from "auto"
+           to "none".
 
 -m <offset>
         Limits the maximum sequence offset used by the cruncher to <offset>.
@@ -116,8 +138,8 @@ data. They share the following option flags:
 -P <value>
         Bit-field that disables bit stream protocol modifications. A value of
         0 makes the bit stream compatible with exomizer 2.0. You can prefix the
-	value with a + or - to set/clear the bits the value represents. Valid
-	values are 0 - 31.
+        value with a + or - to set/clear the bits the value represents. Valid
+        values are 0 - 63.
         0 bit: Big endian bit orientation, 1=enable (default), 0=disable
         1 bit: Copy byte when reading > 7 bits, 1=enable (default), 0=disable
         2 bit: Implicit first literal byte, 1=enable (default), 0=disable
@@ -214,9 +236,9 @@ monitors or by assembler directives like incbin.
         to be decrunched will work.
 -f      Crunch the file forward instead of backwards that is the default. This
         means that in this mode the read and write pointers move forward in
-        memory while decrunching. The exodecrunch.s does not support forward
-        decrunching. For this feature to work You'll have to use Krill's
-        contributed decruncher.
+        memory while decrunching. The exodecrunch.s file supports optional
+        forward decrunching but defaults to backwards. Read the comments in the
+        file for more details on the available options.
 
 -------------------------------------------------------------------------------
 -- The level sub command ------------------------------------------------------
@@ -238,7 +260,7 @@ bytes from secondary storage.
 
  The sfx command generates a runnable stand alone in memory decrunching file.
 Its first argument must always be the run address. It may be given as an
-address or of the following string sys, systrim, vin and basic.
+address or of the following string sys, systrim, bin and basic.
 
  If the run address is an actual address then it will be used as the target
 address of a jmp instruction executed after the decrunching.
@@ -267,7 +289,16 @@ program after decrunch. This is not yet implemented for the Atari target.
 The Oric target support BASIC start for the Oric 1 and Atmos computers but not
 for the Telestrat.
 
- The run BASIC mode takes up to three optional addresses. They are in order:
+The c65 computer stores a lot of data used by BASIC 10 on the hardware stack.
+Because of this, if the run address is the string basic then the c65 target
+will not overwrite the stack nor any zeropage. The decruncher, zero page and
+decrunch table will instead be moved to $1800- $19ff during decrunch. If the
+run address is not basic then the decruncher will be placed at $0100 and the
+table at $0200. The program is then expected to not be dependent on the stack
+data being correct when run but can instead be decrunched to $02a0-$ffff if
+-Di_ram_exit=0.
+
+The run BASIC mode takes up to three optional addresses. They are in order:
 start of BASIC program, end of BASIC program  and highest address used by
 BASIC.
 
@@ -331,6 +362,7 @@ can't decrunch into banked memory.
           16: Commodore c16
            4: Commodore plus4
           64: Commodore c64 (The default target)
+          65: Commodore c65
          128: Commodore c128
         4032: Commodore PET 4032
         0xa2: Apple ][+ and //e
@@ -371,7 +403,14 @@ can't decrunch into banked memory.
         intended for things like restoring a c128 to 1MHz or disabling 'Skip
         internal cycles' and burst mode on a DTV2. The fragment syntax is the
         same as for the -X and -x options.
-
+-y<custom sys epilogue assembler fragment>
+        Specifies an optional assembler fragment that will located directly
+        after the BASIC SYS statement. the fragment will never be called but
+        can be used to add some extra characters to the BASIC line using the
+        .BYTE() or the new .TEXT() assembler directives like:
+        '.BYTE($45,$58,$4f)' or '.TEXT("EXO")' Please note that no character
+        reencoding is done and the byte values will be shown using the target
+        character set (PETSCII for the Commodore family).
 -------------------------------------------------------------------------------
 -- The desfx sub command ------------------------------------------------------
 -------------------------------------------------------------------------------
@@ -563,9 +602,10 @@ decruncher size.
 
 For the c64 and the c128 target the value of the above symbols will be stored
 into $ff00 (c128) or $01 (c64) to set the mem configuration. For the c16/+4
-target the possible values are 0=ROM and 1=RAM. For the Atari the value will be
-stored in $d301. The Oric target supports 0=ROM and 1=RAM where 1 will enable
-decrunching into the top 16kB RAM supplied by the microdisc controller.
+target the possible values are 0=ROM and 1=RAM. The C65 use 0 for all RAM and
+$FF for ROM. For the Atari the value will be stored in $d301. The Oric target
+supports 0=ROM and 1=RAM where 1 will enable decrunching into the top 16kB RAM
+supplied by the microdisc controller.
 
 Default is $37 for the c64, $00 for the c128, 0 for the c16/+4 and Oric and $ff
 for the Atari.
@@ -650,48 +690,3 @@ exomizer <in-file>                      exomizer mem -lnone <in-file>
 exomizer -l$1234 <in-file>              exomizer mem -l$1234 <in-file>
 exomizer -lauto  <in-file>              exomizer mem <in-file>
 -------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
--- Results for the Canterbury and Calgary corpora for exomizer raw ------------
--------------------------------------------------------------------------------
-
-------------------------------------------------------
-Canterbury      in      out     b/B     ratio   gained
-------------------------------------------------------
-alice29.txt      152089   53060 2.79    34.89%  65.11%
-asyoulik.txt     125179   48530 3.10    38.77%  61.23%
-cp.html           24603    8352 2.72    33.95%  66.05%
-fields.c          11150    3177 2.28    28.49%  71.51%
-grammar.lsp        3721    1294 2.78    34.78%  65.22%
-kennedy.xls     1029744  162282 1.26    15.76%  84.24%
-lcet10.txt       426754  138443 2.60    32.44%  67.56%
-plrabn12.txt     481861  190570 3.16    39.55%  60.45%
-ptt5             513216   51904 0.81    10.11%  89.89%
-sum               38240   12316 2.58    32.21%  67.79%
-xargs.1            4227    1829 3.46    43.27%  56.73%
-------------------------------------------------------
-total           2810784  671757 1.91    23.90%  76.10%
-
-------------------------------------------------------
-Calgary         in      out     b/B     ratio   gained
-------------------------------------------------------
-bib              111261   34219 2.46    30.76%  69.24%
-book1            768771  305695 3.18    39.76%  60.24%
-book2            610856  198396 2.60    32.48%  67.52%
-geo              102400   68268 5.33    66.67%  33.33%
-news             377109  139442 2.96    36.98%  63.02%
-obj1              21504   10137 3.77    47.14%  52.86%
-obj2             246814   78902 2.56    31.97%  68.03%
-paper1            53161   18659 2.81    35.10%  64.90%
-paper2            82199   29546 2.88    35.94%  64.06%
-paper3            46526   18309 3.15    39.35%  60.65%
-paper4            13286    5722 3.45    43.07%  56.93%
-paper5            11954    5165 3.46    43.21%  56.79%
-paper6            38105   13536 2.84    35.52%  64.48%
-pic              513216   51904 0.81    10.11%  89.89%
-progc             39611   13591 2.74    34.31%  65.69%
-progl             71646   16198 1.81    22.61%  77.39%
-progp             49379   11129 1.80    22.54%  77.46%
-trans             93695   18677 1.59    19.93%  80.07%
-------------------------------------------------------
-total           3251493 1037495 2.55    31.91%  68.09%

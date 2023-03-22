@@ -1,12 +1,40 @@
-Release of 3.0.2 source code and Win32 binaries.
+2021-05-22
+Release of 3.1.1 source code and win32 binaries.
++ Added c65 as a new experimental target as -t65, suggested by Detlef Hastik.
++ Improve help messages for available targets. Patch by Dirk Jagdmann.
++ Added -y to add assembly fragment at the end of the sys line for the purpose
+  of adding a short text using the .BYTE() and/or .TEXT() assembler directive.
+  (This fragment will not be run as code).
++ Added a .TEXT("string") assembler directive to the sfx assembler. No encoding
+  mapping is done. The byte values from the command line will be used directly.
+
+2020-12-22
+Release of 3.1.0 source code and Win32 binaries.
++ Fixed bug in the sfxdecr.s affecting c128 reported by Fredrik Ramsberg.
++ Implemented split encoding support  (-E) in the 6502 decruncher.
++ Updated raw decrunchers for Zilog Z80 contributed by Antonio Villena.
++ Added raw decrunchers for Intel 8080 contributed by Ivan Gorodetsky.
++ Added raw decrunchers for ARM 32bit thumb2 contributed by ALeX Kazik.
++ Implement optional forward decrunching properly in exodecrunch.s and as a
+  consequence of this also remove krilldecr.s
++ Implement sequence read pointer blacklist to be able to avoid reading from
+  specified memory areas like hardware registers (Experimental feature),
+  Requested by Oziphantom.
++ update dasm and add acme exodecrunch sources
++ Improve compression by previous offset reuse, -P-32 to disable
++ Extended -e and -E to be able to reuse/calculate shared header/table info
+  for multiple crunched files. (Experimental feature, no direct support in
+  exodecrunch.s yet), Requested by Lazycow
+
 2019-01-05
+Release of 3.0.2 source code and Win32 binaries.
 + Add documentation about level, mem and raw outfile structure.
 + Fix raw -d -r combination to reverse the inbuffer before decrunch.
 + Fix -P0 literal sequences bug in exodec.c, Bug reported by Nino Porcino.
 + improved cruncher tuning for slightly improved compression on average.
 + Added sfx support for a new target, BBC Micro B (-t 0xbbcb).
 + Added -P+16 awareness to exodecrunch.s
-+ Fix bucket optimization to be -T+4 aware in search.c, Bug eported by
++ Fix bucket optimization to be -T+4 aware in search.c, Bug reported by
   Ciccioriccio.
 + Fix absolute offset overflow bug in sfxdecr.s. Bug reported by Comos.
 
