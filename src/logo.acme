@@ -405,7 +405,7 @@ logo_eye_right:
         +spriteBits %.....#####..............
         +spriteBits %....####................
         +spriteBits %...##...................
-        !byte 0                 ; pad to 64-byte block
+        !byte $ff               ; pad to 64-byte block
 
 logo_eye_lid1:
 ;-------------------------------------------------------------------------------
@@ -431,7 +431,7 @@ logo_eye_lid1:
         +spriteBits %############............
         +spriteBits %#########...............
         +spriteBits %#####...................
-        !byte 0                 ; pad to 64-byte block
+        !byte $ff               ; pad to 64-byte block
 
 logo_eye_lid2:
 ;-------------------------------------------------------------------------------
@@ -457,4 +457,4 @@ logo_eye_lid2:
         +spriteBits %########################
         +spriteBits %########################
         +spriteBits %########################
-        !byte 0                 ; pad to 64-byte block
+        !byte $ff               ; pad to 64-byte block
