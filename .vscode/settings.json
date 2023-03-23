@@ -3,7 +3,7 @@
     "editor.wordWrap": "wordWrapColumn",
     "editor.wordWrapColumn": 80,
     "editor.rulers": [
-        80
+        8, 32, 80
     ],
     "[asm]": {
         "editor.tabSize": 8
