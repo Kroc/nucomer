@@ -76,6 +76,25 @@ NU_VIC_BANK             = 2     ; the VIC bank used by the outfit
 ; address of the 2nd screen used for overlay
 +bytes  ~nu_overlay,    1024
 
+; TODO: better location for these
++alloc  $0c00
+
+; in a case of "if it's stupid but it works, it's not stupid" we handle the
+; scrolling in of new lines by simply treating the screen as taller than it
+; actually is, filling new lines into 40 char buffers for above / below the
+; screen (these are assigned to high-RAM so that they do not occupy bytes in
+; the main code)
+;
++bytes  ~nu_screen_before,      40
++bytes  ~nu_screen_after,       40
+
+; we can't put data before / after the colour RAM when I/O is on,
+; and turning I/O on & off to use the RAM underneath is too slow
+; so the 'off-screen' colour rows are stored here
+;
++bytes  ~nu_colour_before,      40
++bytes  ~nu_colour_after,       40
+
 ;-------------------------------------------------------------------------------
 ; BSOD64 integration; not the actual BSOD64 code
 ; as that is added to the disk-image
