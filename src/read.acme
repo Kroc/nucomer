@@ -15,7 +15,7 @@
 ;-------------------------------------------------------------------------------
 ; scrolling speed for pressing cursor keys (cannot exceed 8!)
 ;
-.SCROLL_SPEED = 3
+.SCROLL_SPEED = 4
 
 ; zero-page variables:
 ;-------------------------------------------------------------------------------
@@ -70,14 +70,17 @@
 ; screen RAM, but it would cause visual glitching when the beam goes
 ; through a line whilst un-packing
 ;
-+addr   ~zp_read_buffer
-+bytes  ~zp_read_buffer_screen, 40
-+bytes  ~zp_read_buffer_colour, 40
++addr   ~zp_read_buffer                                                 ;$34:
++bytes  ~zp_read_buffer_screen, 40                                      ;$34-5B
++bytes  ~zp_read_buffer_colour, 40                                      ;$5C-83
 
 ; re-use the colour-data index for the decompression buffer,
 ; as the two won't ever be used at the same time
 ;
 !addr   zp_read_buffer_index = zp_read_index_col
+
+; WARNING: the KERNAL generally uses addresses $90-$FF
+;          so SIDs are relocated to $88-$8F
 
 
 ;===============================================================================

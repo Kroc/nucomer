@@ -160,7 +160,7 @@ write "src/bsod64/build/bsod64.prg" "bsod64"
         ------------------------------------------------------------------------
         -- display name of SID as we process it, this will take a while
         -- as we have to relocate, assemble and then exomize each song
-        io.stdout:write(truncate(j_sid["file"]))
+        io.stdout:write(truncate("      "..j_sid["file"]))
 
         local bin_sid = "bin\\sidreloc\\Release\\sidreloc.exe"
 
@@ -177,8 +177,8 @@ write "src/bsod64/build/bsod64.prg" "bsod64"
         --       but we would need to re-architect to do that
         ok,r,e = os.execute(
             bin_sid..
-            -- reloacte to $1000 and zero-page addresses to $F0-$FF
-            " -p 10 -z f0-ff -v"..
+            -- reloacte to $1000 and zero-page addresses to $80-$8F
+            " -p 10 -z 88-8f -v"..
             -- input file:
             " \""..sid_path..j_sid["file"]..".sid\""..
             -- output file:
