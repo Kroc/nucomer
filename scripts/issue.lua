@@ -121,10 +121,10 @@ function Issue:build(i_issue)
     -- and add the minimum required binaries
     f_c1541:write(string.format([[
 format "nucomer,%02u" d64 "%s"
-write "build/boot.prg"          "boot"
-write "build/intro.prg"         "intro"
-write "build/nucomer-exo.prg"   "nucomer"
-write "build/bsod64.prg"        "bsod64"
+write "build/boot.prg"              "boot"
+write "build/intro.prg"             "intro"
+write "build/nucomer-exo.prg"       "nucomer"
+write "src/bsod64/build/bsod64.prg" "bsod64"
 ]],     i_issue, "build/nucomer.d64"
     ))
 

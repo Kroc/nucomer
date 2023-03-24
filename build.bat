@@ -22,7 +22,7 @@ REM # assemble BSOD64 into its own folder as its a sub-project
 ..\..\%ACME% -v1 ^
      --format cbm ^
      --report "..\..\build\bsod.txt" ^
-      -o "..\..\build\bsod64.prg" ^
+      -o "build\bsod64.prg" ^
           "bsod64.acme"
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
@@ -143,7 +143,7 @@ REM ----------------------------------------------------------------------------
      -o "build\nucomer-exo.prg" ^
      -- "build\nucomer.prg" ^
         "build\admiral64.prg" ^
-        "build\bsod64.prg"
+        "src\bsod64\build\bsod64.prg"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
