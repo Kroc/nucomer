@@ -1,0 +1,157 @@
+; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
+; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
+; licence; you may reuse and modify this code how you please as long as you:
+;
+; - retain the copyright notice
+; - use the same licence for your derived code
+; - do not use it for commercial purposes
+;   (contact the author for a commercial licence)
+;
+; music.acme
+;===============================================================================
+!addr   ZP_SONG_PLAY    = $0d   ; play address for playing SID          ;$0D/E
+
+
+; allocate a byte for storing the currently selected song;
+; this will be 1-based, so that 0 = music off
+;
+song_selected:  !byte   1
+
+; we also need to keep track of which song is currently loaded into memory.
+; note that the build script will bundle the first song into the outfit
+; automatically so that it's ready straight away
+;
+song_loaded:    !byte   1
+
+
+music_irqs:
+;===============================================================================
+; this is a raster interrupt table to just play music for each frame:
+; (use `irqs_load` from "interrupts.acme" to use it). note that the song
+; must have been initialised (`music_init`) first in order to play
+;
+;-------------------------------------------------------------------------------
+music_irqs_addr_lo:
+        !byte   <music_play
+music_irqs_addr_hi:
+        !byte   >music_play
+music_irqs_scanline_lo:
+        !byte   <SCANLINE_VBLANK_BEGIN
+music_irqs_scanline_hi:
+        !byte   >SCANLINE_VBLANK_BEGIN << 7
+
+.MUSIC_IRQS     = 1
+
+
+music_load_irq:
+;===============================================================================
+        lda #< music_irqs       ; address of music IRQ table, lo-byte
+        ldx #> music_irqs       ; address of music IRQ table, hi-byte
+        ldy # .MUSIC_IRQS       ; number of entries in the table (1-based)
+        jmp irqs_load
+
+
+music_stop:
+;===============================================================================
+; stops the music playing and resets the SID chip.
+; the song is completely stopped, rather than paused
+;
+;-------------------------------------------------------------------------------
+        ; clear the play-address used during interrupt
+        lda # 0
+        sta+1 ZP_SONG_PLAY+HI
+        sta+1 ZP_SONG_PLAY+LO
+
+        ; shut down the SID chip:
+        ldx # $1c               ; number of SID registers
+-       sta .SID, x
+        dex
+        bpl -
+
+        rts
+
+
+music_init:
+;===============================================================================
+; loads & initialises the selected song. (if the selected song is "0",
+; the music is stopped). if the song is not currently loaded, we go fetch
+; it from disk
+;
+;-------------------------------------------------------------------------------
+        jsr music_stop
+
+        ldx song_selected       ; what song is "selected"?
+        beq music_stop          ; (if "0", stop the music)
+        cpx song_loaded         ; is it currently loaded?
+        beq @play               ; if yes, start/restart the song...
+        
+        ; TODO: load song
+        brk
+
+        ; begin playing the song:
+        ;-----------------------------------------------------------------------
+        ; even though SID songs are relocated to $1000 for nucomer, their
+        ; init and play addresses aren't guaranteed to be $1000/3; we have
+        ; to fetch the addresses to use from the song database
+        ;
+        ; we must disable interrupts whilst we setup the SID song
+        ; as we don't want the play address being confused between
+        ; two different songs
+        ;
+@play:  sei
+
+        ; we update the play address first, as the old play address
+        ; must not be called before the new song has been initialised
+        ;
+        lda sid_db_play_lo-1, x
+        ldy sid_db_play_hi-1, x
+        sta+1 ZP_SONG_PLAY+LO
+        sty+1 ZP_SONG_PLAY+HI
+        
+        ; read the SID's init address:
+        ;
+        lda sid_db_init_lo-1, x
+        sta @init+1+LO
+        lda sid_db_init_hi-1, x
+        sta @init+1+HI
+
+        ; call the song's initialisation routine:
+        ;
+        ; NOTE: A is the sub-song. we zero X & Y as there is no standard
+        ;       for what these should do for any given SID and some SIDs
+        ;       use these as extra initialisation parameters
+        ;
+        lda # 0                 ; TODO: this needs to be in the DB
+        tax
+        tay
+@init:  jsr .HW_VECTOR_RESET    ; (this address will be rewritten)
+
+        cli                     ; re-enable interrupts
+        rts
+
+
+music_play:
+;===============================================================================
+;-------------------------------------------------------------------------------
+        lda+1 ZP_SONG_PLAY+HI
+        beq +
+
+        txa
+        sta @x+1
+        tya
+        sta @y+1
+
+        ;;lda # 0
+        ;;tax
+        ;;tay
+        
+        inc .VIC_BORDER
+        jsr @play
+
+@x      ldx # $88
+@y      ldy # $88 
+
+        dec .VIC_BORDER
++       rts
+
+@play:  jmp (ZP_SONG_PLAY)

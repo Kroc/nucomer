@@ -1,4 +1,4 @@
-; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
+; nücomer diskzine (c) copyright Kroc Camen 2019-2023. unless otherwise noted,
 ; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 ; licence; you may reuse and modify this code how you please as long as you:
 ;
@@ -10,7 +10,8 @@
 ;===============================================================================
 !ct "build/scr_nucomer.ct"
 
-!addr   zp_print_colour         = $02
++alloc  $02   
++byte   ~zp_print_colour
 
 ;===============================================================================
 ; clear the screen:
@@ -97,7 +98,7 @@ print_str_pos:
         ; over from $FF to $00), then it will stop printing
         bne @from
 
-+       lda zp_print_colour     ; get the colour for the text
++       lda+1 zp_print_colour   ; get the colour for the text
 
         ; the Y register contains the number of characters written,
         ; we can now rewind this to quickly apply the colour
@@ -154,7 +155,7 @@ print_str:
         ; so we use a pre-decrement loop where the colour is applied *after*
         ; having decremented Y, so that the 0 index gets included
         ;
-+       lda zp_print_colour     ; text-colour to use
++       lda+1 zp_print_colour   ; text-colour to use
 -       dey
 @color  sta $d800, y
         bne -

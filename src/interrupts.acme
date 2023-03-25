@@ -1,4 +1,4 @@
-; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
+; nücomer diskzine (c) copyright Kroc Camen 2019-2023. unless otherwise noted,
 ; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 ; licence; you may reuse and modify this code how you please as long as you:
 ;
@@ -15,37 +15,25 @@
 ; works through a queue of custom scanline handlers. this allows each screen
 ; to register a simple list of routines to run for any desired scanline
 ;
-!addr {
-
-ZP_IRQ                  = $ff   ; current index in the table
-ZP_IRQS_LEN             = $fe   ; number of entries in the table
-ZP_IRQS_ADDRLO          = $fc   ; table of IRQs, interrupt routines lo-bytes
-ZP_IRQS_ADDRLO_LO       = $fc   ; - address of table field, lo-byte
-ZP_IRQS_ADDRLO_HI       = $fd   ; - address of table field, hi-byte
-ZP_IRQS_ADDRHI          = $fa   ; table of IRQs, interrupt routines hi-bytes
-ZP_IRQS_ADDRHI_LO       = $fa   ; - address of table field, lo-byte
-ZP_IRQS_ADDRHI_HI       = $fb   ; - address of table field, hi-byte
-ZP_IRQS_SCANLO          = $f8   ; table of IRQs, scanline lo-bytes
-ZP_IRQS_SCANLO_LO       = $f8   ; - address of table field, lo-byte
-ZP_IRQS_SCANLO_HI       = $f9   ; - address of table field, hi-byte
-ZP_IRQS_SCANHI          = $f6   ; table of IRQs, scanline hi-bytes
-ZP_IRQS_SCANHI_LO       = $f6   ; - address of table field, lo-byte
-ZP_IRQS_SCANHI_HI       = $f7   ; - address of table field, hi-byte
-
-}
+!addr ZP_IRQ            = $03   ; current index in the table            ;$03
+!addr ZP_IRQS_LEN       = $04   ; number of entries in the table        ;$04
+!addr ZP_IRQS_ADDRLO    = $05   ; interrupt routines lo-bytes           ;$05/06
+!addr ZP_IRQS_ADDRHI    = $07   ; interrupt routines hi-bytes           ;$07/08
+!addr ZP_IRQS_SCANLO    = $09   ; scanline lo-bytes                     ;$09/0A
+!addr ZP_IRQS_SCANHI    = $0b   ; scanline hi-bytes                     ;$0B/0C
 
 ; some helpful scanline numbers:
 ; (0-based)
 ;
-SCANLINE_VBLANK_END     = 51
-SCANLINE_VBLANK_BEGIN   = 251
+SCANLINE_VBLANK_END     = 51    ; end of the top-border
+SCANLINE_VBLANK_BEGIN   = 251   ; beginning of the bottom-border
 SCANLINE_PAL            = 311   ; PAL machines have 312 lines
 SCANLINE_NTSC_NEW       = 261   ; most NTSC machines have 262 lines
 SCANLINE_NTSC_OLD       = 262   ; very early NTSC machines have 263 lines
 
-;===============================================================================
+
 irqs_init:
-        ;-----------------------------------------------------------------------
+;===============================================================================
         sei                     ; disable interrupts whilst we alter them
 
         ; turn off all interrupts on CIA1. note that bit 7 is used to fill all
@@ -83,12 +71,13 @@ irqs_init:
         ; put the KERNAL-off interrupt-handler on stand-by
         ; (fall-through to the routine below)
 
+
+irqs_disable:
 ;===============================================================================
 ; switch off the custom VIC-II raster interrupts:
 ; (doesn't disable the other interrupts on the CIAs)
 ;
-irqs_disable:
-        ;-----------------------------------------------------------------------
+;-------------------------------------------------------------------------------
         sei                     ; disable interrupts whilst we alter them
 
         ; disable all forms of VIC-II interrupts
@@ -99,34 +88,35 @@ irqs_disable:
         ; switch to the minimal interrupt
         ; handler for when the KERNAL is off
         lda #< irq_kernal_off
-        sta .HW_VECTOR_IRQ+0
+        sta .HW_VECTOR_IRQ+LO
         lda #> irq_kernal_off
-        sta .HW_VECTOR_IRQ+1
+        sta .HW_VECTOR_IRQ+HI
 
         ; and likewise for when the KERNAL is on
         ;
-        ; the C64 doesn't have a separate hardware vector for the BRK
+        ; the 6502/6510 doesn't have a separate hardware vector for the BRK
         ; instruction (a great shame), so the KERNAL's IRQ handler detects
         ; the BRK-bit and jumps to a user-vector. we need to catch this as
         ; the machine will crash if RESTORE is pressed when the KERNAL is on,
         ; but BASIC is off!
         ;
         lda #< irq_kernal_on
-        sta .KERNAL_VECTOR_IRQ+0
-        sta .KERNAL_VECTOR_BRK+0
+        sta .KERNAL_VECTOR_IRQ+LO
+        sta .KERNAL_VECTOR_BRK+LO
         lda #> irq_kernal_on
-        sta .KERNAL_VECTOR_IRQ+1
-        sta .KERNAL_VECTOR_BRK+1
+        sta .KERNAL_VECTOR_IRQ+HI
+        sta .KERNAL_VECTOR_BRK+HI
 
         cli                     ; enable interrupts
         rts
 
+
+irqs_default:
 ;===============================================================================
 ; the default table of interrupts, consisting of addresses & scanline-numbers:
 ; the order of the entries is last-to-first as the code reads them backwards
 ; for speed / simplicity reasons
 ;
-irqs_default:
 ;-------------------------------------------------------------------------------
 irqs_default_addr_lo:
         !byte   <irq_nop
@@ -143,16 +133,16 @@ irq_nop:
         ;
         rts
 
+
+irqs_load:
 ;===============================================================================
 ; set up custom interrupts using an interrupt table:
 ; (the default table above gives an example)
 ;
-;       A = address of IRQ table, lo-byte
-;       X = address of IRQ table, hi-byte
-;       Y = number of entries in the table (1-based)
-;
-irqs_load:
-        ;-----------------------------------------------------------------------
+; in:   A       address of IRQ table, lo-byte
+;       X       address of IRQ table, hi-byte
+;       Y       number of entries in the table (1-based)
+;-------------------------------------------------------------------------------
         sei                     ; disable interrupts whilst we alter them
 
         ; configure table
@@ -163,51 +153,51 @@ irqs_load:
         ;
         ; the first field is the interrupt-handler
         ; routine addresses, lo-bytes
-        sta ZP_IRQS_ADDRLO_LO
-        stx ZP_IRQS_ADDRLO_HI
+        sta+1 ZP_IRQS_ADDRLO+LO
+        stx+1 ZP_IRQS_ADDRLO+HI
         
         ; add the number of table entries to move to the next field,
         ; the interrupt-handler routine address hi-byte
         clc
         tya                     ; number of records per field
-        adc ZP_IRQS_ADDRLO_LO
-        sta ZP_IRQS_ADDRHI_LO
+        adc+1 ZP_IRQS_ADDRLO+LO
+        sta+1 ZP_IRQS_ADDRHI+LO
         txa
         adc # 0
-        sta ZP_IRQS_ADDRHI_HI
+        sta+1 ZP_IRQS_ADDRHI+HI
         
         ; move to the next field,
         ; the scanline lo-byte
         tya                     ; number of records per field
-        adc ZP_IRQS_ADDRHI_LO
-        sta ZP_IRQS_SCANLO_LO
-        lda ZP_IRQS_ADDRHI_HI
+        adc+1 ZP_IRQS_ADDRHI+LO
+        sta+1 ZP_IRQS_SCANLO+LO
+        lda+1 ZP_IRQS_ADDRHI+HI
         adc # 0
-        sta ZP_IRQS_SCANLO_HI
+        sta+1 ZP_IRQS_SCANLO+HI
 
         ; move to the next field,
         ; the scanline hi-byte
         tya                     ; number of records per field
-        adc ZP_IRQS_SCANLO_LO
-        sta ZP_IRQS_SCANHI_LO
-        lda ZP_IRQS_SCANLO_HI
+        adc+1 ZP_IRQS_SCANLO+LO
+        sta+1 ZP_IRQS_SCANHI+LO
+        lda+1 ZP_IRQS_SCANLO+HI
         adc # 0
-        sta ZP_IRQS_SCANHI_HI
+        sta+1 ZP_IRQS_SCANHI+HI
 
         ; store the number of entries
         ; and set the starting index
         ;
         dey                     ; (1-based purely for readability)
         tya
-        sta ZP_IRQS_LEN         ; number of entries in the table (0-based)
-        sta ZP_IRQ              ; also set as current index -- we work backward
+        sta+1 ZP_IRQS_LEN       ; number of entries in the table (0-based)
+        sta+1 ZP_IRQ            ; also set as current index -- we work backward
 
         ; prepare the first interrupt:
         ;-----------------------------------------------------------------------
         ; set the scanline for the initial
         ; interrupt by reading from the table
         ;
-        lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte
+        lda+1 (ZP_IRQS_SCANLO), y ; read scanline lo-byte
         sta .VIC_SCANLINE       ; set the scanline lo-byte
 
         ; because the height of the screen + borders will be more than 256,
@@ -216,15 +206,24 @@ irqs_load:
         ; to match the location required for the register
         ;
         lda .VIC_SCREEN_VERT     ; get current register value
-        eor (ZP_IRQS_SCANHI), y  ; merge the scanline hi-bit (in bit 7)
+        eor+1 (ZP_IRQS_SCANHI), y  ; merge the scanline hi-bit (in bit 7)
         sta .VIC_SCREEN_VERT     ; update the register
 
-        ; set the central interrupt handling routine,
-        ; this will read the table to chain interrupts
+        ; set the address of the centeral interrupt handling routine
+        ; (this will read the table to chain interrupts) when the KERNAL
+        ; is switched off
         lda #< irq
-        sta .HW_VECTOR_IRQ+lo
+        sta .HW_VECTOR_IRQ+LO
         lda #> irq
-        sta .HW_VECTOR_IRQ+hi
+        sta .HW_VECTOR_IRQ+HI
+
+        ; when the KERNAL is enabled, we jump to a different location
+        ; to compensate for the instructions/cycles used by the KERNAL
+        ; before we get to take control
+        lda #< irq_kernal
+        sta .KERNAL_VECTOR_IRQ+LO
+        lda #> irq_kernal
+        sta .KERNAL_VECTOR_IRQ+HI
 
         ; this enables just the raster-interrupt on the VIC-II
         ; (sprite-sprite, sprite-background & lightpen interrupts are disabled)
@@ -234,43 +233,51 @@ irqs_load:
         cli
         rts
 
-;===============================================================================
+
 nmi_debug:
-        ;-----------------------------------------------------------------------
+;===============================================================================
         pha
         txa
         pha
         tya
         pha
 
-        lsr $dd0d
+        lsr .CIA2_INTERRUPT
         jmp bsod64_irq          ; invoke BSOD64!
 
 ; exiting without acknowledging the NMI interrupt (via write to $DD0D)
-; will effectively disable further NMIs from occuring. further details
+; will effectively disable further NMIs from occuring. details of this
 ; can be read here: https://codebase64.org/doku.php?id=base:nmi_lock
 ;
 nmi_disable:
         ;-----------------------------------------------------------------------
         rti
 
+
+irq_kernal_off:
 ;===============================================================================
 ; when the KERNAL is off, but no raster interrupts are in use, this simple
 ; IRQ handler does the minimum amount necessary to service the interrupt
 ;
-irq_kernal_off:
-        ;-----------------------------------------------------------------------
-        ; acknowledge the interrupt to prevent it double-firing.
-        ; we only need to write to the status register to do this
-        inc .VIC_INTERRUPT_STATUS
-
-        ; for BSOD64 integration we push the registers to the stack
+;-------------------------------------------------------------------------------
+        ; for BSOD64 integration we push all registers to the stack
         ;
         pha                     ; backup pre-interrupt A register
         txa                     ; backup pre-interrupt...
         pha                     ; ...X register
         tya                     ; backup pre-interrupt...
         pha                     ; ...Y register
+
+        ;-----------------------------------------------------------------------
+        ; check if BRK occurred:
+        tsx                     ; we need to look on the stack
+        lda $0104, x            ; retrieve the processor flags at interrupt
+        and # %00010000         ; check the BRK bit
+        beq +
+        jsr bsod64_irq          ; invoke BSOD64!
+
++       ; fallthrough
+        ; ...
 
 ; when the KERNAL ROM is switched on, it controls the interrupt vectors at
 ; $FFFA-$FFFF. this means that there's some extra indirection that happens
@@ -290,13 +297,6 @@ irq_kernal_off:
 ;
 irq_kernal_on:
         ;-----------------------------------------------------------------------
-        ; check if BRK occurred:
-        tsx                     ; we need to look on the stack
-        lda $0104, x            ; retrieve the processor flags at interrupt
-        and # %00010000         ; check the BRK bit
-        beq +
-        jmp bsod64_irq          ; invoke BSOD64!
-        ;-----------------------------------------------------------------------
         ; pull the registers from the stack
         ; (in reverse order)
 +       pla                     ; pull...
@@ -309,6 +309,15 @@ irq_kernal_on:
         ; (restore processor flags, enable interrupts)
         rti
 
+
+; the 6502 wastes extra cycles when branches or indexed reads cross a page
+; boundary ($FF->$00) which could throw our timings off, therefore we align
+; this routine to ensure that the code will not cross a boundary before the
+; stabilisation is complete
+;
+!align  $ff, 0
+
+irq:                                                                    ;cycles
 ;===============================================================================
 ; the main interrupt handler that manages the raster interrupt list:
 ;
@@ -324,66 +333,89 @@ irq_kernal_on:
 ; in our delay, there's a few cycles worth of jitter in the flyback period
 ;
 ; due to the amount of work we need to do to set up the next interrupt,
-; two lines are skipped
+; the interrupt has to fire two scanlines early in order to align the
+; beam with the desired scanline at the right time
 ;
-; the 6502 wastes extra cycles when branches or indexed reads cross a page
-; boundary ($FF->$00) which could throw our timings off, therefore we align
-; this routine to ensure that the code will not cross a boundary before the
-; stabilisation is complete
-;
-!align  $ff, 0
-
-irq:                                                                    ;cycles
-        ;-----------------------------------------------------------------------
-        ; note that an interrupt takes 7 cycles to execute              ;+7=7
-        ; before we get to this point
-
-        ; acknowledge the interrupt to prevent it double-firing.
-        ; we only need to write to the status register to do this
-        inc .VIC_INTERRUPT_STATUS                                       ;+6=13
-
-        ; preserve the registers on the stack
-        pha                                                             ;+3=16
-        txa                                                             ;+2=18
-        pha                                                             ;+3=21
-        tya                                                             ;+2=23
-        pha                                                             ;+3=26
+; (note that an interrupt takes 7 cycles to execute                     ;cycles:
+;  before we get to this point)                                         ;+7=7
+;-------------------------------------------------------------------------------
+        pha                     ; preserve the registers on the stack   ;+3=10
+        txa                                                             ;+2=12
+        pha                                                             ;+3=15
+        tya                                                             ;+2=17
+        pha                                                             ;+3=20
 
         ; check if BRK occurred:
         ;-----------------------------------------------------------------------
-        tsx                     ; we need to look on the stack          ;+2=28
-        lda $0104, x            ; retrieve processor flags at interrupt ;+4=32
-        and # %00010000         ; check the BRK bit                     ;+2=34
-        beq +                                                           ;+3=37
+        tsx                     ; we need to look on the stack          ;+2=22
+        lda $0104, x            ; retrieve processor flags at interrupt ;+4=26
+        and # %00010000         ; check the BRK bit                     ;+2=28
+        beq +                                                           ;+3=31
         jmp bsod64_irq          ; invoke BSOD64!                        ;(skip)
 
-        ; process the custom interrupt handler
+        ; in order for the cycle timings of KERNAL-off & KERNAL-on
+        ; handlers to align, we need to waste exactly 5 cycles
+        ;
++       bit $00                 ; BIT ZP has no meaningful side-effect  ;+3=34
+        nop                                                             ;+2=36
+
+irq_kernal:
         ;-----------------------------------------------------------------------
+        ; KERNAL cycles:
+        ;
+        ;       <interrupt>                                             ;+7=7
+        ;       pha                                                     ;+3=10
+        ;	txa                                                     ;+2=12
+        ;	pha                                                     ;+3=15
+        ;	tya                                                     ;+2=17
+        ;	pha                                                     ;+3=20
+        ;	tsx                                                     ;+2=22
+        ;	lda $104, x     ; get old p status                      ;+4=26
+        ;	and # $10       ; break flag?                           ;+2=28
+        ;	beq puls1       ; ...no                                 ;+3=31
+        ;	jmp (cbinv)     ; ...yes...break instr                  ;+5
+        ;puls1	jmp (cinv)      ; ...irq                                ;+5=36
+        ;
+
+        ; process the custom interrupt handler:
+        ;-----------------------------------------------------------------------
+        ; acknowledge the current interrupt to prevent it double-firing:
+        ;
+        ; whilst we only need to set bit 0 to acknowledge the raster
+        ; interrupt, the HMOS/NMOS 6502s use a read-modify-write process
+        ; that will effectively set all bits, before being rewritten by the
+        ; 'correct' value. thus we can either INC or ASL the register to
+        ; strobe the bits, saving a few bytes/cycles. note that this trick
+        ; DOESN'T work on CMOS chips like the 65C02, though it does work
+        ; on the C64 DTV
+        ;
+        inc .VIC_INTERRUPT_STATUS                                       ;+6=42
+
         ; preserve the memory layout (I/O, KERNAL, BASIC). the routines from
         ; the IRQ table will always be executed with I/O on and KERNAL off
         ;
-+       lda .CPU_CONTROL        ; current memory layout                 ;+3=40
-        pha                     ; push to stack                         ;+3=43
-        and %11111100           ; strip bottom bits, keep upper bits    ;+2=45
-        ora %00000001           ; set memory layout to I/O only         ;+2=47
-        sta .CPU_CONTROL                                                ;+3=50
+        lda .CPU_CONTROL        ; current memory layout                 ;+3=45
+        pha                     ; push to stack                         ;+3=48
+        and %11111100           ; strip bottom bits, keep upper bits    ;+2=50
+        ora %00000001           ; set memory layout to I/O only         ;+2=52
+        sta .CPU_CONTROL                                                ;+3=55
 
         ; execute the custom interrupt-handler:
         ;-----------------------------------------------------------------------
         ; read the address of the current interrupt handler from the table
         ;
-        ldy ZP_IRQ              ; current index in the table            ;+3=53
-        lda (ZP_IRQS_ADDRLO), y ; read lo-byte of the routine address   ;+5=58
-        sta @addr+1             ; write lo-byte to the JSR that follows ;+4=62
-        lda (ZP_IRQS_ADDRHI), y ; read hi-byte of the routine address   ;+5=67
-        sta @addr+2             ; write hi-byte to the JSR that follows ;+4=71
+        ldy+1 ZP_IRQ            ; current index in the table            ;+3=53
+        lda+1 (ZP_IRQS_ADDRLO), y ; read lo-byte of the routine address ;+5=58
+        sta+2 @addr+1           ; write lo-byte to the JSR that follows ;+4=62
+        lda+1 (ZP_IRQS_ADDRHI), y ; read hi-byte of the routine address ;+5=67
+        sta+2 @addr+2           ; write hi-byte to the JSR that follows ;+4=71
 
         dey                     ; move down an index in the table       ;+2=73
         bmi +                                                           ;+2=75
         bpl @next                                                       ;+3=78
 
         ; (for branch-taken, +3 cycles, not +2)                         ;+3=76
-+       ldy ZP_IRQS_LEN         ; go to the last table-entry            ;+3=79
++       ldy+1 ZP_IRQS_LEN       ; go to the last table-entry            ;+3=79
         bpl +                                                           ;+3=82
 
 @next   nop                                                             ;+2=80
@@ -392,9 +424,9 @@ irq:                                                                    ;cycles
         ; set the scanline for the next interrupt
         ; by reading from the table
         ;
-+       sty ZP_IRQ              ; update the 'current' index            ;+3=85
-        lda (ZP_IRQS_SCANLO), y ; read scanline lo-byte                 ;+5=90
-        sta .VIC_SCANLINE       ; set the scanline lo-byte              ;+3=93
++       sty+1 ZP_IRQ            ; update the 'current' index            ;+3=85
+        lda+1 (ZP_IRQS_SCANLO), y ; read scanline lo-byte               ;+5=90
+        sta+2 .VIC_SCANLINE     ; set the scanline lo-byte              ;+3=93
 
         ; because the height of the screen + borders will be more than 256,
         ; an extra high-bit is included from `.VIC_SCREEN_VERT`. the byte in
@@ -402,26 +434,24 @@ irq:                                                                    ;cycles
         ; to match the location required for the register
         ;
         lda .VIC_SCREEN_VERT    ; get current register value            ;+3=96
-        eor (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7)  ;+5=101
+        eor+1 (ZP_IRQS_SCANHI), y ; merge the scanline hi-bit (in bit 7);+5=101
         sta .VIC_SCREEN_VERT    ; update the register                   ;+3=104
         
         ; as soon as the next scanline to interrupt at has been set,
         ; re-enable interrupts to avoid the custom interrupt handler
         ; (below) over-running the next desired scanline
-        cli                                                             ;+2=106
+        cli                                                             ;+2=111
 
         ; delay just enough so that the call to the handler
         ; will begin around about the flyback period
-        nop                                                             ;+2=108
-        nop                                                             ;+2=110
-        nop                                                             ;+2=112
-        nop                                                             ;+2=114
+        nop                                                             ;+2=113
+        nop                                                             ;+2=115
 
         ; the address of the handler will already have been written directly
         ; into this instruction; the one given here in the source code is
         ; just a dummy one that does nothing
         ;
-@addr   jsr irq_nop                                                     ;+6=120
+@addr   jsr irq_nop                                                     ;+6=121
 !addr   irq_addr = @addr
 
         ; finish interrupt:
@@ -440,10 +470,10 @@ irq:                                                                    ;cycles
 ;===============================================================================
 ; wait for a given number of frames to pass:
 ;
-;       X = number of frames to wait (1-based)
-;
+; in:   X       number of frames to wait (1-based)
+;-------------------------------------------------------------------------------
 wait_frames:
-        ;-----------------------------------------------------------------------
+        
 -       jsr wait_frame
         dex
         bne -

@@ -1,4 +1,4 @@
--- nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
+-- nücomer diskzine (c) copyright Kroc Camen 2019-2023. unless otherwise noted,
 -- licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 -- licence; you may reuse and modify this code how you please as long as you:
 --
@@ -702,6 +702,8 @@ function Article:readLine(out_lines, src_line)
             -- skip the extra byte(s)
             index = index + #em-1
 
+        -- TODO: why is this failing when encountering "---"
+        --
         elseif src_line:match("^ ?%-%- ?") then
             --------------------------------------------------------------------
             -- how many bytes is that?

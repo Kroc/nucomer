@@ -1,4 +1,4 @@
-; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
+; nücomer diskzine (c) copyright Kroc Camen 2019-2023. unless otherwise noted,
 ; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 ; licence; you may reuse and modify this code how you please as long as you:
 ;
@@ -9,7 +9,6 @@
 ;
 ; logo.acme : the splash screen used during boot
 ;===============================================================================
-
 ; screen row where the logo text should appear
 .LOGO_TEXT_ROW          = 12
 
@@ -405,7 +404,7 @@ logo_eye_right:
         +spriteBits %.....#####..............
         +spriteBits %....####................
         +spriteBits %...##...................
-        !byte 0                 ; pad to 64-byte block
+        !byte $ff               ; pad to 64-byte block
 
 logo_eye_lid1:
 ;-------------------------------------------------------------------------------
@@ -431,7 +430,7 @@ logo_eye_lid1:
         +spriteBits %############............
         +spriteBits %#########...............
         +spriteBits %#####...................
-        !byte 0                 ; pad to 64-byte block
+        !byte $ff               ; pad to 64-byte block
 
 logo_eye_lid2:
 ;-------------------------------------------------------------------------------
@@ -457,4 +456,4 @@ logo_eye_lid2:
         +spriteBits %########################
         +spriteBits %########################
         +spriteBits %########################
-        !byte 0                 ; pad to 64-byte block
+        !byte $ff               ; pad to 64-byte block

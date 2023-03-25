@@ -1,4 +1,4 @@
-; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
+; nücomer diskzine (c) copyright Kroc Camen 2019-2023. unless otherwise noted,
 ; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 ; licence; you may reuse and modify this code how you please as long as you:
 ;
@@ -20,16 +20,13 @@
 ;  +----+------------+----------------+----------------+--------+--------+
 ;     ^ shared code ($0400+)
 ;
-!addr {
+!addr   nu_intro        = $0400 ; address of the shared / intro code
+!addr   nu_intro_screen = $3c00 ; address of the intro screen
 
-nu_intro                = $0400 ; address of the shared / intro code
-nu_intro_screen         = $3c00 ; address of the intro screen
+!addr   nu_song         = $1000 ; address of SID song
 
-nu_song                 = $1000 ; address of SID song
+!addr   nu_main         = $8000 ; address of the main outfit code
 
-nu_main                 = $8000 ; address of the main outfit code
-
-}
 ;-------------------------------------------------------------------------------
 ; articles are loaded in from this point, though note that this includes
 ; some meta-data, compression tables and not just straight text beginning
@@ -64,17 +61,15 @@ NU_VIC_BANK             = 2     ; the VIC bank used by the outfit
 !addr   vic_font_up     = $9000
 !addr   vic_font_lo     = $9800
 
-+alloc  $b000
-
 ; start address of graphics space
-+addr   ~nu_gfx
++alloc  $b000
++addr   ~nu_gfx                                                         ;$B000+
 ; our custom font, we only need 2K
 ; as we only use one character set
-+bytes  ~nu_font,       2048
++bytes  ~nu_font,       2048                                            ;$B000
 
-+bytes  ~nu_screen,     1024
-; address of the 2nd screen used for overlay
-+bytes  ~nu_overlay,    1024
++bytes  ~nu_screen,     1024    ; address of the screen                 ;$B800
++bytes  ~nu_overlay,    1024    ; a 2nd screen used for the overlay     ;$BC00
 
 ; TODO: better location for these
 +alloc  $0c00
@@ -99,8 +94,5 @@ NU_VIC_BANK             = 2     ; the VIC bank used by the outfit
 ; BSOD64 integration; not the actual BSOD64 code
 ; as that is added to the disk-image
 ;
-!addr {
-
-bsod64_jsr              = $c003
-bsod64_irq              = $c006
-}
+!addr   bsod64_jsr      = $c003
+!addr   bsod64_irq      = $c006

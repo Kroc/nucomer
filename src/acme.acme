@@ -1,4 +1,4 @@
-; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
+; nücomer diskzine (c) copyright Kroc Camen 2019-2023. unless otherwise noted,
 ; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 ; licence; you may reuse and modify this code how you please as long as you:
 ;
@@ -10,48 +10,48 @@
 ; acme.acme : assembly helpers
 ;===============================================================================
 
-lo = 0
-hi = 1
+!set    LO = 0
+!set    HI = 1
 
 ; variable for address allocation:
-!set    alloc  = $0000
+!set    __alloc_addr    = $02
 
 ; set the allocation address:
 ;-------------------------------------------------------------------------------
 !macro  alloc   .addr {
         ;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         ; set the new address to begin allocating
-        !set    alloc  = .addr
+        !set    __alloc_addr    = .addr
         ;<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 }
 ; allocate, without advancing the address:
 ;-------------------------------------------------------------------------------
 !macro  addr    ~.label {
         ;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        !addr   .label  = alloc
+        !addr   .label          = __alloc_addr
         ;<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 }
 ; allocate a byte:
 ;-------------------------------------------------------------------------------
 !macro  byte    ~.label {
         ;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        !addr   .label  = alloc
-        !set    alloc   = alloc + 1
+        !addr   .label          = __alloc_addr
+        !set    __alloc_addr    = __alloc_addr + 1
         ;<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 }
 ; allocate a custom number of bytes:
 ;-------------------------------------------------------------------------------
 !macro  bytes   ~.label, .size {
         ;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        !addr   .label  = alloc
-        !set    alloc   = alloc + .size
+        !addr   .label          = __alloc_addr
+        !set    __alloc_addr    = __alloc_addr + .size
         ;<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 }
 ; allocate a word:
 ;-------------------------------------------------------------------------------
 !macro  word    ~.label {
         ;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        !addr   .label  = alloc
-        !set    alloc   = alloc + 2
+        !addr   .label          = __alloc_addr
+        !set    __alloc_addr    = __alloc_addr + 2
         ;<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 }

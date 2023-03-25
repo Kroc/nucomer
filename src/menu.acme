@@ -1,4 +1,4 @@
-; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
+; nücomer diskzine (c) copyright Kroc Camen 2019-2023. unless otherwise noted,
 ; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 ; licence; you may reuse and modify this code how you please as long as you:
 ;
@@ -23,7 +23,7 @@
 ; zero-page variables:
 ;-------------------------------------------------------------------------------
 +alloc  $0f
-+byte   ~zp_menu_index          ; currently selected menu item
++byte   ~zp_menu_index          ; currently selected menu item          ;$0F
 
 ;===============================================================================
 ; table of interrupts to use for the menu screen:
@@ -113,7 +113,9 @@ menu_irq_logo_end:
 
         ; TODO: colour-wash the logo
 
-        rts
+        ; play music:
+        ;-----------------------------------------------------------------------
+        jmp music_play
 
 @colours
         ;-----------------------------------------------------------------------
@@ -131,6 +133,82 @@ menu_irq_vblank:
 
         rts
 
+
+menu_load:
+;===============================================================================
+; load an article:
+;
+; TODO: transition screen out
+;-------------------------------------------------------------------------------
+        ; turn the screen off
+        lda # %00000000
+        sta .VIC_SCREEN_CTL1
+
+        ; remove the raster-interrupts for the menu screen, and switch to
+        ; a minimal raster-interrupt for playing the music (during loading)
+        ;
+        jsr music_stop
+        jsr irqs_disable
+        
+        lda # .THEME_BACK       ; reset the screen colour, just in case
+        sta .VIC_BORDER         ; we were in the midst of a raster bar!
+        lda # .THEME_FORE
+        sta .VIC_BACKGROUND
+        
+        ; change to the custom font, don't remain on the ROM font!
+        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
+        sta .VIC_LAYOUT
+
+;;        lda # %00110111
+;;        sta .CPU_CONTROL        ; enable the KERNAL
+        inc .CPU_CONTROL
+
+        ; set the KERNAL load properties:
+        ldx .ZP_KERNAL_DEV      ; last-used KERNAL device number
+        bne +                   ; not 0? good
+        ldx # .DEV_DRV8         ; default to drive 8
++       ldy # $01               ; use load address in file
+        tya                     ; logical file number
+        jsr .KERNAL_SETLFS
+
+        ; read the address of the filename:
+        ldy zp_menu_index       ; currently selected menu item
+        lda menu_db_prg_lens, y ; get string length from the menu database
+        pha                     ; put aside whilst we reuse register A
+        
+        ; the file names are all padded to 16-bytes,
+        ; so we only need to multiply the index to fit
+        tya
+        ; TODO: this is an 8-bit result so we are limited to 16 menu items
+        asl                     ; x2...
+        asl                     ; x4...
+        asl                     ; x8...
+        asl                     ; x16
+        clc
+        adc #< menu_db_prg_strs ; add this offset to the table of program names
+        tax                     ; program name address lo-byte in X
+        lda #> menu_db_prg_strs
+        adc # 0
+        tay                     ; program name address hi-byte in Y
+        pla                     ; A is string-length
+        jsr .KERNAL_SETNAM      ; set KERNAL file name
+
+        lda # 0                 ; load, not verify
+        jsr .KERNAL_LOAD
+
+        ; TODO: error handling, fastloader et al
+        bcc +
+        brk                     ; BSOD!
+
++       dec .CPU_CONTROL
+;;        lda # %00110100
+;;        sta .CPU_CONTROL        ; turn KERNAL off
+        
+        jsr read_init           ; switch to the reading screen...
+
+        ; upon return, restart the menu screen
+        ; ...
+
 ;===============================================================================
 menu_screen:
         ;-----------------------------------------------------------------------
@@ -138,6 +216,11 @@ menu_screen:
         ; turn the screen off whilst we clear it
         lda # %00000000
         sta .VIC_SCREEN_CTL1
+        
+        ; remove the raster-interrupts for the menu screen, and switch to
+        ; a minimal raster-interrupt for playing the music (during loading)
+        ;
+        jsr music_load_irq
         
         ; set screen colour
         lda # .MENU_BORDER
@@ -154,7 +237,7 @@ menu_screen:
         ; print the logo with the base colour;
         ; we're going to recolour just the letters
         lda # .VIC_DKGREY
-        sta zp_print_colour
+        sta+1 zp_print_colour
        +print_str_pos       menu_petscii_logo
 
         ; begin at the end of the logo and work backwards
@@ -173,7 +256,7 @@ menu_screen:
         bpl -                   ; (always branches)
 
 +       lda # .VIC_BLACK
-        sta zp_print_colour
+        sta+1 zp_print_colour
 
        +print_str_pos   menu_str_subline
        +print_str_pos   menu_str_help
@@ -182,7 +265,7 @@ menu_screen:
         ;-----------------------------------------------------------------------
         ; select the first menu item by default
         lda # 0
-        sta zp_menu_index
+        sta+1 zp_menu_index
         
         ; draw the menu items on the screen
         jsr menu_refresh
@@ -225,19 +308,19 @@ menu_keyboard:
         bne @up                 ; if yes, it's CRSR-UP
 
         ; crsr-dn: move to the next menu item
-@dn     ldy zp_menu_index       ; what's the currently selected menu item?
+@dn     ldy+1 zp_menu_index     ; what's the currently selected menu item?
         iny                     ; if we were to move down...
         cpy # .MENU_DB_COUNT    ; would we go below the bottom? (1-based)
         beq menu_keyboard       ; if at the bottom, move no further
-        inc zp_menu_index
+        inc+1 zp_menu_index
         jsr menu_refresh
         jmp menu_keyboard
 
         ; crsr-up: move to the previous menu item
-@up     ldy zp_menu_index       ; what's the currently selected menu item?
+@up     ldy+1 zp_menu_index     ; what's the currently selected menu item?
         dey                     ; if we were to move up?
         bmi menu_keyboard       ; if already at top, move no further
-        dec zp_menu_index
+        dec+1 zp_menu_index
         jsr menu_refresh
         jmp menu_keyboard
 
@@ -249,6 +332,8 @@ menu_keyboard:
         ;-----------------------------------------------------------------------
 @next   jmp menu_keyboard
 
+
+menu_refresh:
 ;===============================================================================
 ; draw the article titles on the screen:
 ;
@@ -256,8 +341,7 @@ menu_keyboard:
 ; "build/menu_db.acme" that is generated by the build process
 ; when converting the articles into a C64-readable format
 ;
-menu_refresh:
-        ;-----------------------------------------------------------------------
+;-------------------------------------------------------------------------------
         ; the menu-count is 1-based; subtract 1 to avoid printing garbage.
         ; we also render the menu items from last to first for speed purposes
         ldy # .MENU_DB_COUNT
@@ -275,12 +359,12 @@ menu_refresh:
         ; set the text colour:
         ;-----------------------------------------------------------------------
 @i      ldy # $88               ; retrieve the menu index
-        cpy zp_menu_index       ; is this the selected menu item?
+        cpy+1 zp_menu_index     ; is this the selected menu item?
         bne +                   ; no, use standard colour
         lda # .VIC_BLACK        ; yes, use selected colour
        +bit_skip2               ; skip over the next instruction
 +       lda # .VIC_DKGREY
-        sta zp_print_colour
+        sta+1 zp_print_colour
 
         ; print the string:
         ;-----------------------------------------------------------------------
@@ -293,7 +377,7 @@ menu_refresh:
 
         ; mark the selected menu item:
         ;-----------------------------------------------------------------------
-        ldy zp_menu_index
+        ldy+1 zp_menu_index
         lda menu_db_cols, y     ; column number
         tax                     ; must be in X
         lda menu_db_rows, y     ; row in Y
@@ -312,76 +396,6 @@ menu_refresh:
 
         rts
 
-;===============================================================================
-; load an article:
-;
-; TODO: transition screen out
-;
-menu_load:
-        ;-----------------------------------------------------------------------
-        ; turn the screen off
-        lda # %00001000
-        sta .VIC_SCREEN_CTL1
-        ; tear down the custom interrupt handlers
-        jsr irqs_disable
-        
-        lda # .THEME_BACK
-        sta .VIC_BORDER
-        lda # .THEME_FORE
-        sta .VIC_BACKGROUND
-        
-        ; change to the custom font, don't remain on the ROM font!
-        lda # ((>nu_screen & %00111100) << 2) | ((>nu_font & %00111000) >> 2)
-        sta .VIC_LAYOUT
-
-        ; set the KERNAL load properties:
-        sei                     ; disable interrupts
-        inc .CPU_CONTROL        ; enable the KERNAL
-
-        ldx .ZP_KERNAL_DEV      ; last-used KERNAL device number
-        bne +                   ; not 0? good
-        ldx # .DEV_DRV8         ; default to drive 8
-+       ldy # $01               ; use load address in file
-        tya                     ; logical file number
-        jsr .KERNAL_SETLFS
-
-        ; read the address of the filename:
-        ldy zp_menu_index       ; currently selected menu item
-        lda menu_db_prg_lens, y ; get string length from the menu database
-        pha                     ; put aside whilst we reuse register A
-        
-        ; the file names are all padded to 16-bytes,
-        ; so we only need to multiply the index to fit
-        tya
-        ; TODO: this is an 8-bit result so we are limited to 16 menu items
-        asl                     ; x2...
-        asl                     ; x4...
-        asl                     ; x8...
-        asl                     ; x16
-        clc
-        adc #< menu_db_prg_strs ; add this offset to the table of program names
-        tax                     ; program name address lo-byte in X
-        lda #> menu_db_prg_strs
-        adc # 0
-        tay                     ; program name address hi-byte in Y
-        pla                     ; A is string-length
-        
-        jsr .KERNAL_SETNAM      ; set KERNAL file name
-
-        lda # 0                 ; load, not verify
-        jsr .KERNAL_LOAD
-
-        ; TODO: error handling, fastloader et al
-        bcc +
-        brk                     ; BSOD!
-
-+       dec .CPU_CONTROL        ; turn KERNAL off
-        cli
-        
-        ; switch to the reading screen...
-        jsr read_init
-        ; upon return, restart the menu screen
-        jmp menu_screen
 
 menu_petscii_logo:
 ;===============================================================================
@@ -409,6 +423,7 @@ menu_str_help:
         }
         !text   "select"
         !byte   $ff
+
 
 menu_db:
 ;===============================================================================

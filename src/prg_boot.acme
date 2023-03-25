@@ -1,4 +1,4 @@
-; nücomer magazine (c) copyright Kroc Camen 2019-2020. unless otherwise noted,
+; nücomer diskzine (c) copyright Kroc Camen 2019-2023. unless otherwise noted,
 ; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
 ; licence; you may reuse and modify this code how you please as long as you:
 ;
@@ -52,7 +52,7 @@ boot_init:
         ;-----------------------------------------------------------------------
         ; TODO: replace this with a fast-loader
         ;
-        ldx .ZP_KERNAL_DEV      ; last-used KERNAL device number
+        ldx+1 .ZP_KERNAL_DEV    ; last-used KERNAL device number
         bne +                   ; not 0? good
         ldx # .DEV_DRV8         ; default to drive 8
 +       ldy # $01               ; use load-address in PRG file
