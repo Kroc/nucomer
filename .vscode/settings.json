@@ -36,6 +36,12 @@
         "plaintext"
     ],
     "files.exclude": {
-        "bin": true
+        "bin": false,
+        // hide binary files in the build folder
+        "build/*.d64" : true,
+        "build/*.prg" : true,
+        "build/*.exo" : true,
+        "build/*.sid" : true,
+        "build/*.ct"  : true,
     }
 }

@@ -14,11 +14,11 @@
 ;-------------------------------------------------------------------------------
 ; memory map:
 ;
-;  $0   $1000        $4000            $8000            $C000    $E000    $FFFF
-;  +----+------------+----------------+----------------+--------+--------+
-;  |  * | SID (12K)  | TEXT (16K)     | CODE & GFX     | BSOD64 | UNUSED |
-;  +----+------------+----------------+----------------+--------+--------+
-;     ^ shared code ($0400+)
+;  $0   $1000        $4000            $8000            $C000     $E000    $FFFF
+;  +----+------------+----------------+----------------+----+----+--------+
+;  |  * | SID (12K)  | TEXT (16K)     | CODE & GFX     | BS |    | UNUSED |
+;  +----+------------+----------------+----------------+----+----+--------+
+;     ^ shared code ($0400+)                      BSOD64 ^  $D000
 ;
 !addr   nu_intro        = $0400 ; address of the shared / intro code
 !addr   nu_intro_screen = $3c00 ; address of the intro screen
@@ -92,7 +92,7 @@ NU_VIC_BANK             = 2     ; the VIC bank used by the outfit
 
 ;-------------------------------------------------------------------------------
 ; BSOD64 integration; not the actual BSOD64 code
-; as that is added to the disk-image
+; as that is added to the disk-image as a binary
 ;
 !addr   bsod64_jsr      = $c003
 !addr   bsod64_irq      = $c006

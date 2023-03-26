@@ -83,9 +83,8 @@
 ;          so SIDs are relocated to $88-$8F
 
 
-;===============================================================================
 read_screen_rows:
-;-------------------------------------------------------------------------------
+;===============================================================================
 ; this is a lookup table of row-number to screen address, but the screen is
 ; 27 rows high; this means that when printing row '0', it will be off-screen
 ; and likewise with row '26'
@@ -139,7 +138,7 @@ read_screen_row26       = nu_screen_after       ; off-screen-row
 }
 
 read_colour_rows:
-;-------------------------------------------------------------------------------
+;===============================================================================
 ; and as before with screen RAM, a lookup table of colour-RAM addresses
 ; for each row, but accounting for our before & after rows (above)
 ;
@@ -191,6 +190,7 @@ read_colour_row25       = $d800+(24*40)
 read_colour_row26       = nu_colour_after
 }
 
+; themes:
 ;===============================================================================
 .THEME_GREY_BACK        = .VIC_LTGREY
 .THEME_GREY_BORDER      = .THEME_GREY_BACK
@@ -243,11 +243,12 @@ read_style7_colour:     !byte   .THEME_WARN     ; warning / error
 
 read_init:
 ;===============================================================================
-; initialise the read screen -- the article to display is assumed to already
-; be loaded into RAM
+; initialise the read screen:
+;
+; the article to display is assumed to already be loaded into RAM
 ;-------------------------------------------------------------------------------
         lda # %00000000         ; turn the screen off whilst we
-        sta .VIC_SCREEN_VERT    ; populate the first screen of text
+        sta .VIC_SCREEN_VERT    ;  populate the first screen of text
 
         ; we're going to use completely custom raster interrupts on this page
         ; for speed -- every cycle is needed for scrolling! -- so we disable
@@ -447,11 +448,12 @@ read_keyboard:
         ; TODO: transition out
 @exit   rts                     ; return to the menu
 
-;===============================================================================
-; display a footnote
-;
+
 read_footnote:
-        ;-----------------------------------------------------------------------
+;===============================================================================
+; display a footnote:
+;-------------------------------------------------------------------------------
+        brk
 
 
 ; IRQs:
@@ -489,10 +491,9 @@ read_footnote:
 ;
 .IRQ_OVERLAY    = (SCANLINE_VBLANK_BEGIN - (8 * 8))
 
-;-------------------------------------------------------------------------------
-; 
+ 
 read_irq_init:
-        ;-----------------------------------------------------------------------
+;===============================================================================
         ; remove any current custom interrupts and put the safety stubs
         ; in place; these will prevent crashes from unexpected interrupts
         ;
@@ -520,7 +521,7 @@ read_irq_init:
         cli
         rts
 
-;-------------------------------------------------------------------------------
+
 ; shared Return From Interrupt footer
 ;
 read_irq_rti_xy:
@@ -537,11 +538,10 @@ read_irq_rti:
         rti
 
 
-
+read_irq_top:
 ;===============================================================================
 ; IRQ handler for the interrupt that occurs above the top of the visible screen
 ;-------------------------------------------------------------------------------
-read_irq_top:
         ; acknowledge the interrupt to prevent it double-firing; we only need
         ; to write to the status register to do this, the value is unimportant
         inc .VIC_INTERRUPT_STATUS
@@ -609,9 +609,9 @@ read_irq_top:
         pla                     ; restore pre-interrupt A register
         rti                     ; return from interrupt - enables interrupts
 
-;===============================================================================
+
 read_irq_scroll:
-        ;-----------------------------------------------------------------------
+;===============================================================================
         inc .VIC_BORDER
 
         ; acknowledge the interrupt to prevent it double-firing;  we only need
@@ -731,11 +731,11 @@ read_irq_scroll:
 +       cmp+1 zp_read_row       ; (temporary use)
         bcs @done
 
+
+read_scroll_down:
 ;===============================================================================
 ; scroll the article down a line:
-;
-read_scroll_down:
-        ;-----------------------------------------------------------------------
+;-------------------------------------------------------------------------------
         ; copy the screen up a row -- due to the number of rows, the loop has
         ; to be split into three otherwise the relative branches cannot reach
         ; the top (>128 bytes) but we do want to get as close to that limit
@@ -887,7 +887,7 @@ read_scroll_down:
         dey
         bne -                   ; stop when Y = 0 (important for later!)
 
-        ; begin printing the new row
+        ; begin printing the new row:
         ;-----------------------------------------------------------------------
         ; read the length of the current line at the top of the screen,
         ; and move the line-pointer for the top screen line to the next line
@@ -929,7 +929,6 @@ read_scroll_down:
 read_scroll_up:
 ;===============================================================================
 ; scroll the article up a line:
-;
 ;-------------------------------------------------------------------------------
         ; copy the screen down a row:
         ;
@@ -947,9 +946,9 @@ read_scroll_up:
         ldy # 39                ; as always, loop backwards for speed
         ; row 9 -> row ...
 -       lda read_screen_row9, y
-        sta zp_read_buffer_screen, y  ; (TODO: zero-page, saves 40 cycles)
+        sta zp_read_buffer_screen, y  ; (TODO: zero-page (,x) saves 40 cycles)
         lda read_colour_row9, y
-        sta zp_read_buffer_colour, y  ; (TODO: zero-page, saves 40 cycles)
+        sta zp_read_buffer_colour, y  ; (TODO: zero-page (,x) saves 40 cycles)
         ; row 8 -> row 9
         lda read_screen_row8, y
         sta read_screen_row9, y
@@ -1161,14 +1160,11 @@ read_print:
 ;===============================================================================
 ; print a number of lines from the article to the screen:
 ;
-;       Y = row to begin printing
-;       X = number of lines to print (1-based)
-;       
-; the address to read compressed line-data from must already be set in:
-;
-;       zp_read_char
-;
-;------------------------------------------------------------------------------- 
+; in:   Y                       row to begin printing
+;       X                       number of lines to print (1-based)
+;       zp_read_char            the address to read compressed line-data
+;                               from must already be set in zp_read_char
+;-------------------------------------------------------------------------------
         ; prepare for printing:
         ;
         stx+1 zp_read_rows      ; number of lines to print (1-based)
@@ -1410,14 +1406,17 @@ read_colour_row:
         cpx # 26
         bne -
 
-; set the colour for the off-screen bottom row:
-;
-; this is a "fast path" to set a colour on the characters
-; of the off-screen row below the screen
-;
-;       A = colour
-;
+        ; fallthrough
+        ; ...
+
 read_colour_after:
+        ;-----------------------------------------------------------------------
+        ; set the colour for the off-screen bottom row:
+        ;
+        ; this is a "fast path" to set a colour on the characters
+        ; of the off-screen row below the screen
+        ;
+        ; in:   A               colour
         ;-----------------------------------------------------------------------
         sta nu_colour_after+0
         sta nu_colour_after+1
@@ -1462,14 +1461,14 @@ read_colour_after:
         
         rts
 
-; set the colour for the off-screen top row:
-;
-; this is a "fast path" to set a colour on the characters
-; of the off-screen row above the screen
-;
-;       A = colour
-;
 read_colour_before:
+        ;-----------------------------------------------------------------------
+        ; set the colour for the off-screen top row:
+        ;
+        ; this is a "fast path" to set a colour on the characters
+        ; of the off-screen row above the screen
+        ;
+        ; in:   A               colour
         ;-----------------------------------------------------------------------
         sta nu_colour_before+0
         sta nu_colour_before+1
@@ -1519,11 +1518,9 @@ read_decompress:
 ;===============================================================================
 ; decompress text:
 ;
-; in:   Y       number of [compressed] bytes to read
-;
-; out:  X       number of characters in the buffer to print
-;       A, Y    (clobbered)
-;
+; in:   Y                       number of [compressed] bytes to read
+; out:  X                       number of characters in the buffer to print
+;       A, Y                    (clobbered)
 ;-------------------------------------------------------------------------------
         lda # 0                                                         ;+2=2
         ; initialise our position within the decompression buffer

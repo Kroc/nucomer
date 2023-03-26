@@ -36,14 +36,15 @@ boot_basic:
 
 @end:   !word $0000             ; end of BASIC program
 
+
+boot_init:
 ;===============================================================================
 ; load the intro:
 ;
 ; the purpose of this bootstrap is to swtich from BASIC
 ; to machine-language control and load the intro
 ;
-boot_init:
-        ;-----------------------------------------------------------------------
+;-------------------------------------------------------------------------------
         ; turn the screen off
         lda # $00
         sta .VIC_SCREEN_VERT
