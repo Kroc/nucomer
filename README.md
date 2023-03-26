@@ -39,11 +39,13 @@ All code & content, unless otherwise specified, is licensed under a [Creative Co
   - [json.lua] by rxi
 - **Fonts designed with:** [CharPad]
 - **Emulation provided by:** [VICE]
+- **Fast Loader & DASM binary provided by:** [Covert Bitps]
 
-[vscode]:   https://code.visualstudio.com/
-[acme]:     https://sourceforge.net/projects/acme-crossass/
-[template]: https://github.com/Esshahn/acme-assembly-vscode-template
-[lua]:      https://www.lua.org
-[json.lua]: https://github.com/rxi/json.lua
-[CharPad]:  https://www.subchristsoftware.com/charpad.htm
-[VICE]:     http://vice-emu.sourceforge.net/
+[vscode]:       https://code.visualstudio.com/
+[acme]:         https://sourceforge.net/projects/acme-crossass/
+[template]:     https://github.com/Esshahn/acme-assembly-vscode-template
+[lua]:          https://www.lua.org
+[json.lua]:     https://github.com/rxi/json.lua
+[CharPad]:      https://www.subchristsoftware.com/charpad.htm
+[VICE]:         http://vice-emu.sourceforge.net/
+[CovertBitops]: https://cadaver.github.io

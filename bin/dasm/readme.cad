@@ -1,0 +1,15 @@
+Notes from Cadaver
+------------------
+
+(Somewhere in 1999)
+Compiled on a 32-bit compiler to make generating big programs possible.
+
+(August 2002)
+Fixed in August 2002 to accept negative constants when compiled with
+GCC/Linux. All ulongs in the source were replaced with longs.
+
+(January 2004)
+Now the assembler defaults to 3 passes, verboseness level 3 and aborts on the
+first error it encounters.
+
+Cadaver's email: loorni@student.oulu.fi
