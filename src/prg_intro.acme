@@ -18,42 +18,10 @@
 
 * = nu_intro
 
-; the shared code needs to be kept permenantly, so we place it first and jump
-; over it (as code execution begins here) because the intro code that follows
-; is not important and can be overwritten later
-;
 intro_boot:
-        ;-----------------------------------------------------------------------
-        jmp intro_init
-
-; shared code:
 ;===============================================================================
-; we must make available the addresses of the routines
-; in the shared code area for use by the main outfit
-;
-!sl     "build/intro_symbols.acme"
-
-; we need to have safe interrupt-handlers in place before we can disable
-; BASIC & KERNAL ROMs! the shared code must include our stable IRQ routines,
-; as the main outfit code will be loaded into the RAM under BASIC ROM and we
-; can't turn BASIC off without replacement interrupt-handlers in place!
-;
-!source "interrupts.acme"
-
-; the shared code *must* fit beneath $1000
-; as that is where the SID music will be
-;
-!ifdef WARN_OVERFLOW !eof
-!if * >= nu_song {
-        WARN_OVERFLOW = 1
-        !warn "Shared code overflows into SID data! * = ", *
-}
-
-;===============================================================================
-; TODO: fast-load the outfit, whilst the intro plays
-;
-intro_init:
-        ;-----------------------------------------------------------------------
+; display the intro and chain-load the outfit:
+;-------------------------------------------------------------------------------
         ; turn the screen off whilst we clear it
         lda # %00000000
         sta .VIC_SCREEN_CTL1
@@ -62,10 +30,55 @@ intro_init:
         lda # ((>nu_intro_screen & %00111100) << 2) | ((>$1800 & %00111000) >> 2)
         sta .VIC_LAYOUT
 
-        ; put our custom IRQ handlers in place to avoid crashing
-        ; when we turn off the ROMs!
-        ; TODO: BSOD64 is not in place yet -- a BRK or RESTORE will crash!
-        jsr irqs_init
+        ; patch interrupts:
+        ;=======================================================================
+        sei                     ; disable interrupts whilst we alter them
+
+        ; turn off all interrupts on CIA1. note that bit 7 is used to fill all
+        ; other bits that are given as 1! therefore, the value `%011111111` is
+        ; instructing the port to set bits 0-6 to 0, therefore turning off all
+        ; timers on the port
+        ;
+        lda # %01111111
+        sta .CIA1_INTERRUPT
+        ; repeat this also for CIA2 which uses the Non-Maskable-Interrupt
+        ; ("NMI") for its timers
+        sta .CIA2_INTERRUPT
+
+        ; set the non-maskable interrupt location when the KERNAL is on.
+        ; pressing the RESTORE key will fire this routine (unless disabled
+        ; -- see comments on `nmi_disable` routine)
+        lda #< nmi_kernalon
+        sta .KERNAL_VECTOR_NMI+0
+        lda #> nmi_kernalon
+        sta .KERNAL_VECTOR_NMI+1
+
+        ; likewise, when the KERNAL is off, an NMI handler
+        ; must be specified or the machine will crash
+        lda #< nmi_nokernal
+        sta .HW_VECTOR_NMI+0
+        lda #> nmi_nokernal
+        sta .HW_VECTOR_NMI+1
+
+        ; disable all forms of VIC-II interrupts
+        ; (raster, light-pen, sprite collisions)
+        lda # %00000000
+        sta .VIC_INTERRUPT_CONTROL
+
+        ; switch to the minimal interrupt
+        ; handler for when the KERNAL is off
+        lda #< irq_nokernal
+        sta .HW_VECTOR_IRQ+LO
+        lda #> irq_nokernal
+        sta .HW_VECTOR_IRQ+HI
+
+        ; and likewise for when the KERNAL is on
+        lda #< irq_kernalon
+        sta .KERNAL_VECTOR_IRQ+LO
+        lda #> irq_kernalon
+        sta .KERNAL_VECTOR_IRQ+HI
+
+        cli                     ; enable interrupts
 
         ;-----------------------------------------------------------------------
         jsr logo_screen
@@ -106,6 +119,78 @@ intro_init:
 @filename_outfit:
         ;-----------------------------------------------------------------------
         !pet    "nucomer", 0
+
+
+nmi_nokernal:
+;===============================================================================
+        ; when the KERNAL is off we must acknowledge the interrupt
+        ; by reading from CIA2 otherwise the NMI becomes disabled 
+        asl .CIA2_INTERRUPT
+
+nmi_kernalon:
+        ;-----------------------------------------------------------------------
+        ; when KERNAL is on, it will already have acknowledged the interrupt.
+        ; the KERNAL does not push the registers to the stack for NMIs
+        rti
+
+irq_nokernal:
+;===============================================================================
+        ; when the KERNAL is off we must acknowledge the interrupt
+        ; by reading from CIA1 otherwise it will instantly fire again 
+        asl .CIA1_INTERRUPT
+        rti
+
+
+irq_kernalon:
+;===============================================================================
+        ; pull the registers from the stack
+        ; (in reverse order)
+        pla                     ; pull...
+        tay                     ; ...Y
+        pla                     ; pull...
+        tax                     ; ...X
+        pla                     ; pull A
+
+        ; return from interrupt
+        ; (restore processor flags, enable interrupts)
+        rti
+
+
+wait_frames:
+;===============================================================================
+; wait for a given number of frames to pass:
+;
+; in:   X                       number of frames to wait (1-based)
+;-------------------------------------------------------------------------------
+-       jsr wait_frame
+        dex
+        bne -
+        
+        rts
+
+wait_frame:
+        ;-----------------------------------------------------------------------
+        ; wait for a full cycle of the raster beam:
+        ;
+        ; bit 7 of $D011 is the upper-most bit of the current raster line,
+        ; i.e. when it is 0 the beam is on lines 0-255 and when it's 1 the
+        ; beam is on lines 256+ -- PAL has 312 lines, NTSC has 262 lines
+        ; but some very early NTSC machines have 263 lines
+        ;
+        ; first, we wait for the beam to enter the top of the screen
+        ; (lines 0-255), this is so that if the beam is currently within the
+        ; bottom of the screen (lines 256+), we wait for it to go back around
+        ; and don't trigger early
+        ;
+-       bit .VIC_SCREEN_VERT
+        bmi -                   ; wait until bit 7 is 0
+
+        ; now wait for the addressible screen to pass and the vblank
+        ; to begin again, this syncronises the main thread with the vblank
+-       bit .VIC_SCREEN_VERT
+        bpl -                   ; wait until bit 7 is 1
+
+        rts
 
 ;===============================================================================
 !source "logo.acme"

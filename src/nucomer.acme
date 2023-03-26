@@ -11,14 +11,17 @@
 !source "acme.acme"             ; assembler helpers (macros &c.)
 !source "c64/c64.acme"          ; C64 hardware / software constants
 
-;-------------------------------------------------------------------------------
 ; memory map:
+;-------------------------------------------------------------------------------
 ;
-;  $0   $1000        $4000            $8000            $C000     $E000    $FFFF
-;  +----+------------+----------------+----------------+----+----+--------+
-;  |  * | SID (12K)  | TEXT (16K)     | CODE & GFX     | BS |    | UNUSED |
-;  +----+------------+----------------+----------------+----+----+--------+
-;     ^ shared code ($0400+)                      BSOD64 ^  $D000
+;  $0    $1000        $4000            $8000            $C000     $E000    $FFFF
+;  +--+--+------------+----------------+----------------+----+----+--------+
+;  |  |  | SID (12K)  | TEXT (16K)     | CODE & GFX     | BS |    | UNUSED |
+;  +--+--+------------+----------------+----------------+----+----+--------+
+;     $0800: shared code                           BSOD64 ^  $D000
+;
+; $0800: bootstrap, fast-loader and other shared code
+; $C000: BSOD64
 ;
 !addr   nu_intro        = $0400 ; address of the shared / intro code
 !addr   nu_intro_screen = $3c00 ; address of the intro screen
@@ -54,9 +57,9 @@ NU_VIC_BANK             = 2     ; the VIC bank used by the outfit
 ;
 !addr   vic_garbage     = ($4000 * (NU_VIC_BANK+1)) - 1
 
-; note that in VIC bank 2 the character ROM will appear
-; at $9000-$A000 so we can't place our font or screens there!
-; note that program code can still occupy this space
+; NOTE: in VIC bank 2 the character ROM will appear at $9000-$A000
+; so we can't place our font or screens there! program code can
+; still occupy this space though
 ;
 !addr   vic_font_up     = $9000
 !addr   vic_font_lo     = $9800

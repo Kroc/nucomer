@@ -10,18 +10,17 @@
 ;===============================================================================
 !source "nucomer.acme"          ; nucomer constants for memory layout
 
-!source "build/intro_symbols.acme"
-!sl     "build/nucomer_symbols.acme"
-
 * = nu_main
 
+boot:
 ;===============================================================================
-; NOTE: exomizer includes BSOD64 in the payload, so we don't need to
-;       manually load it from the outfit. TODO: load an exomized BSOD64
-;       file using the IRQ fast-loader during some off-time (menu-screen?)
-;
-init:   ; setup screen:
-        ;-----------------------------------------------------------------------
+        jmp init
+
+!source "interrupts.acme"
+
+init:
+;===============================================================================
+        ; setup screen:
         lda # %00110111
         sta .CPU_CONTROL
         

@@ -467,13 +467,13 @@ irq_kernal:
 
         rti
 
+
+wait_frames:
 ;===============================================================================
 ; wait for a given number of frames to pass:
 ;
-; in:   X       number of frames to wait (1-based)
+; in:   X                       number of frames to wait (1-based)
 ;-------------------------------------------------------------------------------
-wait_frames:
-        
 -       jsr wait_frame
         dex
         bne -

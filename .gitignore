@@ -6,8 +6,10 @@ __*
 # don't include the generated files in "build"
 build/**
 
-**.prg
-**.d64
+*.prg
+*.d64
+*.d71
+*.d81
 
 # VICE snapshot files
 *.vsf

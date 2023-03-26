@@ -46,7 +46,7 @@ PUSHD src\boot\loader\examples
      test_unp.s ^
      -otest_unp.prg ^
      -s..\..\..\..\build\test_unp.sym ^
-     -v1 -p3
+     -v0 -p3
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
@@ -54,10 +54,10 @@ IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
      test_exo3.s ^
      -otest_exo3.prg ^
      -s..\..\..\..\build\test_exo3.sym ^
-     -v1 -p3
+     -v0 -p3
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
-POPD & PAUSE & EXIT
+POPD
 
 REM # loop through all issues...
 REM ============================================================================
