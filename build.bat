@@ -8,9 +8,14 @@ SET LUA_ARTICLE=%LUA% "scripts\article.lua"
 SET ACME=bin\acme\acme.exe -I "src"
 SET C1541="bin\vice\c1541.exe"
 
+SET DASM=bin\dasm\dasm.exe
+
 SET EXOMIZER="bin\exomizer\exomizer.exe"
 
-REM # assemble BSOD64 debugger
+TITLE Building Nucomer...
+ECHO:
+
+REM # assemble BSOD64:
 REM ============================================================================
 REM # the same BSOD64 binary is used across all issues,
 REM # so no need to do this as part of the per-issue build
@@ -28,15 +33,37 @@ REM #
           "bsod64.acme"
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
-
-TITLE Building Nucomer...
 POPD
+
+REM # assemble fast loader:
+REM ============================================================================
 ECHO:
+ECHO Bootstrap
+ECHO ----------------------------------------
+PUSHD src\boot\loader\examples
+
+..\..\..\..\%DASM% ^
+     test_unp.s ^
+     -otest_unp.prg ^
+     -s..\..\..\..\build\test_unp.sym ^
+     -v1 -p3
+
+IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+
+..\..\..\..\%DASM% ^
+     test_exo3.s ^
+     -otest_exo3.prg ^
+     -s..\..\..\..\build\test_exo3.sym ^
+     -v1 -p3
+
+IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+POPD & PAUSE & EXIT
 
 REM # loop through all issues...
 REM ============================================================================
 REM # begin with issue number zero
 SET /A ISSUE=0
+ECHO:
 
 :next_issue
 REM ----------------------------------------------------------------------------
