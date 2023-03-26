@@ -18,13 +18,15 @@
 ;  +--+--+------------+----------------+----------------+----+----+--------+
 ;  |  |  | SID (12K)  | TEXT (16K)     | CODE & GFX     | BS |    | UNUSED |
 ;  +--+--+------------+----------------+----------------+----+----+--------+
-;     $0800: shared code                           BSOD64 ^  $D000
+;     $0800: bootstrap                             BSOD64 ^  $D000
 ;
-; $0800: bootstrap, fast-loader and other shared code
+; $0800: bootstrap & fast-loader
+; $1000: SID tune, max 12 KB
+; $4000: article text (compressed)
 ; $C000: BSOD64
 ;
-!addr   nu_intro        = $0400 ; address of the shared / intro code
-!addr   nu_intro_screen = $3c00 ; address of the intro screen
+!addr   nu_intro        = $0400 ; load address of the logo
+!addr   nu_intro_screen = $3c00 ; address of the VIC screen for the logo
 
 !addr   nu_song         = $1000 ; address of SID song
 

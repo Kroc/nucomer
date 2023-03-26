@@ -76,11 +76,11 @@ logo_screen:
         sta nu_intro_screen + .VIC_SPRITE2_PTR
         lda # (logo_eye_right % $4000) / 64
         sta nu_intro_screen + .VIC_SPRITE3_PTR
-        
+
         ; set sprites to appear behind text
         lda # %11111111
         sta .VIC_SPRITE_PRIORITY
-        
+
         ; set sprite stretching;
         ; (the eye-lid sprites are double-width)
         lda # %00000011

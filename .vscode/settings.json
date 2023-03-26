@@ -14,17 +14,17 @@
         "editor.wordWrap": "wordWrapColumn"
     },
     "search.exclude": {
-        "bin"               : true,
-        "build"             : true,
-        "src/bsod64"        : true,
-        "src/boot/loader"   : true,
+        "bin"                   : true,
+        "build"                 : true,
+        "src/bsod64"            : true,
+        "src/boot/loader"       : true,
     },
     // the TODO-tree extension is recommended
     // for finding the TODOs scattered in the code
     "todo-tree.filtering.excludeGlobs": [
         // exclude any source that might be
         // in our 3rd-party binaries folder
-        "bin",
+        "bin", "src/boot/loader",
         // these folders contain generated content
         "build",
     ],
@@ -37,12 +37,17 @@
         "plaintext"
     ],
     "files.exclude": {
-        "bin": false,
-        // hide binary files in the build folder
-        "build/*.d64" : true,
-        "build/*.prg" : true,
-        "build/*.exo" : true,
-        "build/*.sid" : true,
-        "build/*.ct"  : true,
-    }
+        // hide "bin" folder
+        "bin"                   : true,
+        // hide binary files
+        "**/*.exe"              : true,
+        "**/*.ct"               : true,
+        "**/*.bin"              : true,
+        "**/*.d64"              : true,
+        "**/*.d71"              : true,
+        "**/*.d81"              : true,
+        "**/*.prg"              : true,
+        "**/*.exo"              : true,
+        "**/*.exo3"             : true,
+    },
 }

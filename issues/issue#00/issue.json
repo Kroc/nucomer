@@ -36,14 +36,14 @@
         "prg"   : "06.credits"
     }],
     "sids" : [{
+        "file"  : "A_New_Millenium_Awaits_Us",
+        "prg"   : "a.n.m.a.u."
+    },{
         "file"  : "Elder_Scrollers",
         "prg"   : "elder scrollers"
     },{
         "file"  : "Methane_02",
         "prg"   : "methane 02"
-    },{
-        "file"  : "A_New_Millenium_Awaits_Us",
-        "prg"   : "a.n.m.a.u."
     },{
         "file"  : "Arrrgh",
         "prg"   : "arrrgh"

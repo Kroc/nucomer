@@ -22,8 +22,7 @@
 
 ; zero-page variables:
 ;-------------------------------------------------------------------------------
-+alloc  $0f
-+byte   ~zp_menu_index          ; currently selected menu item          ;$0F
++byte   ~zp_menu_index          ; currently selected menu item
 
 ;===============================================================================
 ; table of interrupts to use for the menu screen:

@@ -19,60 +19,58 @@
 
 ; zero-page variables:
 ;-------------------------------------------------------------------------------
-+alloc  $20
-
 ; height of the complete article -- in pixels! this is used to determine the
 ; exact point to clip smooth scrolling when scrolling quickly. the high-bit
 ; is used to determine the top of the article, so in practice the article
 ; is limited to $7FFF (32'767) pixels high, equivalant to 4'095 lines,
 ; or 170 screens high!
 ;
-+word   ~zp_read_vlen                                                   ;$20/21
++word   ~zp_read_vlen
 
 ; exact scroll position -- in pixels!
-+word   ~zp_read_vpos                                                   ;$22/23
++word   ~zp_read_vpos
 
 ; scroll accumulator, used for changing the speed
 ; of smooth scrolling; a signed byte
-+byte   ~zp_read_scroll                                                 ;$24
++byte   ~zp_read_scroll
 
 ; flag to indicate to disallow upward scrolling
 ; (prevents smooth scrolling at top of article)
-+byte   ~zp_read_stop_up        ; $00 = go, $FF = stop                  ;$25
++byte   ~zp_read_stop_up        ; $00 = go, $FF = stop
 ; flag to indicate to disallow downward scrolling
 ; (prevents smooth scrolling at bottom of article)
-+byte   ~zp_read_stop_dn        ; $00 = go, $FF = stop                  ;$26
++byte   ~zp_read_stop_dn        ; $00 = go, $FF = stop
 
 ; pointer into the line-length array:
-+word   ~zp_read_lens                                                   ;$27/28
++word   ~zp_read_lens
 ; address of the line data that appears at the top of the screen:
 ; (changes only when scrolling, not during printing)
-+word   ~zp_read_top                                                    ;$29/2A
++word   ~zp_read_top
 ; number of rows to print: (1-based)
-+byte   ~zp_read_rows                                                   ;$2B
++byte   ~zp_read_rows
 ; current row on screen being printed: (0-26)
-+byte   ~zp_read_row                                                    ;$2C
++byte   ~zp_read_row
 ; pointer to the current row's line-data;
 ; this is always where line-data is read from
-+word   ~zp_read_char                                                   ;$2D/2E
++word   ~zp_read_char
 ; current line data-length, in bytes:
-+byte   ~zp_read_len                                                    ;$2F
++byte   ~zp_read_len
 ; indexes used when processing line colour-data (it's faster in this
 ; instance to use zero-page than use the stack or self-modifying-code)
-+byte   ~zp_read_index_data                                             ;$30
-+byte   ~zp_read_index_col                                              ;$31
++byte   ~zp_read_index_data
++byte   ~zp_read_index_col
 ; address of the line that appears at the bottom of the screen:
 ; (changes only when scrolling, not during printing)
-+word   ~zp_read_bot                                                    ;$32/33
++word   ~zp_read_bot
 
 ; for text decompression, a buffer of 40 bytes is required; located in
 ; the zero-page for maximum speed. we _could_ decompress directly into
 ; screen RAM, but it would cause visual glitching when the beam goes
 ; through a line whilst un-packing
 ;
-+addr   ~zp_read_buffer                                                 ;$34:
-+bytes  ~zp_read_buffer_screen, 40                                      ;$34-5B
-+bytes  ~zp_read_buffer_colour, 40                                      ;$5C-83
++addr   ~zp_read_buffer
++bytes  ~zp_read_buffer_screen, 40
++bytes  ~zp_read_buffer_colour, 40
 
 ; re-use the colour-data index for the decompression buffer,
 ; as the two won't ever be used at the same time

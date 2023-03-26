@@ -35,29 +35,30 @@ REM #
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 POPD
 
-REM # assemble fast loader:
+REM # assemble bootstrap:
 REM ============================================================================
 ECHO:
 ECHO Bootstrap
 ECHO ----------------------------------------
-PUSHD src\boot\loader\examples
+PUSHD src\boot
 
-..\..\..\..\%DASM% ^
-     test_unp.s ^
-     -otest_unp.prg ^
-     -s..\..\..\..\build\test_unp.sym ^
-     -v0 -p3
-
-IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
-
-..\..\..\..\%DASM% ^
-     test_exo3.s ^
-     -otest_exo3.prg ^
-     -s..\..\..\..\build\test_exo3.sym ^
-     -v0 -p3
+..\..\%DASM% ^
+     prg_boot.dasm ^
+     -o..\..\build\boot.prg ^
+     -s..\..\build\boot.sym ^
+     -v1 -p3
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 POPD
+
+REM # compress the bootstrap!
+REM ----------------------------------------------------------------------------
+%EXOMIZER% sfx 0x0400 -t64 -n -B ^
+     -s "lda #0 sta $d011" ^
+     -o "build\boot.exo.prg" ^
+     -- "build\boot.prg"
+
+IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
 REM # loop through all issues...
 REM ============================================================================
@@ -102,6 +103,15 @@ FOR /F "eol=* delims=* tokens=*" %%A IN (build\i%ISSUE_ID%_sids.lst) DO (
      IF NOT [%%~A] == [] CALL :process_sid "%%~A"
 )
 ECHO ========================================
+
+REM # the first (0th) SID is used during booting
+REM # so copy it to "bootsid.prg"
+
+COPY /Y ^
+     "build\i%ISSUE_ID%_s00_*.prg" /B ^
+     "build\bootsid.prg"           /B  >NUL
+IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
+
 GOTO :assemble_outfit
 
 :process_sid
@@ -119,6 +129,11 @@ SET "SID_TITLE=%SID_TITLE:~0,36%"
 
 REM # assemble the relocated SID, sans-header
 %ACME% -- "build\%SID_NAME%.acme"
+
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
 
 REM # compress the SID program...
 %EXOMIZER% raw -q ^
@@ -202,14 +217,14 @@ IF ERRORLEVEL 1 (
 REM # compress the intro
 REM ----------------------------------------------------------------------------
 
-%EXOMIZER% sfx 0x0400 -t64 -n -q ^
-     -o "build\intro-exo.prg" ^
-     -- "build\intro.prg"
-
-IF ERRORLEVEL 1 (
-     ECHO FAIL
-     EXIT /B %ERRORLEVEL%
-)
+REM %EXOMIZER% sfx 0x0800 -t64 -n -q ^
+REM      -o "build\intro.exo.prg" ^
+REM      -- "build\intro.prg"
+REM 
+REM IF ERRORLEVEL 1 (
+REM      ECHO FAIL
+REM      EXIT /B %ERRORLEVEL%
+REM )
 
 REM # assemble the main outfit
 REM ----------------------------------------------------------------------------
@@ -255,7 +270,7 @@ IF ERRORLEVEL 1 (
 )
 
 %EXOMIZER% sfx 0x8000 -t64 -n -q ^
-     -o "build\nucomer-exo.prg" ^
+     -o "build\nucomer.exo.prg" ^
      -- "build\i%ISSUE_ID%_s00_menu.prg" ^
         "build\nucomer.prg" ^
         "build\admiral64.prg" ^

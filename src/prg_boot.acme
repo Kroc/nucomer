@@ -9,7 +9,7 @@
 ;
 ; prg_boot.acme:
 ;===============================================================================
-
+!sl     "build/boot.sym"
 !source "nucomer.acme"          ; nucomer constants for memory layout
 
 

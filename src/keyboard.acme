@@ -139,13 +139,13 @@
 ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ; ZERO PAGE Varibles
-!addr   ScanResult              = $10  ; 8 bytes
-!addr   BufferNew               = $18  ; 3 bytes
-!addr   KeyQuantity             = $1b  ; 1 byte
-!addr   NonAlphaFlagX           = $1c  ; 1 byte
-!addr   NonAlphaFlagY           = $1d  ; 1 byte
-!addr   TempZP                  = $1e  ; 1 byte
-!addr   SimultaneousKeys        = $1f  ; 1 byte
++bytes  ~ScanResult, 8
++bytes  ~BufferNew, 3
++byte   ~KeyQuantity
++byte   ~NonAlphaFlagX
++byte   ~NonAlphaFlagY
++byte   ~TempZP
++byte   ~SimultaneousKeys
 
 ; Operational Variables
 MaxKeyRollover  = 3

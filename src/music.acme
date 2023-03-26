@@ -9,7 +9,7 @@
 ;
 ; music.acme
 ;===============================================================================
-!addr   ZP_SONG_PLAY    = $0d   ; play address for playing SID          ;$0D/E
++word   ~ZP_SONG_PLAY           ; play address for playing SID
 
 
 ; allocate a byte for storing the currently selected song;

@@ -15,12 +15,12 @@
 ; works through a queue of custom scanline handlers. this allows each screen
 ; to register a simple list of routines to run for any desired scanline
 ;
-!addr ZP_IRQ            = $03   ; current index in the table            ;$03
-!addr ZP_IRQS_LEN       = $04   ; number of entries in the table        ;$04
-!addr ZP_IRQS_ADDRLO    = $05   ; interrupt routines lo-bytes           ;$05/06
-!addr ZP_IRQS_ADDRHI    = $07   ; interrupt routines hi-bytes           ;$07/08
-!addr ZP_IRQS_SCANLO    = $09   ; scanline lo-bytes                     ;$09/0A
-!addr ZP_IRQS_SCANHI    = $0b   ; scanline hi-bytes                     ;$0B/0C
++byte   ~ZP_IRQ                 ; current index in the table            ;$14
++byte   ~ZP_IRQS_LEN            ; number of entries in the table        ;$15
++word   ~ZP_IRQS_ADDRLO         ; interrupt routines lo-bytes           ;$16/17
++word   ~ZP_IRQS_ADDRHI         ; interrupt routines hi-bytes           ;$18/19
++word   ~ZP_IRQS_SCANLO         ; scanline lo-bytes                     ;$1a/1b
++word   ~ZP_IRQS_SCANHI         ; scanline hi-bytes                     ;$1c/1d
 
 ; some helpful scanline numbers:
 ; (0-based)

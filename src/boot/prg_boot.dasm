@@ -1,0 +1,42 @@
+; nücomer diskzine (c) copyright Kroc Camen 2019-2023. unless otherwise noted,
+; licenced under Creative Commons Attribution Non-Commercial Share-Alike 4.0
+; licence; you may reuse and modify this code how you please as long as you:
+;
+; - retain the copyright notice
+; - use the same licence for your derived code
+; - do not use it for commercial purposes
+;   (contact the author for a commercial licence)
+;
+;===============================================================================
+        processor 6502
+        org $0400
+
+        include loader/config.s
+
+        ; the fast-loader will remain in memory whilst the initialisation
+        ; routine that detects drives and uploads code can be discarded.
+        ; we place the loader first in the program to provide known
+        ; addresses for its API
+        ;
+start:  jmp chain               ; jump over resident fast-loader to init code
+
+        ;-----------------------------------------------------------------------
+        include loader/loader.s
+        include loader/loadunpacked.s
+
+        ;-----------------------------------------------------------------------
+        include loader/loaderinit.s
+
+chain:  ;=======================================================================
+        clc
+        jsr InitLoader
+
+        lda #$00
+        jsr LoadUnpacked        ; load file 00
+        bcs err                 ; error if carry set
+
+        dc.b $02
+        rts
+
+err:    dc.b $02
+        rts
