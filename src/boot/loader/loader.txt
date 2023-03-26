@@ -1,0 +1,248 @@
+Covert Bitops Loadersystem V3.05
+--------------------------------
+
+Freely usable for all kinds of C64 projects.
+
+V3.x is a further size-optimized game-oriented loader with limitations, based on
+c64gameframework / MW ULTRA loader.
+
+Credits:
+Christoph Thelen (DocBacardi/The Dreams)
+  - Help with 1581/CMD FD/CMD HD support
+Wolfram Sang (Ninja/The Dreams)
+  - Help with 1581/CMD FD/CMD HD support, SuperRAM & REU code
+Per Olofsson (MagerValp)
+  - 2MHz 2-bit protocol timing
+  - Inspiration for save using drivecode
+Thomas Giesel (Skoe)
+  - Original SD2IEC fastloader (ELoad) code
+Lasse Öörni (Cadaver)
+  - everything else
+
+Please note that this source code is in DASM format, and relies heavily on
+conditional assembly and relocation to compile in or leave out the various
+features and to compile the drivecode and overlays. To use on other assemblers,
+you'll have to convert to the format of your assembler.
+
+Covert BitOps site:
+http://covertbitops.c64.org
+
+Email: (Lasse Öörni)
+loorni@gmail.com
+
+
+Features, assumptions & limitations
+-----------------------------------
+
+- Autodetection of drive programming capability & serial protocol
+  * Fastloader uploaded to drives that support it:
+    1541, 1571, 1581, CMD FD and CMD HD
+  * IDE64 and "fast drive emulation" are detected: because these don't use
+    the slow, IRQ-disabling serial protocol at all, you can still use IRQs
+    quite reliably (read more about this below)
+  * SD2IEC is detected and a separate compatible fastloader protocol (ELoad)
+    is used
+
+- PAL/NTSC/Drean compatibility.
+
+- Only 2-bit fastloading protocol is available.
+
+- Only 2-letter filenames which are hexadecimal numbers are supported. The
+  drivecode will precache directory to speed up repeated searches.
+
+- Loader assumes Kernal will be off ($35 value in $01) during runtime.
+  It will disable timer interrupt and NMI from Restore keypress when
+  initializing.
+  
+- Loading under I/O is not handled in the default high-level routines. You need
+  to implement this yourself if needed.
+
+- Fastloader initializes itself only once, after which the loader init and
+  drivecode can be disposed. Save is supported only to preallocated files
+  on the disk, instead of switching fastloader off and using Kernal routines.
+
+- Sprite range setting for allowing sprites on while fastloading, but this
+  reduces the available raster line range and slows down loading. Sprites 
+  should be off when the Kernal protocol is used with an actual serial
+  device (loaderMode 0)
+
+
+Including in a program
+----------------------
+
+- Include config.s first; modify it according to your needs.
+- Then include loader.s where you need the resident loader runtime.
+- Then include additional modules like loadunpacked.s or loadexomizer3.s as
+  needed.
+- Finally include loaderinit.s which is the largest, one-time initialization
+  part and can be overwritten after calling InitLoader.
+
+
+Summary of user-callable routines
+---------------------------------
+
+Initialization (disposable)
+---------------------------
+
+InitLoader
+
+Detects drive type and whether it supports fastloading, and if it uses the
+serial protocol. Must only be called only once in the beginning before using
+the other routines.
+
+Parameters: C=0 allow detection, C=1 default to Kernal stock protocol
+            (loaderMode 0)
+Returns:    ntscFlag, loaderMode and fileOpen variables set
+Modifies:   A,X,Y
+
+
+Low-level runtime
+-----------------
+
+OpenFile
+
+Opens a file. Must not be called when file is already open (fileOpen variable
+nonzero).
+
+Parameters: A file number
+Returns:    fileOpen set to nonzero if successful
+Modifies:   A,X,Y,loader ZP variables
+
+
+GetByte
+
+Reads a byte from an opened file. Must only be called if file is still open
+(fileOpen variable is nonzero). Note that you must read until end of file
+before you can open the next file.
+
+Parameters: -
+Returns:    A byte, fileOpen set to zero on EOF
+Modifies:   A,loader ZP variables
+
+
+SaveFile
+
+Saves a file.
+
+Parameters: A file number, zpSrcLo-zpSrcHi startaddress, zpBitsLo-zpBitsHi
+            amount of bytes
+Returns:    -
+Modifies:   A,X,Y,loader ZP variables
+
+
+SetSpriteRange
+
+Set sprite maximum and minimum Y for fastloading when sprites are on. This
+limits the rasterline Y-range on which the 2-bit timed transfer is used.
+No-op in Kernal loading modes (loaderMode 0 & 1)
+
+Parameters: A Y-coordinate of topmost sprite, X Y-coordinate of bottom-
+            most sprite
+Returns:    -
+Modifies:   A
+
+
+SetNoSprites
+
+Clear the sprite range and allow 2-bit timed transfer anywhere on screen.
+No-op in Kernal loading modes (loaderMode 0 & 1)
+
+Parameters: A must be 0
+Returns:    -
+Modifies:   -
+
+
+Optional high-level runtime
+---------------------------
+
+LoadUnpacked (in loadunpacked.s)
+
+Loads a file into the address specified by the file's 2 first bytes
+
+Parameters: A file number
+Returns:    C=0 if OK, C=1 if failed to load
+Modifies:   A,X,Y,loader ZP variables
+
+
+LoadUnpackedRaw (in loadunpacked.s)
+
+Loads a raw file (no load address) into the specified destination.
+
+Parameters: A file number, X/Y load address
+Returns:    C=0 if OK, C=1 if failed to load
+Modifies:   A,X,Y,loader ZP variables
+
+
+LoadExomizer3Raw (in loadexomizer3.s)
+
+Loads an Exomizer3 compressed raw file (no load address) into the specified
+destination.
+
+Parameters: A file number, X/Y load address
+Returns:    C=0 if OK, C=1 if failed to load
+Modifies:   A,X,Y,loader ZP variables
+
+
+Diskside change detection (1541)
+--------------------------------
+
+The loader doesn't provide special facilities to detect diskside. Instead you
+should use a "file not found" condition (OpenFile fails to set fileOpen to
+nonzero) to detect the need for diskside change. The disksides should have 
+different disk IDs.
+
+
+Kernal loading special considerations
+-------------------------------------
+
+When loaderMode is 0 (Kernal loading) or 1 (Kernal loading, but IRQs allowed
+for devices like IDE64) the loader will call into a "StopIRQ" routine at $02a7
+when opening a file for load or save. By default this is just a RTS instruction,
+but you can replace it with your specific code.
+
+In loaderMode 0, you should completely shut off raster interrupts, audio and
+sprites in the StopIRQ routine, because IRQs will be delayed unpredictably, and 
+the stock protocol timing will not tolerate sprites being on.
+
+Note that in fastload mode the $0200-$02ff area is used instead for the sector
+buffer or ELoad helper code, and shouldn't be touched by your code.
+
+
+SCPU/C128 special considerations
+--------------------------------
+
+You can speed up the CPU in your code for e.g. faster scrolling. When the loader
+is compiled with USETURBOMODE define nonzero, the loader will automatically
+switch back to slow mode when opening a file for load or save. However, if you
+switch back to turbo mode in IRQs, observe the following: if fileOpen variable
+is nonzero (file is currently open), you should not switch turbo mode on.
+
+
+IDE64 special considerations
+----------------------------
+
+From the IDE64 fixing/compatibility guide at
+http://www.ide64.org/ide_fix.html
+
+- IRQ/NMI can get delayed by 30-40 cycles (like VIC's bad lines) while
+  executing IDE64 calls. This may cause "raster bugs" and similar.
+  To avoid this, do the raster interrupt a line earlier, and then check $D012.
+
+- Active IRQ MUST NOT be located between $8000-$9FFF because IDE DOS has there
+  IDE ROM.
+
+
+Version history
+---------------
+
+V3.0    - Original release based on the MW ULTRA / c64gameframework loader
+
+V3.01   - Fix safe mode loader init
+
+V3.02   - Fix SD2IEC timing on NTSC
+
+V3.03   - Fix wrong Y register value in fast save
+
+V3.04   - Fix compile with USETURBOMODE = 0
+
+V3.05   - Fix use of videobank 1 with SD2IEC
