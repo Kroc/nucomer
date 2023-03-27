@@ -26,6 +26,20 @@ intro_boot:
         lda # %00000000
         sta .VIC_SCREEN_CTL1
 
+        ; change the VIC bank
+        ;
+        ldx .CIA2_PORTA_DDR     ; (backup current value)
+        lda # %00000111         ; we only want to write to the low 3-bits
+        sta .CIA2_PORTA_DDR     ; set the port's read/write state
+        ;
+        ; the bit value is the inverse of the bank number 0-3
+        lda # (!NU_VIC_BANK) & %00000011
+        sta .CIA2_PORTA         ; change VIC bank
+
+        ; we must restore the read/write state
+        ; of the port or disk I/O will break!
+        stx .CIA2_PORTA_DDR
+
         ; change the VIC memory layout to position the text-screen & char ROM
         lda # ((>nu_intro_screen & %00111100) << 2) | ((>$1800 & %00111000) >> 2)
         sta .VIC_LAYOUT
@@ -109,12 +123,16 @@ intro_boot:
         ldy #> @filename_outfit
         lda # 3                 ; A is string-length
         jsr .KERNAL_SETNAM      ; set KERNAL file name
-        lda # 0                 ; load, not verify
-        jsr .KERNAL_LOAD
+        
+        ; we will not be returning here!
+        ;
+        lda #> (.basic_start-1)+$c
+        pha
+        lda #< (.basic_start-1)+$c
+        pha
 
-        ; jump to the main outfit
-        ;;dec .CPU_CONTROL
-        jmp .basic_start+$c
+        lda # 0
+        jmp .KERNAL_LOAD        ; load, not verify
 
 @filename_outfit:
         ;-----------------------------------------------------------------------

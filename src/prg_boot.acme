@@ -78,8 +78,7 @@ boot_init:
         lda #< (nu_intro-1)
         pha
 
-        ; load, not verify
-        lda # 0
+        lda # 0                 ; load, not verify
         jmp .KERNAL_LOAD
 
 boot_filename:

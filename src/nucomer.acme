@@ -25,11 +25,11 @@
 ; $4000: article text (compressed)
 ; $C000: BSOD64
 ;
-!addr   nu_intro        = $0400 ; load address of the logo
-!addr   nu_intro_screen = $3c00 ; address of the VIC screen for the logo
+!addr   nu_intro        = $8000 ; load address of the logo
+!addr   nu_intro_screen = $bc00 ; address of the VIC screen for the logo
 
 !addr   nu_song         = $1000 ; address of SID song
-
+!addr   nu_text         = $4000 ; address of article text storage
 !addr   nu_main         = $8000 ; address of the main outfit code
 
 ;-------------------------------------------------------------------------------
@@ -37,9 +37,9 @@
 ; some meta-data, compression tables and not just straight text beginning
 ; at this point
 ;
-+alloc  $4000
++alloc  nu_text
 
-+addr   ~nu_text                ; beginning of article header + data
++addr   ~nu_text_header         ; beginning of article header + data
 +word   ~nu_text_tokens_left    ; pointer to token-pairs table (left-bytes)
 +word   ~nu_text_tokens_right   ; pointer to token-pairs table (right-bytes)
 +word   ~nu_text_lines          ; pointer to list of line-lengths
