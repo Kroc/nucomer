@@ -10,15 +10,15 @@
 ;===============================================================================
 !ct "build/scr_nucomer.ct"
 
-+byte   ~zp_print_colour                                                ;$1e
++byte   ~zp_print_colour
 
+
+clear_screen:
 ;===============================================================================
 ; clear the screen:
 ;
-;       A = text colour
-;
-clear_screen:
-        ;-----------------------------------------------------------------------
+; in:   A                       text colour
+;-------------------------------------------------------------------------------
         ldx # $00
 
         ; write four 256-byte strips simultaneously
@@ -40,16 +40,16 @@ clear_screen:
 
         rts
 
+
+print_str_pos:
 ;===============================================================================
 ; print a terminated string, where the first two bytes
 ; are the row & col at which to begin printing:
 ;
-;       X = string address, lo-byte
-;       A = string address, hi-byte
-;       preserves Y
-;
-print_str_pos:
-        ;-----------------------------------------------------------------------
+; in:   X                       string address, lo-byte
+;       A                       string address, hi-byte
+; out:  Y                       (preserved)
+;-------------------------------------------------------------------------------
         ; read the row & col:
         ;
         sty @y+1                ; preserve Y
@@ -116,18 +116,18 @@ print_str_pos:
 .invalid
         !text   "invalid string!", 0
 
+
+print_str:
 ;===============================================================================
 ; print a terminated string:
 ;
-;       X = string address, lo-byte
-;       A = string address, hi-byte
-;       preserves Y
+; in:   X                       string address, lo-byte
+;       A                       string address, hi-byte
+; out:  Y                       (preserved)
 ;
-; `print_set_crsr` must be called beforehand to set the screen address
-; to print at which is encoded directly into this routine
-;
-print_str:
-        ;-----------------------------------------------------------------------
+; `print_set_crsr` must be called beforehand to set the screen
+; address to print at which is encoded directly into this routine
+;-------------------------------------------------------------------------------
 !addr   print_str__from         = @from
 !addr   print_str__to           = @to
 !addr   print_str__color        = @color
@@ -164,14 +164,14 @@ print_str:
 @y      ldy # $88               ; restore Y
         rts
 
+
+print_set_crsr:
 ;===============================================================================
 ; sets the screen address before printing:
 ;
-;       Y = row
-;       X = col
-;
-print_set_crsr:
-        ;-----------------------------------------------------------------------
+; in:   Y                       row
+;       X                       col
+;-------------------------------------------------------------------------------
         txa
         clc
         adc screen_rows_lo, y   ; add the column to the row-offset
@@ -185,19 +185,18 @@ print_set_crsr:
         
         rts
 
+
+print_get_crsr:
 ;===============================================================================
 ; given a row+col, returns the corresponding screen address
 ;
-;       A = row
-;       X = col
+; in:   A                       row
+;       X                       col
 ;
-; returns:
-;       X = screen address lo-byte
-;       A = screen address hi-byte
-;       Y is preserved
-;
-print_get_crsr:
-        ;-----------------------------------------------------------------------
+; out:  X                       screen address lo-byte
+;       A                       screen address hi-byte
+;       Y                       (preserved)
+;-------------------------------------------------------------------------------
         sty @y+1                ; preserve Y
         tay                     ; index by row (0-24)
         txa                     ; take the column (0-40)

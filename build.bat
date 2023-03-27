@@ -186,19 +186,6 @@ IF ERRORLEVEL 1 (
      EXIT /B %ERRORLEVEL%
 )
 
-REM # assemble the disk bootstrap
-REM ----------------------------------------------------------------------------
-REM %ACME% ^
-REM      --format cbm ^
-REM      --report "build\boot.src" ^
-REM      --outfile "build\boot.prg" ^
-REM           "src\prg_boot.acme"
-REM 
-REM IF ERRORLEVEL 1 (
-REM      ECHO FAIL
-REM      EXIT /B %ERRORLEVEL%
-REM )
-
 REM # assemble the intro
 REM ----------------------------------------------------------------------------
 %ACME% ^

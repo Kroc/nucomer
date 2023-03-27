@@ -34,7 +34,7 @@ intro_boot:
         ;
         ; the bit value is the inverse of the bank number 0-3
         lda # (!NU_VIC_BANK) & %00000011
-        sta .CIA2_PORTA         ; change VIC bank
+        sta .CIA2_PORTA
 
         ; we must restore the read/write state
         ; of the port or disk I/O will break!
@@ -99,31 +99,9 @@ intro_boot:
         
         ; load the main outfit
         ;-----------------------------------------------------------------------
-;;        lda #> (nu_main-1)+$c
-;;        pha
-;;        lda #< (nu_main-1)+$c
-;;        pha
-        
-        ;;lda CPU_CONTROL
-        ;;and # %11111100
-        ;;sta CPU_CONTROL
-        ;;dec .CPU_CONTROL
-
         lda # %00110111
         sta .CPU_CONTROL
 
-;;        ldx+1 .ZP_KERNAL_DEV    ; last-used KERNAL device number
-;;        bne +                   ; not 0? good
-;;        ldx # .DEV_DRV8         ; default to drive 8
-;;+       ldy # $01               ; use PRG load-address
-;;        tya                     ; logical file number
-;;        jsr .KERNAL_SETLFS
-;;
-;;        ldx #< @filename_outfit
-;;        ldy #> @filename_outfit
-;;        lda # 3                 ; A is string-length
-;;        jsr .KERNAL_SETNAM      ; set KERNAL file name
-        
         ; we will not be returning here!
         ;
         lda #> (.basic_start-1)+$c
@@ -132,14 +110,7 @@ intro_boot:
         pha
 
         lda # $c2               ; filename "C2*", i.e. the main outfit
-        jmp fastload
-
-;;        lda # 0
-;;        jmp .KERNAL_LOAD        ; load, not verify
-
-@filename_outfit:
-        ;-----------------------------------------------------------------------
-        !pet    "c2*"
+        jmp fastload_prg
 
 
 nmi_nokernal:
