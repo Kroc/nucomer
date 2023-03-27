@@ -9,7 +9,13 @@
 ;
 ;===============================================================================
         processor 6502
-        org $0400
+
+        ; use the program address passed in from the build script
+        IFNCONST NU_ADDR_BOOT
+                ECHO "NU_ADDR_BOOT undefined!"
+                ERR
+        ENDIF
+        org NU_ADDR_BOOT
 
         include loader/config.s
 

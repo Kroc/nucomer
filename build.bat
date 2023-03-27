@@ -18,6 +18,9 @@ ECHO:
 REM # clear the build folder
 DEL /F /Q build\*.*  >NUL
 
+REM # address of the bootstrap/fast-loader
+SET NU_ADDR_BOOT=0400
+
 REM # assemble BSOD64:
 REM ============================================================================
 REM # the same BSOD64 binary is used across all issues,
@@ -27,7 +30,7 @@ ECHO BSOD64
 ECHO ----------------------------------------
 PUSHD src\bsod64
 
-REM # assemble BSOD64 into its own folder as its a sub-project
+REM # assemble BSOD64 into its own folder as it's a sub-project
 REM #
 ..\..\%ACME% -v1 ^
      --format cbm ^
@@ -47,6 +50,7 @@ PUSHD src\boot
 
 ..\..\%DASM% ^
      prg_boot.dasm ^
+     -DNU_ADDR_BOOT=$%NU_ADDR_BOOT% ^
      -o..\..\build\boot.prg ^
      -s..\..\build\boot.sym ^
      -v0 -p3
