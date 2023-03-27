@@ -112,17 +112,17 @@ intro_boot:
         lda # %00110111
         sta .CPU_CONTROL
 
-        ldx+1 .ZP_KERNAL_DEV    ; last-used KERNAL device number
-        bne +                   ; not 0? good
-        ldx # .DEV_DRV8         ; default to drive 8
-+       ldy # $01               ; use PRG load-address
-        tya                     ; logical file number
-        jsr .KERNAL_SETLFS
-
-        ldx #< @filename_outfit
-        ldy #> @filename_outfit
-        lda # 3                 ; A is string-length
-        jsr .KERNAL_SETNAM      ; set KERNAL file name
+;;        ldx+1 .ZP_KERNAL_DEV    ; last-used KERNAL device number
+;;        bne +                   ; not 0? good
+;;        ldx # .DEV_DRV8         ; default to drive 8
+;;+       ldy # $01               ; use PRG load-address
+;;        tya                     ; logical file number
+;;        jsr .KERNAL_SETLFS
+;;
+;;        ldx #< @filename_outfit
+;;        ldy #> @filename_outfit
+;;        lda # 3                 ; A is string-length
+;;        jsr .KERNAL_SETNAM      ; set KERNAL file name
         
         ; we will not be returning here!
         ;
@@ -131,8 +131,11 @@ intro_boot:
         lda #< (.basic_start-1)+$c
         pha
 
-        lda # 0
-        jmp .KERNAL_LOAD        ; load, not verify
+        lda # $c2               ; filename "C2*", i.e. the main outfit
+        jmp fastload
+
+;;        lda # 0
+;;        jmp .KERNAL_LOAD        ; load, not verify
 
 @filename_outfit:
         ;-----------------------------------------------------------------------

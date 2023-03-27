@@ -18,19 +18,26 @@
 ;  +--+--+------------+----------------+----------------+----+----+--------+
 ;  |  |  | SID (12K)  | TEXT (16K)     | CODE & GFX     | BS |    | UNUSED |
 ;  +--+--+------------+----------------+----------------+----+----+--------+
-;     $0800: bootstrap                             BSOD64 ^  $D000
+;     $0400: bootstrap                             BSOD64 ^  $D000
 ;
-; $0800: bootstrap & fast-loader
+; $0400: bootstrap & fast-loader
 ; $1000: SID tune, max 12 KB
 ; $4000: article text (compressed)
 ; $C000: BSOD64
 ;
+!addr   nu_boot         = $0400 ; bootstrap & fast-loader
 !addr   nu_intro        = $8000 ; load address of the logo
 !addr   nu_intro_screen = $bc00 ; address of the VIC screen for the logo
 
 !addr   nu_song         = $1000 ; address of SID song
 !addr   nu_text         = $4000 ; address of article text storage
 !addr   nu_main         = $8000 ; address of the main outfit code
+
+; fast-load API:
+; (see "src/boot/prg_boot.dasm")
+;
+!addr   fastload_raw    = nu_boot+3
+!addr   fastload        = nu_boot+6
 
 ;-------------------------------------------------------------------------------
 ; articles are loaded in from this point, though note that this includes

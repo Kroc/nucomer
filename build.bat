@@ -15,6 +15,9 @@ SET EXOMIZER="bin\exomizer\exomizer.exe"
 TITLE Building Nucomer...
 ECHO:
 
+REM # clear the build folder
+DEL /F /Q build\*.*  >NUL
+
 REM # assemble BSOD64:
 REM ============================================================================
 REM # the same BSOD64 binary is used across all issues,
@@ -28,9 +31,9 @@ REM # assemble BSOD64 into its own folder as its a sub-project
 REM #
 ..\..\%ACME% -v1 ^
      --format cbm ^
-     --report "..\..\build\bsod.txt" ^
+     --report "..\..\build\bsod.src" ^
       -o "build\bsod64.prg" ^
-          "bsod64.acme"
+          "bsod64.acme" 
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 POPD
@@ -87,9 +90,6 @@ REM #
 ECHO Issue #%ISSUE_ID%
 ECHO ========================================
 
-REM # clear the build folder
-DEL /F /Q build\*.*  >NUL
-
 REM # process articles in the issue
 %LUA% "scripts\issue.lua" %ISSUE%
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
@@ -105,11 +105,11 @@ FOR /F "eol=* delims=* tokens=*" %%A IN (build\i%ISSUE_ID%_sids.lst) DO (
 ECHO ========================================
 
 REM # the first (0th) SID is used during booting
-REM # so copy it to "bootsid.prg"
+REM # so copy it to "boot.sid.prg"
 
 COPY /Y ^
      "build\i%ISSUE_ID%_s0_*.prg" /B ^
-     "build\bootsid.prg"           /B  >NUL
+     "build\boot.sid.prg"           /B  >NUL
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
 GOTO :assemble_outfit
@@ -188,22 +188,22 @@ IF ERRORLEVEL 1 (
 
 REM # assemble the disk bootstrap
 REM ----------------------------------------------------------------------------
-%ACME% ^
-     --format cbm ^
-     --report "build\boot.txt" ^
-     --outfile "build\boot.prg" ^
-          "src\prg_boot.acme"
-
-IF ERRORLEVEL 1 (
-     ECHO FAIL
-     EXIT /B %ERRORLEVEL%
-)
+REM %ACME% ^
+REM      --format cbm ^
+REM      --report "build\boot.src" ^
+REM      --outfile "build\boot.prg" ^
+REM           "src\prg_boot.acme"
+REM 
+REM IF ERRORLEVEL 1 (
+REM      ECHO FAIL
+REM      EXIT /B %ERRORLEVEL%
+REM )
 
 REM # assemble the intro
 REM ----------------------------------------------------------------------------
 %ACME% ^
      --format cbm ^
-     --report "build\intro.txt" ^
+     --report "build\intro.src" ^
      --outfile "build\intro.prg" ^
           "src\prg_intro.acme"
 
@@ -228,7 +228,7 @@ REM # assemble the main outfit
 REM ----------------------------------------------------------------------------
 %ACME% ^
      --format cbm ^
-     --report "build\nucomer.txt" ^
+     --report "build\nucomer.src" ^
      --outfile "build\nucomer.prg" ^
           "src\prg_nucomer.acme"
 

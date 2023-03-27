@@ -15,10 +15,28 @@
 
         ; the fast-loader will remain in memory whilst the initialisation
         ; routine that detects drives and uploads code can be discarded.
-        ; we place the loader first in the program to provide known
-        ; addresses for its API
+        ; therefore we place the loader first in the program to provide
+        ; fixed, known addresses for its API
         ;
 start:  jmp chain               ; jump over resident fast-loader to init code
+
+        ;=======================================================================
+        ; Load unpacked file with specified load address
+        ;
+        ; Parameters: A filenumber, X/Y load address
+        ; Returns: C=0 if OK, C=1 if failed to load
+        ; Modifies: A,X,Y,zpDestLo-Hi
+        ;
+        jmp LoadUnpackedRaw
+
+        ;=======================================================================
+        ; Load unpacked file with load address from 2 first bytes of file
+        ;
+        ; Parameters: A filenumber
+        ; Returns: C=0 if OK, C=1 if failed to load
+        ; Modifies: A,X,Y,zpDestLo-Hi
+        ;
+        jmp LoadUnpacked
 
         ;-----------------------------------------------------------------------
         include loader/loader.s
@@ -35,8 +53,7 @@ chain:  ;=======================================================================
         jsr LoadUnpacked        ; load file 00
         bcs err                 ; error if carry set
 
-        dc.b $02
-        rts
+        jmp $8000
 
 err:    dc.b $02
         rts
