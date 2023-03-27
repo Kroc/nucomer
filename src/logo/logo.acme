@@ -50,10 +50,10 @@ logo_screen:
         bne -
 
         lda # ' '               ; clear with space char
--       sta nu_intro_screen + $000, x
-        sta nu_intro_screen + $100, x
-        sta nu_intro_screen + $200, x
-        sta nu_intro_screen + $300, x
+-       sta nu_logo_screen + $000, x
+        sta nu_logo_screen + $100, x
+        sta nu_logo_screen + $200, x
+        sta nu_logo_screen + $300, x
         dex
         bne -
 
@@ -69,13 +69,13 @@ logo_screen:
 
         ; select which sprite images to show
         lda # (logo_eye_lid1 % $4000) / 64
-        sta nu_intro_screen + .VIC_SPRITE0_PTR
+        sta nu_logo_screen + .VIC_SPRITE0_PTR
         lda # (logo_eye_lid2 % $4000) / 64
-        sta nu_intro_screen + .VIC_SPRITE1_PTR
+        sta nu_logo_screen + .VIC_SPRITE1_PTR
         lda # (logo_eye_left % $4000) / 64
-        sta nu_intro_screen + .VIC_SPRITE2_PTR
+        sta nu_logo_screen + .VIC_SPRITE2_PTR
         lda # (logo_eye_right % $4000) / 64
-        sta nu_intro_screen + .VIC_SPRITE3_PTR
+        sta nu_logo_screen + .VIC_SPRITE3_PTR
 
         ; set sprites to appear behind text
         lda # %11111111
@@ -219,7 +219,7 @@ logo_draw:
         ; get left-behind characters from previous frames
         ldy # 39
         lda # ' '
--       sta nu_intro_screen + (.LOGO_TEXT_ROW * 40), y
+-       sta nu_logo_screen + (.LOGO_TEXT_ROW * 40), y
         dey
         bpl -
 
@@ -228,17 +228,17 @@ logo_draw:
         ; (note: use screen codes for these values)
 !ct scr {
         lda # 'd'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 20, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 20, x
         lda # 'e'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 21, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 21, x
         lda # 's'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 22, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 22, x
         lda # 'i'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 23, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 23, x
         lda # 'g'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 24, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 24, x
         lda # 'n'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 25, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 25, x
 }
         ; for the logo halves, there is a lesser amount of separation on the
         ; Y-axis than the X-axis so we set the left-eye's Y-position here based
@@ -268,15 +268,15 @@ logo_draw:
         ; (note: use screen codes for these values)
 !ct scr {
         lda # 'c'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 2, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 2, x
         lda # 'a'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 3, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 3, x
         lda # 'm'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 4, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 4, x
         lda # 'e'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 5, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 5, x
         lda # 'n'
-        sta nu_intro_screen + (.LOGO_TEXT_ROW * 40) + 6, x
+        sta nu_logo_screen + (.LOGO_TEXT_ROW * 40) + 6, x
 }
         ; and apply the colour:
         ; first, retrieve colour value

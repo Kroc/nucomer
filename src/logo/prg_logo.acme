@@ -7,20 +7,21 @@
 ; - do not use it for commercial purposes
 ;   (contact the author for a commercial licence)
 ;
-; prg_intro.acme:
+; prg_logo.acme:
 ;===============================================================================
-; after the bootstrap, the "intro" installs some permenant shared code
-; shows the logo, and then loads the main menu. this is done this way
-; so that the logo screen can be discard and overwritten after it is
-; shown and not occupy RAM permenantly for a once-off screen
+; after the bootstrap, the logo splash screen is shown and the main menu
+; is loaded. this is done this way so that the logo screen can be discarded
+; and overwritten after it is shown and not occupy RAM permenantly
+; for a once-off screen
 ;
 !source "nucomer.acme"          ; nucomer constants for memory layout
 
-* = nu_intro
+* = nu_logo
 
-intro_boot:
+
+logo_boot:
 ;===============================================================================
-; display the intro and chain-load the outfit:
+; display the logo and chain-load the outfit:
 ;-------------------------------------------------------------------------------
         ; turn the screen off whilst we clear it
         lda # %00000000
@@ -41,7 +42,7 @@ intro_boot:
         stx .CIA2_PORTA_DDR
 
         ; change the VIC memory layout to position the text-screen & char ROM
-        lda # ((>nu_intro_screen & %00111100) << 2) | ((>$1800 & %00111000) >> 2)
+        lda # ((>nu_logo_screen & %00111100) << 2) | ((>$1800 & %00111000) >> 2)
         sta .VIC_LAYOUT
 
         ; patch interrupts:
@@ -185,4 +186,4 @@ wait_frame:
         rts
 
 ;===============================================================================
-!source "logo.acme"
+!source "logo/logo.acme"

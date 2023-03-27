@@ -26,8 +26,8 @@
 ; $C000: BSOD64
 ;
 !addr   nu_boot         = $0400 ; bootstrap & fast-loader
-!addr   nu_intro        = $8000 ; load address of the logo
-!addr   nu_intro_screen = $bc00 ; address of the VIC screen for the logo
+!addr   nu_logo         = $8000 ; load address of the logo splash screen
+!addr   nu_logo_screen  = $bc00 ; address of the VIC screen for the logo
 
 !addr   nu_song         = $1000 ; address of SID song
 !addr   nu_text         = $4000 ; address of article text storage

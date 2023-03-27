@@ -186,25 +186,25 @@ IF ERRORLEVEL 1 (
      EXIT /B %ERRORLEVEL%
 )
 
-REM # assemble the intro
+REM # assemble the logo splash screen
 REM ----------------------------------------------------------------------------
 %ACME% ^
      --format cbm ^
-     --report "build\intro.src" ^
-     --outfile "build\intro.prg" ^
-          "src\prg_intro.acme"
+     --report "build\logo.src" ^
+     --outfile "build\logo.prg" ^
+          "src\logo\prg_logo.acme"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
      EXIT /B %ERRORLEVEL%
 )
 
-REM # compress the intro
+REM # compress the logo
 REM ----------------------------------------------------------------------------
 
-REM %EXOMIZER% sfx 0x0800 -t64 -n -q ^
-REM      -o "build\intro.exo.prg" ^
-REM      -- "build\intro.prg"
+REM %EXOMIZER% sfx 0x8000 -t64 -n -q ^
+REM      -o "build\logo.exo.prg" ^
+REM      -- "build\logo.prg"
 REM 
 REM IF ERRORLEVEL 1 (
 REM      ECHO FAIL

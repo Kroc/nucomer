@@ -49,7 +49,7 @@ chain:  ;=======================================================================
         clc
         jsr InitLoader
 
-        lda #$c1                ; filename prefix of intro, i.e. "C1.INTRO"
+        lda #$c1                ; filename prefix of logo, i.e. "C1.LOGO"
         jsr LoadUnpacked        ; load file 00
         bcs err                 ; error if carry set
 
