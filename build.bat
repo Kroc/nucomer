@@ -108,7 +108,7 @@ REM # the first (0th) SID is used during booting
 REM # so copy it to "bootsid.prg"
 
 COPY /Y ^
-     "build\i%ISSUE_ID%_s00_*.prg" /B ^
+     "build\i%ISSUE_ID%_s0_*.prg" /B ^
      "build\bootsid.prg"           /B  >NUL
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 
@@ -117,8 +117,6 @@ GOTO :assemble_outfit
 :process_sid
 REM ----------------------------------------------------------------------------
 REM # generate output file name
-SET "SID_ID=00%SID%"
-SET "SID_ID=%SID_ID:~-2%"
 SET "SID_NAME=%~n1"
 
 REM # announce
@@ -261,8 +259,8 @@ REM # make a copy of the first SID song to include with the outfit
 REM # program so that it doesn't need to be loaded separately
 REM # (note that in this environment, we don't know the exact file-name)
 COPY /Y ^
-     "build\i%ISSUE_ID%_s00_*.prg"    /B ^
-     "build\i%ISSUE_ID%_s00_menu.prg" /B  >NUL
+     "build\i%ISSUE_ID%_s0_*.prg"    /B ^
+     "build\i%ISSUE_ID%_s0_menu.prg" /B  >NUL
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
@@ -271,7 +269,7 @@ IF ERRORLEVEL 1 (
 
 %EXOMIZER% sfx 0x8000 -t64 -n -q ^
      -o "build\nucomer.exo.prg" ^
-     -- "build\i%ISSUE_ID%_s00_menu.prg" ^
+     -- "build\i%ISSUE_ID%_s0_menu.prg" ^
         "build\nucomer.prg" ^
         "build\admiral64.prg" ^
         "src\bsod64\build\bsod64.prg"
