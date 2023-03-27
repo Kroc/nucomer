@@ -238,6 +238,10 @@ write "src/bsod64/build/bsod64.prg" "c3.bsod64"
         ))
         f_acme:close()
 
+        -- construct the PRG file name on the C64
+        local sid_prg = "d"..string.format("%u", i-1)
+            .."."..j_sid["prg"]:sub(1, 13)
+
         ------------------------------------------------------------------------
         f_sids:write(
             -- swap slashes for Windows in the list file for use by DOS
@@ -247,8 +251,7 @@ write "src/bsod64/build/bsod64.prg" "c3.bsod64"
         f_c1541:write(string.format(
             'write "%s" "%s"\n',
             -- TODO: change this to ".exo" to include the exomized SID
-            build_path..sid_name..".prg",
-            j_sid["prg"]:sub(1, 16)
+            build_path..sid_name..".prg", sid_prg
         ))
 
         -- add the [converted] SID to the table of SIDs
@@ -258,7 +261,7 @@ write "src/bsod64/build/bsod64.prg" "c3.bsod64"
         table.insert(self.sids, {
             -- the name of the SID's program file on the C64 disk
             -- TODO: change this to ".exo" to include the exomized SID
-            prg     = j_sid["prg"]:sub(1, 16),
+            prg     = sid_prg,      -- filename on the C64 side (16-chars)
             init    = sid_init,     -- address to call to intitialise SID
             play    = sid_play      -- address to call to play SID (each frame)
         })
