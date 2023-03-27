@@ -62,7 +62,7 @@ boot_init:
 
         ldx #< boot_filename
         ldy #> boot_filename
-        lda # 5                 ; A is string-length
+        lda # 3                 ; A is string-length
         jsr .KERNAL_SETNAM      ; set KERNAL file name
 
         ; * * * W A R N I N G ! * * *
@@ -84,6 +84,6 @@ boot_init:
 
 boot_filename:
         ;-----------------------------------------------------------------------
-        !pet    "intro"
+        !pet    "c1*"
 
 

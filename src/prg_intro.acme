@@ -107,7 +107,7 @@ intro_boot:
 
         ldx #< @filename_outfit
         ldy #> @filename_outfit
-        lda # 7                 ; A is string-length
+        lda # 3                 ; A is string-length
         jsr .KERNAL_SETNAM      ; set KERNAL file name
         lda # 0                 ; load, not verify
         jsr .KERNAL_LOAD
@@ -118,7 +118,7 @@ intro_boot:
 
 @filename_outfit:
         ;-----------------------------------------------------------------------
-        !pet    "nucomer", 0
+        !pet    "c2*"
 
 
 nmi_nokernal:

@@ -46,7 +46,7 @@ PUSHD src\boot
      prg_boot.dasm ^
      -o..\..\build\boot.prg ^
      -s..\..\build\boot.sym ^
-     -v1 -p3
+     -v0 -p3
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 POPD
