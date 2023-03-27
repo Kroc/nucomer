@@ -13,10 +13,6 @@
 -- theory of operation: (WIP)
 --
 -- # read issue meta-data
--- # process SIDs:
---   # relocate SID to $1000 & $F0-$FF
---   # repackage SID to PRG (strip header)
---   # exomize PRG file
 -- # process articles:
 --   # split to lines
 --   # word-wrap & hyphenate
@@ -24,6 +20,10 @@
 --   # compress:
 --     # tokenise screen-codes
 --     # iteratively pair tokens
+-- # process SIDs:
+--   # relocate SID to $1000 & $F0-$FF
+--   # repackage SID to PRG (strip header)
+--   # exomize PRG file
 
 -- 3rd-party libraries:
 --------------------------------------------------------------------------------
@@ -136,6 +136,65 @@ write "src/bsod64/build/bsod64.prg" "c3.bsod64"
 
     -- the base-path used for producing build-artefacts
     local build_path = "build/"
+
+    -- walk the `articles` table that lists, in-order, the articles to be
+    -- included on disk; each of these will need converting to C64 data
+    --
+    for _,j_article in ipairs(j_issue["articles"]) do
+        ------------------------------------------------------------------------
+        -- formulate our input & output file paths;
+        -- the output path is a base-name without extension as multiple files
+        -- will be produced with the same name, e.g. ".acme", ".prg"
+        local s_in  = issue_path .. j_article["file"]
+        local s_out = build_path .. j_article["file"]:gsub("%.%w+$", "")
+
+        -- notify user of current article being processed...
+        io.stdout:write(truncate(j_article["title"]))
+
+        -- convert the article text
+        local article = Article:new()
+        article.outfile = s_out
+        article:read(s_in)
+
+        -- add to the table of articles
+        table.insert(self.articles, article)
+
+        -- add the output file-path to the article
+        j_article["bin"] = s_out
+
+        -- add to the list of articles to be assembled
+        table.insert(self.list, s_out..".acme")
+        -- add to the list of files to go on the 1541 disk
+        f_c1541:write(string.format(
+            'write "%s" "%s"\n',
+            s_out..".prg", j_article["prg"]
+        ))
+
+        -- we need to integrate the article into the outfit:
+        -- the article title for the menu page needs to be converted to C64
+        -- screen codes. two spaces are prefixed to make way for the "thorne"
+        -- (the currently selected menu marker)
+        local s_scr = string.toC64("  "..j_article["scr"])
+        local s_len = #s_scr
+
+        -- add the menu entry to the table of contents
+        table.insert(self.toc, {
+            off = self.offset,
+            row = self.y,
+            col = self.x,
+            str = s_scr,
+            prg = j_article["prg"]
+        })
+        self.offset = self.offset + s_len + 1
+        self.y = self.y + 2
+
+        -- write the article to disk;
+        -- this will trigger the compression process
+        article:write()
+
+        -- article complete, move to the next
+        print("----------------------------------------")
+    end
 
     ----------------------------------------------------------------------------
     -- process SID songs:
@@ -270,65 +329,6 @@ write "src/bsod64/build/bsod64.prg" "c3.bsod64"
     end
     f_sids:close()
     print("========================================")
-
-    -- walk the `articles` table that lists, in-order, the articles to be
-    -- included on disk; each of these will need converting to C64 data
-    --
-    for _,j_article in ipairs(j_issue["articles"]) do
-        ------------------------------------------------------------------------
-        -- formulate our input & output file paths;
-        -- the output path is a base-name without extension as multiple files
-        -- will be produced with the same name, e.g. ".acme", ".prg"
-        local s_in  = issue_path .. j_article["file"]
-        local s_out = build_path .. j_article["file"]:gsub("%.%w+$", "")
-
-        -- notify user of current article being processed...
-        io.stdout:write(truncate(j_article["title"]))
-
-        -- convert the article text
-        local article = Article:new()
-        article.outfile = s_out
-        article:read(s_in)
-
-        -- add to the table of articles
-        table.insert(self.articles, article)
-
-        -- add the output file-path to the article
-        j_article["bin"] = s_out
-
-        -- add to the list of articles to be assembled
-        table.insert(self.list, s_out..".acme")
-        -- add to the list of files to go on the 1541 disk
-        f_c1541:write(string.format(
-            'write "%s" "%s"\n',
-            s_out..".prg", j_article["prg"]
-        ))
-
-        -- we need to integrate the article into the outfit:
-        -- the article title for the menu page needs to be converted to C64
-        -- screen codes. two spaces are prefixed to make way for the "thorne"
-        -- (the currently selected menu marker)
-        local s_scr = string.toC64("  "..j_article["scr"])
-        local s_len = #s_scr
-
-        -- add the menu entry to the table of contents
-        table.insert(self.toc, {
-            off = self.offset,
-            row = self.y,
-            col = self.x,
-            str = s_scr,
-            prg = j_article["prg"]
-        })
-        self.offset = self.offset + s_len + 1
-        self.y = self.y + 2
-
-        -- write the article to disk;
-        -- this will trigger the compression process
-        article:write()
-
-        -- article complete, move to the next
-        print("----------------------------------------")
-    end
 
     ----------------------------------------------------------------------------
     -- write out the data file for outfit integration;
