@@ -95,9 +95,19 @@ logo_boot:
 
         cli                     ; enable interrupts
 
+        ; load the tune:
+        ;-----------------------------------------------------------------------
+        lda # $d0               ; load 0th SID song
+        ldx #< nu_song
+        ldy #> nu_song
+        jsr fastload_exo
+        bcc +
+        brk
++
+        ; show the logo:
         ;-----------------------------------------------------------------------
         jsr logo_screen
-        
+
         ; load the main outfit
         ;-----------------------------------------------------------------------
         lda # %00110111
@@ -111,6 +121,8 @@ logo_boot:
         pha
 
         lda # $c2               ; filename "C2*", i.e. the main outfit
+        ;;ldx #< nu_main
+        ;;ldy #> nu_main
         jmp fastload_prg
 
 
@@ -119,6 +131,9 @@ nmi_nokernal:
         ; when the KERNAL is off we must acknowledge the interrupt
         ; by reading from CIA2 otherwise the NMI becomes disabled 
         asl .CIA2_INTERRUPT
+
+        ; fallthrough
+        ; ...
 
 nmi_kernalon:
         ;-----------------------------------------------------------------------

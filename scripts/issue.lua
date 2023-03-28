@@ -309,8 +309,8 @@ write "src/bsod64/build/bsod64.prg" "c3.bsod64"
         -- add the song to the list of files to be included on the disk
         f_c1541:write(string.format(
             'write "%s" "%s"\n',
-            -- TODO: change this to ".exo" to include the exomized SID
-            build_path..sid_name..".prg", sid_prg
+            -- (put the exomized version on the disk)
+            build_path..sid_name..".exo", sid_prg
         ))
 
         -- add the [converted] SID to the table of SIDs
@@ -318,8 +318,6 @@ write "src/bsod64/build/bsod64.prg" "c3.bsod64"
         -- this meta-data will be used to generate a table for the C64
         --
         table.insert(self.sids, {
-            -- the name of the SID's program file on the C64 disk
-            -- TODO: change this to ".exo" to include the exomized SID
             prg     = sid_prg,      -- filename on the C64 side (16-chars)
             init    = sid_init,     -- address to call to intitialise SID
             play    = sid_play      -- address to call to play SID (each frame)

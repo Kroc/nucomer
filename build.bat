@@ -61,7 +61,7 @@ POPD
 
 REM # compress the bootstrap!
 REM ----------------------------------------------------------------------------
-%EXOMIZER% sfx 0x0400 -t64 -n -B ^
+%EXOMIZER% sfx 0x%NU_ADDR_BOOT% -t64 -n -B ^
      -T4 -M256 -c ^
      -s "lda #0 sta $d011" ^
      -o "build\boot.exo.prg" ^
@@ -140,9 +140,10 @@ IF ERRORLEVEL 1 (
 )
 
 REM # compress the SID program...
-%EXOMIZER% raw -q ^
+%EXOMIZER% ^
+     raw -T4 -P-32 -M256 -c -q ^
      -o "build\%SID_NAME%.exo" ^
-     -- "build\%SID_NAME%.prg"
+     -- "build\%SID_NAME%.prg",2
 
 IF ERRORLEVEL 1 (
      ECHO FAIL
