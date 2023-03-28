@@ -62,17 +62,12 @@ fastload_exo:
         ;-----------------------------------------------------------------------
         ; this is the runtime fast-loader code:
         include loader/loader.s
-        ; add routines for loading unpacked (uncompressed) files:
-        include loader/loadunpacked.s
 
         ; add routines for loading compressed (Exomizer3) files:
-depackBuffer = $033c
         include loader/loadexomizer3.s
 
-        ; include the once-file fast-loader initialisation:
-        ;-----------------------------------------------------------------------
-        include loader/loaderinit.s
-
+        ; add routines for loading unpacked (uncompressed) files:
+        include loader/loadunpacked.s
 
         ; fast-load the logo splash-escreen:
 chain:  ;=======================================================================
@@ -80,10 +75,18 @@ chain:  ;=======================================================================
         jsr InitLoader
 
         lda #$c1                ; filename prefix of logo, i.e. "C1.LOGO"
-        jsr LoadUnpacked        ; fastload file C1
+        ldx #<$8000
+        ldy #>$8000
+        jsr LoadExomizer3Raw    ; fastload file C1
         bcs err                 ; error if carry set
 
         jmp $8000
 
 err:    dc.b $02
         rts
+
+        ; include the once-off fast-loader initialisation:
+        ;=======================================================================
+depackBuffer:
+        include loader/loaderinit.s
+

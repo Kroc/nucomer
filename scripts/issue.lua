@@ -128,7 +128,7 @@ function Issue:build(i_issue)
     f_c1541:write(string.format([[
 format "nucomer,%02u" d64 "%s"
 write "build/boot.exo.prg"          "c0.boot"
-write "build/logo.prg"              "c1.logo"
+write "build/logo.exo"              "c1.logo"
 write "build/nucomer.exo.prg"       "c2.nucomer"
 write "src/bsod64/build/bsod64.prg" "c3.bsod64"
 ]],     i_issue, "build/nucomer.d64"

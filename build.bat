@@ -62,6 +62,7 @@ POPD
 REM # compress the bootstrap!
 REM ----------------------------------------------------------------------------
 %EXOMIZER% sfx 0x0400 -t64 -n -B ^
+     -T4 -M256 -c ^
      -s "lda #0 sta $d011" ^
      -o "build\boot.exo.prg" ^
      -- "build\boot.prg"
@@ -206,15 +207,15 @@ IF ERRORLEVEL 1 (
 
 REM # compress the logo
 REM ----------------------------------------------------------------------------
+%EXOMIZER% ^
+     raw -T4 -P-32 -M256 -c -q ^
+     -o "build\logo.exo" ^
+     -- "build\logo.prg",2
 
-REM %EXOMIZER% sfx 0x8000 -t64 -n -q ^
-REM      -o "build\logo.exo.prg" ^
-REM      -- "build\logo.prg"
-REM 
-REM IF ERRORLEVEL 1 (
-REM      ECHO FAIL
-REM      EXIT /B %ERRORLEVEL%
-REM )
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
 
 REM # assemble the main outfit
 REM ----------------------------------------------------------------------------
