@@ -38,6 +38,7 @@
 ;
 !addr   fastload_bin    = nu_boot+3
 !addr   fastload_prg    = nu_boot+6
+!addr   fastload_exo    = nu_boot+9
 
 ;-------------------------------------------------------------------------------
 ; articles are loaded in from this point, though note that this includes

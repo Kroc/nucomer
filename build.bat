@@ -53,6 +53,7 @@ PUSHD src\boot
      -DNU_ADDR_BOOT=$%NU_ADDR_BOOT% ^
      -o..\..\build\boot.prg ^
      -s..\..\build\boot.sym ^
+     -l..\..\build\boot.src ^
      -v0 -p3
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%

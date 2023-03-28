@@ -532,7 +532,7 @@ read_irq_rti_xy:
 read_irq_rti:
         ;-----------------------------------------------------------------------
         pla                     ; restore pre-interrupt A register
-        dec .VIC_BORDER
+        ;;dec .VIC_BORDER
         rti
 
 
@@ -610,7 +610,7 @@ read_irq_top:
 
 read_irq_scroll:
 ;===============================================================================
-        inc .VIC_BORDER
+        ;;inc .VIC_BORDER
 
         ; acknowledge the interrupt to prevent it double-firing;  we only need
         ; to write to the status register to do this, the value is unimportant
