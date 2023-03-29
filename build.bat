@@ -31,16 +31,20 @@ ECHO BSOD64
 ECHO ----------------------------------------
 PUSHD src\bsod64
 
-REM # assemble BSOD64 into its own folder as it's a sub-project
-REM #
 ..\..\%ACME% -v1 ^
      --format cbm ^
      --report "..\..\build\bsod.src" ^
-      -o "build\bsod64.prg" ^
+      -o "..\..\build\bsod64.prg" ^
           "bsod64.acme" 
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
 POPD
+
+REM # and compress for fast-loading from disk
+
+%EXOMIZER% %EXO_RAW% -q ^
+     -o "build\bsod64.exo" ^
+     -- "build\bsod64.prg",2
 
 REM # assemble bootstrap:
 REM ============================================================================
@@ -65,7 +69,7 @@ REM ----------------------------------------------------------------------------
 %EXOMIZER% sfx 0x%NU_ADDR_BOOT% -t64 -n -B ^
      -T4 -M256 -c ^
      -s "lda #0 sta $d011" ^
-     -o "build\boot.exo.prg" ^
+     -o "build\boot.sfx" ^
      -- "build\boot.prg"
 
 IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
@@ -140,9 +144,8 @@ IF ERRORLEVEL 1 (
      EXIT /B %ERRORLEVEL%
 )
 
-REM # compress the SID program...
-%EXOMIZER% ^
-     raw -T4 -P-32 -M256 -c -q ^
+REM # compress the SID tune...
+%EXOMIZER% %EXO_RAW% -q ^
      -o "build\%SID_NAME%.exo" ^
      -- "build\%SID_NAME%.prg",2
 
@@ -271,11 +274,9 @@ IF ERRORLEVEL 1 (
 )
 
 %EXOMIZER% sfx 0x8000 -t64 -n -q ^
-     -o "build\nucomer.exo.prg" ^
+     -o "build\nucomer.sfx" ^
      -- "build\i%ISSUE_ID%_s0_menu.prg" ^
-        "build\nucomer.prg" ^
-        "build\admiral64.prg" ^
-        "src\bsod64\build\bsod64.prg"
+        "build\nucomer.prg"
 
 IF ERRORLEVEL 1 (
      ECHO FAIL

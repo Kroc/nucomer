@@ -59,15 +59,28 @@ fastload_exo:
         ;
         jmp LoadExomizer3Raw
 
+;;        ; load the address from the PRG file
+;;        jsr OpenFile
+;;        lda fileOpen
+;;        bne exoerr
+;;        jsr GetByte
+;;        sta zpDestLo
+;;        jsr GetByte
+;;        sta zpDestHi
+;;        jmp Exomizer3Depack
+;;
+;;exoerr: sec
+;;        rts
+
         ;-----------------------------------------------------------------------
         ; this is the runtime fast-loader code:
         include loader/loader.s
 
-        ; add routines for loading compressed (Exomizer3) files:
-        include loader/loadexomizer3.s
-
         ; add routines for loading unpacked (uncompressed) files:
         include loader/loadunpacked.s
+
+        ; add routines for loading compressed (Exomizer3) files:
+        include loader/loadexomizer3.s
 
         ; fast-load the logo splash-escreen:
 chain:  ;=======================================================================

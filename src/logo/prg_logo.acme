@@ -108,9 +108,18 @@ logo_boot:
         ;-----------------------------------------------------------------------
         jsr logo_screen
 
+        ; load BSOD64:
+        ;-----------------------------------------------------------------------
+        lda # $c3               ; load BSOD64 ("C3.BSOD64")
+        ldx #< bsod64
+        ldy #> bsod64
+        jsr fastload_exo
+        bcc +
+        brk
++
         ; load the font:
         ;-----------------------------------------------------------------------
-        lda # $f0               ; load 0th font
+        lda # $f0               ; load 0th font ("F0...")
         ldx #< nu_font
         ldy #> nu_font
         jsr fastload_exo

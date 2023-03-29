@@ -107,5 +107,6 @@ NU_VIC_BANK             = 2     ; the VIC bank used by the outfit
 ; BSOD64 integration; not the actual BSOD64 code
 ; as that is added to the disk-image as a binary
 ;
+!addr   bsod64          = $c000
 !addr   bsod64_jsr      = $c003
 !addr   bsod64_irq      = $c006

@@ -40,14 +40,16 @@
         // hide "bin" folder
         "bin"                   : true,
         // hide binary files
-        "**/*.exe"              : true,
-        "**/*.ct"               : true,
-        "**/*.bin"              : true,
-        "**/*.d64"              : true,
-        "**/*.d71"              : true,
-        "**/*.d81"              : true,
-        "**/*.prg"              : true,
-        "**/*.exo"              : true,
-        "**/*.exo3"             : true,
+        "**/*.exe"              : true, // Windows executables
+        "**/*.ct"               : true, // ACME text-conversion tables
+        "**/*.bin"              : true, // generic BINary files
+        "**/*.d64"              : true, // C64 1541 disk images
+        "**/*.d71"              : true, // C64 1571 disk images
+        "**/*.d81"              : true, // C64 1581 disk images
+        "**/*.prg"              : true, // C64 program files
+        "**/*.exo"              : true, // Exomizer-compressed binary
+        "**/*.exo3"             : true, // as above
+        "**/*.exp"              : true, // as above, with PRG address
+        "**/*.sfx"              : true, // self-extracting Exomizer PRG
     },
 }
