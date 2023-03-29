@@ -129,18 +129,11 @@ SET "SID_TITLE=%~n1%SID_TITLE%"
 SET "SID_TITLE=%SID_TITLE:~0,36%"
 <NUL (SET /P "$=%SID_TITLE%")
 
-REM # assemble the relocated SID, sans-header
-%ACME% -- "build\%SID_NAME%.acme"
-
-IF ERRORLEVEL 1 (
-     ECHO FAIL
-     EXIT /B %ERRORLEVEL%
-)
-
 REM # compress the SID tune...
+REM # we skip the SID metadata header and the two-byte PRG address
 %EXOMIZER% %EXO_RAW% -q ^
      -o "build\%SID_NAME%.exo" ^
-     -- "build\%SID_NAME%.prg",2
+     -- "build\%SID_NAME%.sid",126
 
 IF ERRORLEVEL 1 (
      ECHO FAIL

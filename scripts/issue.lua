@@ -277,26 +277,6 @@ write "build/bsod64.exo"        "c3.bsod64"
 
         f_sid:close()
 
-        ------------------------------------------------------------------------
-        -- create an ACME assembler file to repackage
-        -- the SID program after relocation
-        --
-        local f_acme,err = io.open(
-            build_path..sid_name..".acme", "w"
-        )
-        f_acme:write(string.format([[
-; auto-generated file, do not modify!
-!to     "%s", cbm
-!source "nucomer.acme"
-
-* = nu_song
-
-!binary "%s",, $7c+2
-]],         build_path..sid_name..".prg",
-            build_path..sid_name..".sid"
-        ))
-        f_acme:close()
-
         -- construct the PRG file name on the C64
         local sid_prg = "e"..string.format("%u", i-1)
             .."."..j_sid["prg"]:sub(1, 13)
