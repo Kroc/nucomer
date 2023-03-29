@@ -103,10 +103,10 @@ logo_boot:
         jsr fastload_exo
         bcc +
         brk
-+
+
         ; show the logo:
         ;-----------------------------------------------------------------------
-        jsr logo_screen
++       jsr logo_screen
 
         ; load BSOD64:
         ;-----------------------------------------------------------------------
@@ -116,32 +116,32 @@ logo_boot:
         jsr fastload_exo
         bcc +
         brk
-+
+
         ; load the font:
         ;-----------------------------------------------------------------------
-        lda # $f0               ; load 0th font ("F0...")
++       lda # $f0               ; load 0th font ("F0...")
         ldx #< nu_font
         ldy #> nu_font
         jsr fastload_exo
         bcc +
         brk
-+
+
         ; load the main outfit
         ;-----------------------------------------------------------------------
-        lda # %00110111
++       lda # %00110111
         sta .CPU_CONTROL
 
         ; we will not be returning here!
         ;
-        lda #> (.basic_start-1)+$c
+        lda #> (nu_main-1)
         pha
-        lda #< (.basic_start-1)+$c
+        lda #< (nu_main-1)
         pha
 
         lda # $c2               ; filename "C2*", i.e. the main outfit
-        ;;ldx #< nu_main
-        ;;ldy #> nu_main
-        jmp fastload_prg
+        ldx #< nu_main
+        ldy #> nu_main
+        jmp fastload_exo
 
 
 nmi_nokernal:

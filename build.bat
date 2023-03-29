@@ -115,15 +115,8 @@ FOR /F "eol=* delims=* tokens=*" %%A IN (build\i%ISSUE_ID%_sids.lst) DO (
 )
 ECHO ========================================
 
-REM # the first (0th) SID is used during booting
-REM # so copy it to "boot.sid.prg"
-
-COPY /Y ^
-     "build\i%ISSUE_ID%_s0_*.prg" /B ^
-     "build\boot.sid.prg"           /B  >NUL
-IF ERRORLEVEL 1 EXIT /B %ERRORLEVEL%
-
 GOTO :assemble_outfit
+
 
 :process_sid
 REM ----------------------------------------------------------------------------
@@ -261,22 +254,11 @@ REM # pack the outfit into a single file
 REM ----------------------------------------------------------------------------
 <NUL (SET /P "$=Pack Outfit...                      ")
 
-REM # make a copy of the first SID song to include with the outfit
-REM # program so that it doesn't need to be loaded separately
-REM # (note that in this environment, we don't know the exact file-name)
-COPY /Y ^
-     "build\i%ISSUE_ID%_s0_*.prg"    /B ^
-     "build\i%ISSUE_ID%_s0_menu.prg" /B  >NUL
+REM # compress the outfit
 
-IF ERRORLEVEL 1 (
-     ECHO FAIL
-     EXIT /B %ERRORLEVEL%
-)
-
-%EXOMIZER% sfx 0x8000 -t64 -n -q ^
-     -o "build\nucomer.sfx" ^
-     -- "build\i%ISSUE_ID%_s0_menu.prg" ^
-        "build\nucomer.prg"
+%EXOMIZER% %EXO_RAW% -q ^
+     -o "build\nucomer.exo" ^
+     -- "build\nucomer.prg",2
 
 IF ERRORLEVEL 1 (
      ECHO FAIL

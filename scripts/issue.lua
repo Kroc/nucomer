@@ -129,7 +129,7 @@ function Issue:build(i_issue)
 format "nucomer,%02u" d64 "%s"
 write "build/boot.sfx"          "c0.boot"
 write "build/logo.exo"          "c1.logo"
-write "build/nucomer.sfx"       "c2.nucomer"
+write "build/nucomer.exo"       "c2.nucomer"
 write "build/bsod64.exo"        "c3.bsod64"
 ]],     i_issue, "build/nucomer.d64"
     ))
