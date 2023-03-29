@@ -97,7 +97,7 @@ logo_boot:
 
         ; load the tune:
         ;-----------------------------------------------------------------------
-        lda # $d0               ; load 0th SID song
+        lda # $e0               ; load 0th SID song
         ldx #< nu_song
         ldy #> nu_song
         jsr fastload_exo
@@ -108,6 +108,15 @@ logo_boot:
         ;-----------------------------------------------------------------------
         jsr logo_screen
 
+        ; load the font:
+        ;-----------------------------------------------------------------------
+        lda # $f0               ; load 0th font
+        ldx #< nu_font
+        ldy #> nu_font
+        jsr fastload_exo
+        bcc +
+        brk
++
         ; load the main outfit
         ;-----------------------------------------------------------------------
         lda # %00110111

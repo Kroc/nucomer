@@ -11,6 +11,7 @@ SET C1541="bin\vice\c1541.exe"
 SET DASM=bin\dasm\dasm.exe
 
 SET EXOMIZER="bin\exomizer\exomizer.exe"
+SET EXO_RAW=raw -T4 -P-32 -M256 -c
 
 TITLE Building Nucomer...
 ECHO:
@@ -170,6 +171,15 @@ IF ERRORLEVEL 1 (
      EXIT /B %ERRORLEVEL%
 )
 
+%EXOMIZER% %EXO_RAW% -q ^
+     -o "build\admiral64.exo" ^
+     -- "build\admiral64.prg",2
+
+IF ERRORLEVEL 1 (
+     ECHO FAIL
+     EXIT /B %ERRORLEVEL%
+)
+
 REM # assemble the ASCII maps
 REM ----------------------------------------------------------------------------
 %ACME% -- "src\fonts\scr_nucomer.acme"
@@ -208,8 +218,7 @@ IF ERRORLEVEL 1 (
 
 REM # compress the logo
 REM ----------------------------------------------------------------------------
-%EXOMIZER% ^
-     raw -T4 -P-32 -M256 -c -q ^
+%EXOMIZER% %EXO_RAW% -q ^
      -o "build\logo.exo" ^
      -- "build\logo.prg",2
 

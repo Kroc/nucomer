@@ -298,7 +298,7 @@ write "src/bsod64/build/bsod64.prg" "c3.bsod64"
         f_acme:close()
 
         -- construct the PRG file name on the C64
-        local sid_prg = "d"..string.format("%u", i-1)
+        local sid_prg = "e"..string.format("%u", i-1)
             .."."..j_sid["prg"]:sub(1, 13)
 
         ------------------------------------------------------------------------
@@ -342,6 +342,14 @@ write "src/bsod64/build/bsod64.prg" "c3.bsod64"
     -- dump filepaths, a line each (use CRLF for Windows Batch compatibility)
     for _,i in ipairs(self.list) do f_lst:write(i .. "\r\n"); end
     f_lst:close()
+
+    ----------------------------------------------------------------------------
+    -- add the fonts:
+    --
+    -- this is hard-coded at the moment but should be done with a list file
+    f_c1541:write(string.format(
+        'write "%s" "%s"\n', build_path.."admiral64.exo", "f0.admiral64"
+    ))
 
     -- end the commands file for putting
     -- files on the 1541 disk-image
