@@ -128,12 +128,9 @@ logo_boot:
 
         ; load the main outfit
         ;-----------------------------------------------------------------------
-+       lda # %00110111
-        sta .CPU_CONTROL
-
         ; we will not be returning here!
         ;
-        lda #> (nu_main-1)
++       lda #> (nu_main-1)
         pha
         lda #< (nu_main-1)
         pha

@@ -240,6 +240,10 @@ FOR /F "eol=* delims=* tokens=*" %%A IN (build\issue.lst) DO (
           ECHO FAIL
           EXIT /B %ERRORLEVEL%
      )
+     REM # compress article
+     %EXOMIZER% %EXO_RAW% -q ^
+          -o "%%~pnA.exo" ^
+          -- "%%~pnA.prg",2
 )
 ECHO [OK]
 

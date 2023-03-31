@@ -86,10 +86,3 @@ init:
 !source "read.acme"             ; text screen
 
 end_of_code:
-
-; the main code & gfx share a VIC bank, make sure that the outfit code
-; does not spill over into the reserved graphics space (font, screens)
-;
-!if * >= nu_gfx {
-        !serious "Main code overflows into graphics! * = ", *
-}

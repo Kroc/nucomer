@@ -160,7 +160,9 @@ menu_load:
 
         ; load the article text:
         lda zp_menu_index       ; index acts as the filename, "00", "01" etc.
-        jsr fastload_prg        ; do the fast load to PRG address
+        ldx #< nu_text
+        ldy #> nu_text
+        jsr fastload_exo        ; do the fast load with decompression
         bcc +
 
         brk

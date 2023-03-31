@@ -167,7 +167,7 @@ write "build/bsod64.exo"        "c3.bsod64"
         -- add to the list of files to go on the 1541 disk
         f_c1541:write(string.format(
             'write "%s" "%s"\n',
-            s_out..".prg", j_article["prg"]
+            s_out..".exo", j_article["prg"]
         ))
 
         -- we need to integrate the article into the outfit:
