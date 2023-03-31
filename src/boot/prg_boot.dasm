@@ -29,26 +29,6 @@
         ;
 start:  jmp chain               ; jump over resident fast-loader to init code
 
-fastload_bin:
-        ;=======================================================================
-        ; Load unpacked file with specified load address
-        ;
-        ; Parameters: A filenumber, X/Y load address
-        ; Returns: C=0 if OK, C=1 if failed to load
-        ; Modifies: A,X,Y,zpDestLo-Hi
-        ;
-        jmp LoadUnpackedRaw
-
-fastload_prg:
-        ;=======================================================================
-        ; Load unpacked file with load address from 2 first bytes of file
-        ;
-        ; Parameters: A filenumber
-        ; Returns: C=0 if OK, C=1 if failed to load
-        ; Modifies: A,X,Y,zpDestLo-Hi
-        ;
-        jmp LoadUnpacked
-
 fastload_exo:
         ;=======================================================================
         ; Depack from file stream packed with Exomizer 3 raw forward mode
@@ -75,9 +55,6 @@ fastload_exo:
         ;-----------------------------------------------------------------------
         ; this is the runtime fast-loader code:
         include loader/loader.s
-
-        ; add routines for loading unpacked (uncompressed) files:
-        include loader/loadunpacked.s
 
         ; add routines for loading compressed (Exomizer3) files:
         include loader/loadexomizer3.s
